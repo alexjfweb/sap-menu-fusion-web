@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Restaurant, Smartphone, Users, TrendingUp } from 'lucide-react';
+import { ArrowRight, ChefHat, Smartphone, Users, TrendingUp } from 'lucide-react';
 
 const HeroSection = () => {
   return (
@@ -55,7 +55,7 @@ const HeroSection = () => {
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-6">
                   <div className="bg-background rounded-xl p-4 shadow-lg transform hover:scale-105 transition-transform duration-300">
-                    <Restaurant className="h-8 w-8 text-primary mb-2" />
+                    <ChefHat className="h-8 w-8 text-primary mb-2" />
                     <h3 className="font-semibold text-foreground">Menú Digital</h3>
                     <p className="text-sm text-muted-foreground">Crea y gestiona tu menú online</p>
                   </div>
