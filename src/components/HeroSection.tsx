@@ -2,8 +2,11 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, ChefHat, Smartphone, Users, TrendingUp } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const HeroSection = () => {
+  const navigate = useNavigate();
+
   return (
     <section id="inicio" className="pt-20 pb-16 bg-gradient-to-br from-primary/5 via-background to-secondary/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -23,7 +26,11 @@ const HeroSection = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button size="lg" className="bg-primary hover:bg-primary/90 text-white font-semibold">
+              <Button 
+                size="lg" 
+                className="bg-primary hover:bg-primary/90 text-white font-semibold"
+                onClick={() => navigate('/auth')}
+              >
                 Comenzar Gratis
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
