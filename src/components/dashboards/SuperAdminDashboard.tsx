@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 import CompanyManagement from '../companies/CompanyManagement';
 import UserManagement from '../users/UserManagement';
+import DatabaseManagement from '../database/DatabaseManagement';
 
 const SuperAdminDashboard = () => {
   const { profile, signOut } = useAuth();
@@ -31,6 +33,10 @@ const SuperAdminDashboard = () => {
 
   if (activeSection === 'users') {
     return <UserManagement onBack={handleBackToDashboard} />;
+  }
+
+  if (activeSection === 'database') {
+    return <DatabaseManagement onBack={handleBackToDashboard} />;
   }
 
   return (
@@ -118,7 +124,10 @@ const SuperAdminDashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full">
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('database')}
+              >
                 Gestionar BD
               </Button>
             </CardContent>
