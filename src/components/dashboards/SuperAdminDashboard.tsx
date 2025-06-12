@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
@@ -14,9 +14,16 @@ import {
   Cog,
   LogOut 
 } from 'lucide-react';
+import CompanyManagement from '../companies/CompanyManagement';
 
 const SuperAdminDashboard = () => {
   const { profile, signOut } = useAuth();
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+
+  // Si hay una sección activa, mostrar ese componente
+  if (activeSection === 'companies') {
+    return <CompanyManagement />;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -61,7 +68,10 @@ const SuperAdminDashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full">
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('companies')}
+              >
                 Gestionar Empresas
               </Button>
             </CardContent>
