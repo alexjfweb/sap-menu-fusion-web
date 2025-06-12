@@ -15,7 +15,8 @@ import {
   Mail,
   Phone,
   Globe,
-  MapPin
+  MapPin,
+  ArrowLeft
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,7 +25,11 @@ import CompanyForm from './CompanyForm';
 
 type Company = Tables<'companies'>;
 
-const CompanyManagement = () => {
+interface CompanyManagementProps {
+  onBack?: () => void;
+}
+
+const CompanyManagement = ({ onBack }: CompanyManagementProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
@@ -91,14 +96,27 @@ const CompanyManagement = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <Building className="h-8 w-8 text-primary" />
-              Gestión de Empresas
-            </h1>
-            <p className="text-muted-foreground">
-              Administra todos los restaurantes registrados en la plataforma
-            </p>
+          <div className="flex items-center gap-4">
+            {onBack && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onBack}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Volver al Panel
+              </Button>
+            )}
+            <div>
+              <h1 className="text-3xl font-bold flex items-center gap-2">
+                <Building className="h-8 w-8 text-primary" />
+                Gestión de Empresas
+              </h1>
+              <p className="text-muted-foreground">
+                Administra todos los restaurantes registrados en la plataforma
+              </p>
+            </div>
           </div>
           <Button onClick={handleCreate} className="flex items-center gap-2">
             <Plus className="h-4 w-4" />

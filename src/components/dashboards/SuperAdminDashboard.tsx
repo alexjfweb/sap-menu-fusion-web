@@ -20,9 +20,13 @@ const SuperAdminDashboard = () => {
   const { profile, signOut } = useAuth();
   const [activeSection, setActiveSection] = useState<string | null>(null);
 
+  const handleBackToDashboard = () => {
+    setActiveSection(null);
+  };
+
   // Si hay una sección activa, mostrar ese componente
   if (activeSection === 'companies') {
-    return <CompanyManagement />;
+    return <CompanyManagement onBack={handleBackToDashboard} />;
   }
 
   return (
