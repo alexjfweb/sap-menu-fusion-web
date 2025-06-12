@@ -80,7 +80,7 @@ const CompanyForm = ({ company, onClose }: CompanyFormProps) => {
       } else {
         const { error } = await supabase
           .from('companies')
-          .insert([data]);
+          .insert(data);
 
         if (error) throw error;
 
