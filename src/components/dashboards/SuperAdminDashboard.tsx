@@ -17,6 +17,7 @@ import {
 import CompanyManagement from '../companies/CompanyManagement';
 import UserManagement from '../users/UserManagement';
 import DatabaseManagement from '../database/DatabaseManagement';
+import GlobalSettings from '../settings/GlobalSettings';
 
 const SuperAdminDashboard = () => {
   const { profile, signOut } = useAuth();
@@ -37,6 +38,10 @@ const SuperAdminDashboard = () => {
 
   if (activeSection === 'database') {
     return <DatabaseManagement onBack={handleBackToDashboard} />;
+  }
+
+  if (activeSection === 'settings') {
+    return <GlobalSettings onBack={handleBackToDashboard} />;
   }
 
   return (
@@ -145,7 +150,10 @@ const SuperAdminDashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full">
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('settings')}
+              >
                 Configurar Sistema
               </Button>
             </CardContent>
