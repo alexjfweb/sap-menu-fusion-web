@@ -62,11 +62,23 @@ const CompanyForm = ({ company, onClose }: CompanyFormProps) => {
 
   const onSubmit = async (data: CompanyFormData) => {
     try {
+      // Prepare the data for database insertion/update
+      const dbData = {
+        name: data.name,
+        description: data.description || null,
+        email: data.email || null,
+        phone: data.phone || null,
+        website: data.website || null,
+        address: data.address || null,
+        logo_url: data.logo_url || null,
+        is_active: data.is_active,
+      };
+
       if (isEditing) {
         const { error } = await supabase
           .from('companies')
           .update({
-            ...data,
+            ...dbData,
             updated_at: new Date().toISOString(),
           })
           .eq('id', company.id);
@@ -80,7 +92,7 @@ const CompanyForm = ({ company, onClose }: CompanyFormProps) => {
       } else {
         const { error } = await supabase
           .from('companies')
-          .insert(data);
+          .insert(dbData);
 
         if (error) throw error;
 
