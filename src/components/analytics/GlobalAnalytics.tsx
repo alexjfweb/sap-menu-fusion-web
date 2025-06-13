@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -370,10 +369,10 @@ const GlobalAnalytics = ({ onBack }: GlobalAnalyticsProps) => {
             </Card>
           </TabsContent>
 
-          {/* Products Tab */}
+          {/* Products Tab - FIXED VERSION */}
           <TabsContent value="products" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Distribución por Categorías */}
+              {/* Distribución por Categorías - CORREGIDO */}
               <Card>
                 <CardHeader>
                   <CardTitle>Distribución por Categorías</CardTitle>
@@ -399,7 +398,20 @@ const GlobalAnalytics = ({ onBack }: GlobalAnalyticsProps) => {
                               <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                           </Pie>
-                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <ChartTooltip 
+                            content={({ active, payload }) => {
+                              if (active && payload && payload.length) {
+                                const data = payload[0].payload;
+                                return (
+                                  <div className="bg-background border border-border rounded-lg p-3 shadow-lg">
+                                    <p className="font-medium">{data.name}</p>
+                                    <p className="text-sm text-muted-foreground">{data.value}%</p>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }}
+                          />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
