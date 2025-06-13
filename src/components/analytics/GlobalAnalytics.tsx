@@ -80,6 +80,14 @@ const GlobalAnalytics = ({ onBack }: GlobalAnalyticsProps) => {
     { name: 'Aperitivos', value: 17, color: '#ef4444' },
   ];
 
+  const topProducts = [
+    { name: 'Pizza Margherita', orders: 234, revenue: 4680, category: 'Platos Principales' },
+    { name: 'Coca Cola', orders: 189, revenue: 567, category: 'Bebidas' },
+    { name: 'Tiramisú', orders: 156, revenue: 936, category: 'Postres' },
+    { name: 'Hamburguesa Clásica', orders: 145, revenue: 2175, category: 'Platos Principales' },
+    { name: 'Café Americano', orders: 134, revenue: 402, category: 'Bebidas' },
+  ];
+
   const chartConfig = {
     revenue: {
       label: 'Ingresos',
@@ -101,9 +109,11 @@ const GlobalAnalytics = ({ onBack }: GlobalAnalyticsProps) => {
 
   const handleRefresh = async () => {
     setIsLoading(true);
+    console.log('Refreshing analytics data...');
     // Simular carga de datos
     setTimeout(() => {
       setIsLoading(false);
+      console.log('Analytics data refreshed');
     }, 2000);
   };
 
@@ -111,6 +121,9 @@ const GlobalAnalytics = ({ onBack }: GlobalAnalyticsProps) => {
     // Simular exportación de datos
     console.log('Exportando datos analytics...');
   };
+
+  console.log('GlobalAnalytics component rendered');
+  console.log('Category distribution data:', categoryDistribution);
 
   return (
     <div className="min-h-screen bg-background">
@@ -359,50 +372,84 @@ const GlobalAnalytics = ({ onBack }: GlobalAnalyticsProps) => {
 
           {/* Products Tab */}
           <TabsContent value="products" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Distribución por Categorías</CardTitle>
-                <CardDescription>
-                  Porcentaje de ventas por categoría de productos
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col lg:flex-row items-center gap-6">
-                  <div className="w-80 h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={categoryDistribution}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={120}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {categoryDistribution.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                      </PieChart>
-                    </ResponsiveContainer>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Distribución por Categorías */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Distribución por Categorías</CardTitle>
+                  <CardDescription>
+                    Porcentaje de ventas por categoría de productos
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col items-center gap-6">
+                    <div className="w-64 h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={categoryDistribution}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={40}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {categoryDistribution.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="space-y-2">
+                      {categoryDistribution.map((category, index) => (
+                        <div key={index} className="flex items-center space-x-3">
+                          <div 
+                            className="w-4 h-4 rounded"
+                            style={{ backgroundColor: category.color }}
+                          />
+                          <span className="text-sm font-medium">{category.name}</span>
+                          <span className="text-sm text-muted-foreground">{category.value}%</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="space-y-3">
-                    {categoryDistribution.map((category, index) => (
-                      <div key={index} className="flex items-center space-x-3">
-                        <div 
-                          className="w-4 h-4 rounded"
-                          style={{ backgroundColor: category.color }}
-                        />
-                        <span className="text-sm font-medium">{category.name}</span>
-                        <span className="text-sm text-muted-foreground">{category.value}%</span>
+                </CardContent>
+              </Card>
+
+              {/* Top Productos */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Productos Más Vendidos</CardTitle>
+                  <CardDescription>
+                    Top 5 productos por número de pedidos
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {topProducts.map((product, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <h4 className="font-medium">{product.name}</h4>
+                            <p className="text-xs text-muted-foreground">{product.category}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold">{product.orders} pedidos</p>
+                          <p className="text-sm text-muted-foreground">${product.revenue}</p>
+                        </div>
                       </div>
                     ))}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </main>
