@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,6 +21,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import CompanyForm from './CompanyForm';
+import CompanyDetails from './CompanyDetails';
 
 type Company = Tables<'companies'>;
 
@@ -32,7 +32,9 @@ interface CompanyManagementProps {
 const CompanyManagement = ({ onBack }: CompanyManagementProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [viewingCompany, setViewingCompany] = useState<Company | null>(null);
 
   const { data: companies, isLoading, refetch } = useQuery({
     queryKey: ['companies'],
@@ -57,6 +59,11 @@ const CompanyManagement = ({ onBack }: CompanyManagementProps) => {
     setShowForm(true);
   };
 
+  const handleView = (company: Company) => {
+    setViewingCompany(company);
+    setShowDetails(true);
+  };
+
   const handleCreate = () => {
     setEditingCompany(null);
     setShowForm(true);
@@ -66,6 +73,18 @@ const CompanyManagement = ({ onBack }: CompanyManagementProps) => {
     setShowForm(false);
     setEditingCompany(null);
     refetch();
+  };
+
+  const handleCloseDetails = () => {
+    setShowDetails(false);
+    setViewingCompany(null);
+  };
+
+  const handleEditFromDetails = (company: Company) => {
+    setShowDetails(false);
+    setViewingCompany(null);
+    setEditingCompany(company);
+    setShowForm(true);
   };
 
   const toggleCompanyStatus = async (company: Company) => {
@@ -87,6 +106,16 @@ const CompanyManagement = ({ onBack }: CompanyManagementProps) => {
       <CompanyForm
         company={editingCompany}
         onClose={handleCloseForm}
+      />
+    );
+  }
+
+  if (showDetails && viewingCompany) {
+    return (
+      <CompanyDetails
+        company={viewingCompany}
+        onClose={handleCloseDetails}
+        onEdit={handleEditFromDetails}
       />
     );
   }
@@ -217,7 +246,11 @@ const CompanyManagement = ({ onBack }: CompanyManagementProps) => {
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleView(company)}
+                      >
                         <Eye className="h-4 w-4" />
                       </Button>
                     </div>
@@ -241,6 +274,7 @@ const CompanyManagement = ({ onBack }: CompanyManagementProps) => {
           </div>
         )}
 
+        {/* Empty state */}
         {filteredCompanies.length === 0 && !isLoading && (
           <Card>
             <CardContent className="text-center py-8">
