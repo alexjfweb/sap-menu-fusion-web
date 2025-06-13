@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +17,7 @@ import CompanyManagement from '../companies/CompanyManagement';
 import UserManagement from '../users/UserManagement';
 import DatabaseManagement from '../database/DatabaseManagement';
 import GlobalSettings from '../settings/GlobalSettings';
+import GlobalAnalytics from '../analytics/GlobalAnalytics';
 
 const SuperAdminDashboard = () => {
   const { profile, signOut } = useAuth();
@@ -42,6 +42,10 @@ const SuperAdminDashboard = () => {
 
   if (activeSection === 'settings') {
     return <GlobalSettings onBack={handleBackToDashboard} />;
+  }
+
+  if (activeSection === 'analytics') {
+    return <GlobalAnalytics onBack={handleBackToDashboard} />;
   }
 
   return (
@@ -171,7 +175,10 @@ const SuperAdminDashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full">
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('analytics')}
+              >
                 Ver Analytics
               </Button>
             </CardContent>
