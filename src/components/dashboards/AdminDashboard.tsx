@@ -5,183 +5,64 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { 
   ChefHat, 
-  ShoppingCart, 
+  Users, 
+  Package, 
   Calendar, 
   BarChart3, 
-  Users, 
   Settings,
   LogOut,
-  Package
+  ShoppingCart,
+  DollarSign,
+  TrendingUp,
+  Clock
 } from 'lucide-react';
-import ProductManagement from '../products/ProductManagement';
 import OrderManagement from '../orders/OrderManagement';
+import ProductManagement from '../products/ProductManagement';
 import ReservationManagement from '../reservations/ReservationManagement';
 import ReportsManagement from '../reports/ReportsManagement';
+import UserManagement from '../users/UserManagement';
 
 const AdminDashboard = () => {
   const { profile, signOut } = useAuth();
-  const [activeSection, setActiveSection] = useState('overview');
+  const [activeSection, setActiveSection] = useState<string | null>(null);
 
-  const renderContent = () => {
-    switch (activeSection) {
-      case 'products':
-        return <ProductManagement />;
-      case 'orders':
-        return <OrderManagement />;
-      case 'reservations':
-        return <ReservationManagement />;
-      case 'reports':
-        return <ReportsManagement />;
-      case 'users':
-        return (
-          <div className="text-center py-12">
-            <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Gestión de Usuarios</h3>
-            <p className="text-muted-foreground">Esta funcionalidad estará disponible próximamente</p>
-          </div>
-        );
-      default:
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-3xl font-bold mb-2">Panel de Administrador</h2>
-              <p className="text-muted-foreground">
-                Gestiona todos los aspectos del restaurante
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Productos */}
-              <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer" onClick={() => setActiveSection('products')}>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Package className="h-5 w-5 text-primary" />
-                    <span>Productos</span>
-                  </CardTitle>
-                  <CardDescription>
-                    Gestiona el menú y productos
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-primary">24</div>
-                  <p className="text-sm text-muted-foreground">Productos activos</p>
-                </CardContent>
-              </Card>
-
-              {/* Pedidos */}
-              <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer" onClick={() => setActiveSection('orders')}>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <ShoppingCart className="h-5 w-5 text-primary" />
-                    <span>Pedidos</span>
-                  </CardTitle>
-                  <CardDescription>
-                    Gestiona pedidos de clientes
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-orange-600">8</div>
-                  <p className="text-sm text-muted-foreground">Pedidos pendientes</p>
-                </CardContent>
-              </Card>
-
-              {/* Reservas */}
-              <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer" onClick={() => setActiveSection('reservations')}>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Calendar className="h-5 w-5 text-primary" />
-                    <span>Reservas</span>
-                  </CardTitle>
-                  <CardDescription>
-                    Gestiona reservas de mesas
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-blue-600">12</div>
-                  <p className="text-sm text-muted-foreground">Reservas hoy</p>
-                </CardContent>
-              </Card>
-
-              {/* Reportes */}
-              <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer" onClick={() => setActiveSection('reports')}>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <BarChart3 className="h-5 w-5 text-primary" />
-                    <span>Reportes</span>
-                  </CardTitle>
-                  <CardDescription>
-                    Analytics y estadísticas
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-green-600">€1,245</div>
-                  <p className="text-sm text-muted-foreground">Ingresos hoy</p>
-                </CardContent>
-              </Card>
-
-              {/* Usuarios */}
-              <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer" onClick={() => setActiveSection('users')}>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Users className="h-5 w-5 text-primary" />
-                    <span>Usuarios</span>
-                  </CardTitle>
-                  <CardDescription>
-                    Gestiona empleados y roles
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-purple-600">15</div>
-                  <p className="text-sm text-muted-foreground">Empleados activos</p>
-                </CardContent>
-              </Card>
-
-              {/* Configuración */}
-              <Card className="hover:shadow-lg transition-shadow duration-300">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Settings className="h-5 w-5 text-primary" />
-                    <span>Configuración</span>
-                  </CardTitle>
-                  <CardDescription>
-                    Configurar el restaurante
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline" className="w-full">
-                    Acceder
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        );
-    }
+  const handleBackToDashboard = () => {
+    setActiveSection(null);
   };
+
+  // Si hay una sección activa, mostrar ese componente
+  if (activeSection === 'orders') {
+    return <OrderManagement onBack={handleBackToDashboard} />;
+  }
+
+  if (activeSection === 'products') {
+    return <ProductManagement onBack={handleBackToDashboard} />;
+  }
+
+  if (activeSection === 'reservations') {
+    return <ReservationManagement onBack={handleBackToDashboard} />;
+  }
+
+  if (activeSection === 'reports') {
+    return <ReportsManagement onBack={handleBackToDashboard} />;
+  }
+
+  if (activeSection === 'users') {
+    return <UserManagement onBack={handleBackToDashboard} />;
+  }
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
             <ChefHat className="h-8 w-8 text-primary" />
-            <div>
-              <h1 className="text-2xl font-bold">SAP Menu - Panel Admin</h1>
-              {activeSection !== 'overview' && (
-                <Button 
-                  variant="link" 
-                  className="p-0 h-auto text-sm text-muted-foreground"
-                  onClick={() => setActiveSection('overview')}
-                >
-                  ← Volver al inicio
-                </Button>
-              )}
-            </div>
+            <h1 className="text-2xl font-bold">SAP Menu - Panel Administrador</h1>
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-muted-foreground">
-              Bienvenido, {profile?.full_name || profile?.email}
+              Admin: {profile?.full_name || profile?.email}
             </span>
             <Button variant="outline" size="sm" onClick={signOut}>
               <LogOut className="h-4 w-4 mr-2" />
@@ -193,7 +74,186 @@ const AdminDashboard = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {renderContent()}
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold mb-2">Panel de Administrador</h2>
+          <p className="text-muted-foreground">
+            Gestiona tu restaurante de manera eficiente
+          </p>
+        </div>
+
+        {/* Quick Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-primary">24</div>
+                  <p className="text-sm text-muted-foreground">Pedidos Hoy</p>
+                </div>
+                <ShoppingCart className="h-8 w-8 text-primary opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-green-600">€1,247</div>
+                  <p className="text-sm text-muted-foreground">Ventas Hoy</p>
+                </div>
+                <DollarSign className="h-8 w-8 text-green-600 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-blue-600">8</div>
+                  <p className="text-sm text-muted-foreground">Reservas Hoy</p>
+                </div>
+                <Calendar className="h-8 w-8 text-blue-600 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-orange-600">15 min</div>
+                  <p className="text-sm text-muted-foreground">Tiempo Promedio</p>
+                </div>
+                <Clock className="h-8 w-8 text-orange-600 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Management Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Gestión de Pedidos */}
+          <Card className="hover:shadow-lg transition-shadow duration-300">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <ShoppingCart className="h-5 w-5 text-primary" />
+                <span>Gestión de Pedidos</span>
+              </CardTitle>
+              <CardDescription>
+                Administra los pedidos del restaurante
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('orders')}
+              >
+                Gestionar Pedidos
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Gestión de Productos */}
+          <Card className="hover:shadow-lg transition-shadow duration-300">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Package className="h-5 w-5 text-primary" />
+                <span>Gestión de Productos</span>
+              </CardTitle>
+              <CardDescription>
+                Administra el menú y productos
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('products')}
+              >
+                Gestionar Productos
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Gestión de Reservas */}
+          <Card className="hover:shadow-lg transition-shadow duration-300">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Calendar className="h-5 w-5 text-primary" />
+                <span>Gestión de Reservas</span>
+              </CardTitle>
+              <CardDescription>
+                Administra las reservas de mesas
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('reservations')}
+              >
+                Gestionar Reservas
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Sistema de Reportes */}
+          <Card className="hover:shadow-lg transition-shadow duration-300">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <BarChart3 className="h-5 w-5 text-primary" />
+                <span>Sistema de Reportes</span>
+              </CardTitle>
+              <CardDescription>
+                Analiza el rendimiento del negocio
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('reports')}
+              >
+                Ver Reportes
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Gestión de Usuarios */}
+          <Card className="hover:shadow-lg transition-shadow duration-300">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Users className="h-5 w-5 text-primary" />
+                <span>Gestión de Usuarios</span>
+              </CardTitle>
+              <CardDescription>
+                Administra usuarios y permisos
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('users')}
+              >
+                Gestionar Usuarios
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Configuración */}
+          <Card className="hover:shadow-lg transition-shadow duration-300">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Settings className="h-5 w-5 text-primary" />
+                <span>Configuración</span>
+              </CardTitle>
+              <CardDescription>
+                Configuraciones del restaurante
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button className="w-full" variant="outline">
+                Próximamente
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </main>
     </div>
   );
