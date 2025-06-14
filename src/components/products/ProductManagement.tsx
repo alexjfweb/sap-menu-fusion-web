@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -157,29 +158,35 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            {onBack && (
-              <Button variant="ghost" size="sm" onClick={onBack}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Volver al Panel
-              </Button>
-            )}
-            <div className="flex items-center space-x-2">
-              <ChefHat className="h-8 w-8 text-primary" />
-              <h1 className="text-2xl font-bold">Gestión de Productos</h1>
+      <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-4">
+              {onBack && (
+                <Button variant="ghost" size="sm" onClick={onBack}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Volver al Panel
+                </Button>
+              )}
+              <div className="flex items-center space-x-2">
+                <ChefHat className="h-8 w-8 text-primary" />
+                <h1 className="text-2xl font-bold">Gestión de Productos</h1>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" onClick={() => setShowPublicMenu(true)} className="flex items-center gap-2">
-              <MenuIcon className="h-4 w-4" />
-              Ver Menú Público
-            </Button>
-            <Button onClick={() => setShowForm(true)} className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Nuevo Producto
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowPublicMenu(true)} 
+                className="flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <MenuIcon className="h-4 w-4" />
+                Ver Menú Público
+              </Button>
+              <Button onClick={() => setShowForm(true)} className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Nuevo Producto
+              </Button>
+            </div>
           </div>
         </div>
       </header>
