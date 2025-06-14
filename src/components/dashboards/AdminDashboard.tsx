@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,19 +31,19 @@ const AdminDashboard = () => {
 
   // Si hay una sección activa, mostrar ese componente
   if (activeSection === 'orders') {
-    return <OrderManagement onBack={handleBackToDashboard} />;
+    return <OrderManagement />;
   }
 
   if (activeSection === 'products') {
-    return <ProductManagement onBack={handleBackToDashboard} />;
+    return <ProductManagement />;
   }
 
   if (activeSection === 'reservations') {
-    return <ReservationManagement onBack={handleBackToDashboard} />;
+    return <ReservationManagement />;
   }
 
   if (activeSection === 'reports') {
-    return <ReportsManagement onBack={handleBackToDashboard} />;
+    return <ReportsManagement />;
   }
 
   if (activeSection === 'users') {
