@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Building, Save, Upload, Globe, Facebook, Instagram, Twitter } from 'lucide-react';
+import { ArrowLeft, Building, Save, Upload, Globe, Facebook, Instagram, Twitter, MessageCircle, Hash } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tables } from '@/integrations/supabase/types';
 
@@ -317,14 +317,40 @@ const BusinessInfoManagement = ({ onBack }: BusinessInfoManagementProps) => {
                 <div className="space-y-2">
                   <Label htmlFor="twitter_url" className="flex items-center gap-2">
                     <Twitter className="h-4 w-4" />
-                    Twitter
+                    X (Twitter)
                   </Label>
                   <Input
                     id="twitter_url"
                     value={isEditing ? formData.twitter_url || '' : businessInfo?.twitter_url || ''}
                     onChange={(e) => handleInputChange('twitter_url', e.target.value)}
                     disabled={!isEditing}
-                    placeholder="https://twitter.com/mirestaurante"
+                    placeholder="https://x.com/mirestaurante"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="whatsapp_url" className="flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4" />
+                    WhatsApp
+                  </Label>
+                  <Input
+                    id="whatsapp_url"
+                    value={isEditing ? formData.whatsapp_url || '' : businessInfo?.whatsapp_url || ''}
+                    onChange={(e) => handleInputChange('whatsapp_url', e.target.value)}
+                    disabled={!isEditing}
+                    placeholder="https://wa.me/573001234567"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tiktok_url" className="flex items-center gap-2">
+                    <Hash className="h-4 w-4" />
+                    TikTok
+                  </Label>
+                  <Input
+                    id="tiktok_url"
+                    value={isEditing ? formData.tiktok_url || '' : businessInfo?.tiktok_url || ''}
+                    onChange={(e) => handleInputChange('tiktok_url', e.target.value)}
+                    disabled={!isEditing}
+                    placeholder="https://tiktok.com/@mirestaurante"
                   />
                 </div>
               </div>

@@ -24,9 +24,11 @@ export type Database = {
           phone: string | null
           public_menu_url: string | null
           tax_id: string | null
+          tiktok_url: string | null
           twitter_url: string | null
           updated_at: string
           website_url: string | null
+          whatsapp_url: string | null
         }
         Insert: {
           address?: string | null
@@ -42,9 +44,11 @@ export type Database = {
           phone?: string | null
           public_menu_url?: string | null
           tax_id?: string | null
+          tiktok_url?: string | null
           twitter_url?: string | null
           updated_at?: string
           website_url?: string | null
+          whatsapp_url?: string | null
         }
         Update: {
           address?: string | null
@@ -60,9 +64,11 @@ export type Database = {
           phone?: string | null
           public_menu_url?: string | null
           tax_id?: string | null
+          tiktok_url?: string | null
           twitter_url?: string | null
           updated_at?: string
           website_url?: string | null
+          whatsapp_url?: string | null
         }
         Relationships: []
       }
