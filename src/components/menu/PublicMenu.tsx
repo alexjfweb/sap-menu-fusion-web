@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ShoppingCart, Plus, Share2, Calendar, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import MenuExplorer from './MenuExplorer';
+import ExpandableDescription from './ExpandableDescription';
 import ShoppingCartModal from './ShoppingCartModal';
 import ShareModal from './ShareModal';
 import ReservationModal from './ReservationModal';
@@ -158,6 +159,16 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     return cartItems.reduce((total, item) => total + (item.quantity * Number(item.products?.price || 0)), 0);
   };
 
+  // Format price with Colombian peso format
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(price);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -247,15 +258,14 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
                     />
                   )}
                   
-                  {product.description && (
-                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                      {product.description}
-                    </p>
-                  )}
+                  <ExpandableDescription 
+                    description={product.description || ''} 
+                    maxLength={80}
+                  />
                   
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-2xl font-bold text-primary">
-                      ${Number(product.price).toFixed(2)}
+                      {formatPrice(Number(product.price))}
                     </span>
                     <Badge variant="default">Disponible</Badge>
                   </div>

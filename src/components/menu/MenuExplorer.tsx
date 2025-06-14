@@ -2,6 +2,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tables } from '@/integrations/supabase/types';
 
 type Category = Tables<'categories'>;
@@ -17,31 +18,37 @@ const MenuExplorer = ({ categories, selectedCategory, onCategoryChange }: MenuEx
     <div className="space-y-4">
       <div>
         <h2 className="text-xl font-bold mb-4">Explorar por Categorías</h2>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant={selectedCategory === 'all' ? 'default' : 'outline'}
-            onClick={() => onCategoryChange('all')}
-            className="mb-2"
-          >
-            Todas las Categorías
-          </Button>
-          
-          {categories.map((category) => (
+        <ScrollArea className="w-full whitespace-nowrap">
+          <div className="flex space-x-2 pb-4">
             <Button
-              key={category.id}
-              variant={selectedCategory === category.id ? 'default' : 'outline'}
-              onClick={() => onCategoryChange(category.id)}
-              className="mb-2"
+              variant={selectedCategory === 'all' ? 'default' : 'outline'}
+              onClick={() => onCategoryChange('all')}
+              className="flex-shrink-0"
             >
-              {category.name}
-              {category.description && (
-                <Badge variant="secondary" className="ml-2 text-xs">
-                  {category.description.substring(0, 10)}...
-                </Badge>
-              )}
+              Todas las Categorías
             </Button>
-          ))}
-        </div>
+            
+            {categories.map((category) => (
+              <Button
+                key={category.id}
+                variant={selectedCategory === category.id ? 'default' : 'outline'}
+                onClick={() => onCategoryChange(category.id)}
+                className="flex-shrink-0 flex items-center gap-2"
+              >
+                <span>{category.name}</span>
+                {category.description && (
+                  <Badge variant="secondary" className="text-xs">
+                    {category.description.length > 10 
+                      ? `${category.description.substring(0, 10)}...` 
+                      : category.description
+                    }
+                  </Badge>
+                )}
+              </Button>
+            ))}
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
       </div>
     </div>
   );
