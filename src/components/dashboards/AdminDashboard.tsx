@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import ProductManagement from '../products/ProductManagement';
 import OrderManagement from '../orders/OrderManagement';
+import ReservationManagement from '../reservations/ReservationManagement';
 
 const AdminDashboard = () => {
   const { profile, signOut } = useAuth();
@@ -27,13 +28,7 @@ const AdminDashboard = () => {
       case 'orders':
         return <OrderManagement />;
       case 'reservations':
-        return (
-          <div className="text-center py-12">
-            <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Gestión de Reservas</h3>
-            <p className="text-muted-foreground">Esta funcionalidad estará disponible próximamente</p>
-          </div>
-        );
+        return <ReservationManagement />;
       case 'reports':
         return (
           <div className="text-center py-12">
