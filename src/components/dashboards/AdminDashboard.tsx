@@ -40,7 +40,7 @@ const AdminDashboard = () => {
   }
 
   if (activeSection === 'reservations') {
-    return <ReservationManagement />;
+    return <ReservationManagement onBack={handleBackToDashboard} />;
   }
 
   if (activeSection === 'reports') {

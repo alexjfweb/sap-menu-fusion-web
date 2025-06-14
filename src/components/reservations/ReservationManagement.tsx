@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,7 +22,8 @@ import {
   Eye,
   CheckCircle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  ArrowLeft
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -33,7 +33,11 @@ import { Database } from '@/integrations/supabase/types';
 
 type ReservationStatus = Database['public']['Enums']['reservation_status'];
 
-const ReservationManagement = () => {
+interface ReservationManagementProps {
+  onBack?: () => void;
+}
+
+const ReservationManagement = ({ onBack }: ReservationManagementProps) => {
   const [selectedReservation, setSelectedReservation] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -132,11 +136,20 @@ const ReservationManagement = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold mb-2">Gestión de Reservas</h2>
-        <p className="text-muted-foreground">
-          Administra las reservas de mesas del restaurante
-        </p>
+      {/* Header with back button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold mb-2">Gestión de Reservas</h2>
+          <p className="text-muted-foreground">
+            Administra las reservas de mesas del restaurante
+          </p>
+        </div>
+        {onBack && (
+          <Button variant="outline" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Volver al Panel
+          </Button>
+        )}
       </div>
 
       {/* Quick Stats */}
