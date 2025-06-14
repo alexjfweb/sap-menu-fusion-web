@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Search, Edit, Trash2, Eye, EyeOff, ArrowLeft, ChefHat } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Eye, EyeOff, ArrowLeft, ChefHat, Menu as MenuIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import ProductForm from './ProductForm';
+import PublicMenu from '../menu/PublicMenu';
 import { Tables } from '@/integrations/supabase/types';
 
 type Product = Tables<'products'>;
@@ -23,6 +23,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [showPublicMenu, setShowPublicMenu] = useState(false);
   const { toast } = useToast();
 
   const { data: products, isLoading: productsLoading, refetch: refetchProducts } = useQuery({
@@ -140,6 +141,11 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     refetchProducts();
   };
 
+  // Show public menu if requested
+  if (showPublicMenu) {
+    return <PublicMenu onBack={() => setShowPublicMenu(false)} />;
+  }
+
   if (productsLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -165,10 +171,16 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
               <h1 className="text-2xl font-bold">Gestión de Productos</h1>
             </div>
           </div>
-          <Button onClick={() => setShowForm(true)} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Nuevo Producto
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Button variant="outline" onClick={() => setShowPublicMenu(true)} className="flex items-center gap-2">
+              <MenuIcon className="h-4 w-4" />
+              Ver Menú Público
+            </Button>
+            <Button onClick={() => setShowForm(true)} className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Nuevo Producto
+            </Button>
+          </div>
         </div>
       </header>
 

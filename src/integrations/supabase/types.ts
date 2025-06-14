@@ -9,6 +9,44 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      cart_items: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string | null
+          quantity: number
+          session_id: string
+          special_instructions: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id?: string | null
+          quantity?: number
+          session_id: string
+          special_instructions?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string | null
+          quantity?: number
+          session_id?: string
+          special_instructions?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cart_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           created_at: string | null
@@ -235,6 +273,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payment_reservations: {
+        Row: {
+          created_at: string
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string
+          id: string
+          party_size: number
+          payment_method: string | null
+          payment_status: string | null
+          reservation_date: string
+          reservation_time: string
+          special_requests: string | null
+          status: string | null
+          total_amount: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_email?: string | null
+          customer_name: string
+          customer_phone: string
+          id?: string
+          party_size: number
+          payment_method?: string | null
+          payment_status?: string | null
+          reservation_date: string
+          reservation_time: string
+          special_requests?: string | null
+          status?: string | null
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string
+          id?: string
+          party_size?: number
+          payment_method?: string | null
+          payment_status?: string | null
+          reservation_date?: string
+          reservation_time?: string
+          special_requests?: string | null
+          status?: string | null
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       products: {
         Row: {
