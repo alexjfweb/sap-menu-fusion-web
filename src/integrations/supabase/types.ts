@@ -9,6 +9,63 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      business_info: {
+        Row: {
+          address: string | null
+          business_name: string
+          cover_image_url: string | null
+          created_at: string
+          description: string | null
+          email: string | null
+          facebook_url: string | null
+          id: string
+          instagram_url: string | null
+          logo_url: string | null
+          phone: string | null
+          public_menu_url: string | null
+          tax_id: string | null
+          twitter_url: string | null
+          updated_at: string
+          website_url: string | null
+        }
+        Insert: {
+          address?: string | null
+          business_name: string
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          email?: string | null
+          facebook_url?: string | null
+          id?: string
+          instagram_url?: string | null
+          logo_url?: string | null
+          phone?: string | null
+          public_menu_url?: string | null
+          tax_id?: string | null
+          twitter_url?: string | null
+          updated_at?: string
+          website_url?: string | null
+        }
+        Update: {
+          address?: string | null
+          business_name?: string
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          email?: string | null
+          facebook_url?: string | null
+          id?: string
+          instagram_url?: string | null
+          logo_url?: string | null
+          phone?: string | null
+          public_menu_url?: string | null
+          tax_id?: string | null
+          twitter_url?: string | null
+          updated_at?: string
+          website_url?: string | null
+        }
+        Relationships: []
+      }
       cart_items: {
         Row: {
           created_at: string

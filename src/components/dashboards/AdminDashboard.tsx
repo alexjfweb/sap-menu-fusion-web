@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,8 @@ import {
   ShoppingCart,
   DollarSign,
   TrendingUp,
-  Clock
+  Clock,
+  Building
 } from 'lucide-react';
 import OrderManagement from '../orders/OrderManagement';
 import ProductManagement from '../products/ProductManagement';
@@ -21,6 +23,7 @@ import ReservationManagement from '../reservations/ReservationManagement';
 import ReportsManagement from '../reports/ReportsManagement';
 import UserManagement from '../users/UserManagement';
 import GlobalSettings from '../settings/GlobalSettings';
+import BusinessInfoManagement from '../business/BusinessInfoManagement';
 
 const AdminDashboard = () => {
   const { profile, signOut } = useAuth();
@@ -53,6 +56,10 @@ const AdminDashboard = () => {
 
   if (activeSection === 'settings') {
     return <GlobalSettings onBack={handleBackToDashboard} />;
+  }
+
+  if (activeSection === 'business-info') {
+    return <BusinessInfoManagement onBack={handleBackToDashboard} />;
   }
 
   return (
@@ -135,6 +142,27 @@ const AdminDashboard = () => {
 
         {/* Management Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Información del Negocio */}
+          <Card className="hover:shadow-lg transition-shadow duration-300">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Building className="h-5 w-5 text-primary" />
+                <span>Información del Negocio</span>
+              </CardTitle>
+              <CardDescription>
+                Gestiona la información de tu restaurante
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('business-info')}
+              >
+                Editar Información
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Gestión de Pedidos */}
           <Card className="hover:shadow-lg transition-shadow duration-300">
             <CardHeader>
