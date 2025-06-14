@@ -52,7 +52,7 @@ const AdminDashboard = () => {
   }
 
   if (activeSection === 'settings') {
-    return <GlobalSettings />;
+    return <GlobalSettings onBack={handleBackToDashboard} />;
   }
 
   return (
