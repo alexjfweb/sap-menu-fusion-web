@@ -23,9 +23,17 @@ const PaymentConfirmationModal = ({
     switch (method) {
       case 'nequi': return 'Nequi';
       case 'qr': return 'Código QR';
+      case 'contra-entrega': return 'Contra Entrega';
       case 'stripe': return 'Tarjeta de Crédito/Débito';
       default: return method;
     }
+  };
+
+  const getConfirmationMessage = (method: string) => {
+    if (method === 'contra-entrega') {
+      return '¿Confirmas tu pedido para pago contra entrega?';
+    }
+    return '¿Confirmas que realizaste el pago?';
   };
 
   return (
@@ -34,17 +42,17 @@ const PaymentConfirmationModal = ({
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <CheckCircle className="h-5 w-5 text-green-600" />
-            <span>Confirmar Pago</span>
+            <span>{paymentMethod === 'contra-entrega' ? 'Confirmar Pedido' : 'Confirmar Pago'}</span>
           </DialogTitle>
           <DialogDescription>
-            ¿Confirmas que realizaste el pago?
+            {getConfirmationMessage(paymentMethod)}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="p-4 bg-muted rounded-lg">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-muted-foreground">Total a pagar:</span>
+              <span className="text-sm text-muted-foreground">Total {paymentMethod === 'contra-entrega' ? 'a pagar' : 'pagado'}:</span>
               <span className="text-lg font-bold">${totalAmount.toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center">

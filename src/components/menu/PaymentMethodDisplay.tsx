@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Smartphone, QrCode, CreditCard, Copy } from 'lucide-react';
+import { Smartphone, QrCode, CreditCard, Copy, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
@@ -73,6 +73,33 @@ const PaymentMethodDisplay = ({ paymentMethod, nequiNumber, nequiQrUrl }: Paymen
           />
           <p className="text-sm text-muted-foreground mt-2">
             Escanea con tu app de Nequi
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (paymentMethod === 'contra-entrega') {
+    return (
+      <Card className="mt-4">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Truck className="h-5 w-5" />
+            <span>Pago Contra Entrega</span>
+          </CardTitle>
+          <CardDescription>
+            Paga cuando recibas tu pedido
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-sm text-blue-800">
+              Pagarás directamente al repartidor cuando recibas tu pedido. 
+              Asegúrate de tener el dinero exacto.
+            </p>
+          </div>
+          <p className="text-sm text-muted-foreground mt-2">
+            No se requiere pago anticipado
           </p>
         </CardContent>
       </Card>

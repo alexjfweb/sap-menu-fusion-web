@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { CreditCard, Smartphone, QrCode, CheckCircle } from 'lucide-react';
+import { CreditCard, Smartphone, QrCode, CheckCircle, Truck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useBusinessInfo } from '@/hooks/useBusinessInfo';
 import { useWhatsAppSender } from '@/hooks/useWhatsAppSender';
@@ -161,6 +161,14 @@ const PaymentModal = ({ isOpen, onClose, cartItems, totalAmount, sessionId, onPa
                 </div>
                 
                 <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="contra-entrega" id="contra-entrega" />
+                  <Label htmlFor="contra-entrega" className="flex items-center space-x-2 cursor-pointer">
+                    <Truck className="h-4 w-4" />
+                    <span>Contra entrega</span>
+                  </Label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
                   <RadioGroupItem value="stripe" id="stripe" />
                   <Label htmlFor="stripe" className="flex items-center space-x-2 cursor-pointer">
                     <CreditCard className="h-4 w-4" />
@@ -210,7 +218,7 @@ const PaymentModal = ({ isOpen, onClose, cartItems, totalAmount, sessionId, onPa
                 ) : (
                   <>
                     <CheckCircle className="h-4 w-4 mr-2" />
-                    Pagar ${totalAmount.toFixed(2)}
+                    {paymentMethod === 'contra-entrega' ? 'Confirmar Pedido' : `Pagar $${totalAmount.toFixed(2)}`}
                   </>
                 )}
               </Button>
