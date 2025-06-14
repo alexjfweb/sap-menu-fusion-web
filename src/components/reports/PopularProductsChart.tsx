@@ -81,7 +81,7 @@ const PopularProductsChart = ({ period }: PopularProductsChartProps) => {
             Cantidad: {payload[0].value}
           </p>
           <p className="text-muted-foreground">
-            Ingresos: €{data.revenue.toFixed(2)}
+            Ingresos: ${data.revenue.toFixed(2)}
           </p>
         </div>
       );

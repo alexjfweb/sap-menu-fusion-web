@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -259,7 +260,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
                   
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-2xl font-bold text-primary">
-                      €{Number(product.price).toFixed(2)}
+                      ${Number(product.price).toFixed(2)}
                     </span>
                     <Badge variant={product.is_available ? "default" : "secondary"}>
                       {product.is_available ? "Disponible" : "No disponible"}

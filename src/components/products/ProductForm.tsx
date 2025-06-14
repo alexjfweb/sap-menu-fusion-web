@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -144,7 +143,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="price">Precio (€) *</Label>
+                <Label htmlFor="price">Precio ($) *</Label>
                 <Input
                   id="price"
                   type="number"
