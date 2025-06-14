@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ import ProductManagement from '../products/ProductManagement';
 import ReservationManagement from '../reservations/ReservationManagement';
 import ReportsManagement from '../reports/ReportsManagement';
 import UserManagement from '../users/UserManagement';
+import GlobalSettings from '../settings/GlobalSettings';
 
 const AdminDashboard = () => {
   const { profile, signOut } = useAuth();
@@ -48,6 +50,10 @@ const AdminDashboard = () => {
 
   if (activeSection === 'users') {
     return <UserManagement onBack={handleBackToDashboard} />;
+  }
+
+  if (activeSection === 'settings') {
+    return <GlobalSettings onBack={handleBackToDashboard} />;
   }
 
   return (
@@ -247,8 +253,11 @@ const AdminDashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full" variant="outline">
-                Próximamente
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('settings')}
+              >
+                Configurar Sistema
               </Button>
             </CardContent>
           </Card>
