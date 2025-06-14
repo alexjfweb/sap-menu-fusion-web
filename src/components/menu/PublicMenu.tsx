@@ -35,10 +35,12 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   useEffect(() => {
     try {
       let storedSessionId = '';
+      
+      // Try to get from localStorage, but handle gracefully if not available (incognito mode)
       try {
         storedSessionId = localStorage.getItem('cart_session_id') || '';
       } catch (error) {
-        console.log('LocalStorage not available, using session-only cart');
+        console.log('LocalStorage not available (incognito mode), using session-only cart');
       }
       
       if (!storedSessionId) {
@@ -46,14 +48,18 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         try {
           localStorage.setItem('cart_session_id', storedSessionId);
         } catch (error) {
-          console.log('Could not save session ID to localStorage');
+          console.log('Could not save session ID to localStorage (incognito mode)');
         }
       }
+      
+      console.log('Using session ID:', storedSessionId);
       setSessionId(storedSessionId);
     } catch (error) {
       console.error('Error setting up session:', error);
       // Fallback session ID
-      setSessionId('fallback_' + Date.now());
+      const fallbackId = 'fallback_' + Date.now();
+      console.log('Using fallback session ID:', fallbackId);
+      setSessionId(fallbackId);
     }
   }, []);
 
@@ -65,39 +71,52 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   } = useQuery({
     queryKey: ['public-products'],
     queryFn: async () => {
-      console.log('Fetching products...');
+      console.log('Fetching products from Supabase...');
       
-      // Test connection first
-      const { data: testData, error: testError } = await supabase
-        .from('products')
-        .select('count')
-        .limit(1);
-      
-      console.log('Connection test:', { testData, testError });
-      
-      const { data, error } = await supabase
-        .from('products')
-        .select(`
-          *,
-          categories (
-            id,
-            name
-          )
-        `)
-        .eq('is_available', true)
-        .order('name');
-      
-      if (error) {
-        console.error('Error fetching products:', error);
+      try {
+        // Test basic connection first
+        const { data: testData, error: testError } = await supabase
+          .from('products')
+          .select('count')
+          .limit(1);
+        
+        console.log('Connection test result:', { testData, testError });
+        
+        if (testError) {
+          console.error('Connection test failed:', testError);
+          throw new Error(`Connection failed: ${testError.message}`);
+        }
+
+        // Fetch products with categories
+        const { data, error } = await supabase
+          .from('products')
+          .select(`
+            *,
+            categories (
+              id,
+              name
+            )
+          `)
+          .eq('is_available', true)
+          .order('name');
+        
+        console.log('Products query result:', { data, error });
+        
+        if (error) {
+          console.error('Error fetching products:', error);
+          throw new Error(`Failed to fetch products: ${error.message}`);
+        }
+        
+        console.log(`Successfully fetched ${data?.length || 0} products`);
+        return data || [];
+      } catch (error) {
+        console.error('Products fetch error:', error);
         throw error;
       }
-      
-      console.log('Fetched products:', data);
-      return data || [];
     },
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   const { 
@@ -108,20 +127,28 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   } = useQuery({
     queryKey: ['public-categories'],
     queryFn: async () => {
-      console.log('Fetching categories...');
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('is_active', true)
-        .order('sort_order');
+      console.log('Fetching categories from Supabase...');
       
-      if (error) {
-        console.error('Error fetching categories:', error);
+      try {
+        const { data, error } = await supabase
+          .from('categories')
+          .select('*')
+          .eq('is_active', true)
+          .order('sort_order');
+        
+        console.log('Categories query result:', { data, error });
+        
+        if (error) {
+          console.error('Error fetching categories:', error);
+          throw new Error(`Failed to fetch categories: ${error.message}`);
+        }
+        
+        console.log(`Successfully fetched ${data?.length || 0} categories`);
+        return data || [];
+      } catch (error) {
+        console.error('Categories fetch error:', error);
         throw error;
       }
-      
-      console.log('Fetched categories:', data);
-      return data || [];
     },
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
@@ -132,28 +159,38 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   const { data: cartData, refetch: refetchCart } = useQuery({
     queryKey: ['cart-items', sessionId],
     queryFn: async () => {
-      if (!sessionId) return [];
-      
-      console.log('Fetching cart items for session:', sessionId);
-      const { data, error } = await supabase
-        .from('cart_items')
-        .select(`
-          *,
-          products (
-            id,
-            name,
-            price,
-            image_url
-          )
-        `)
-        .eq('session_id', sessionId);
-      
-      if (error) {
-        console.error('Error fetching cart items:', error);
+      if (!sessionId) {
+        console.log('No session ID available for cart');
         return [];
       }
       
-      return data || [];
+      console.log('Fetching cart items for session:', sessionId);
+      
+      try {
+        const { data, error } = await supabase
+          .from('cart_items')
+          .select(`
+            *,
+            products (
+              id,
+              name,
+              price,
+              image_url
+            )
+          `)
+          .eq('session_id', sessionId);
+        
+        if (error) {
+          console.error('Error fetching cart items:', error);
+          return [];
+        }
+        
+        console.log(`Successfully fetched ${data?.length || 0} cart items`);
+        return data || [];
+      } catch (error) {
+        console.error('Cart items fetch error:', error);
+        return [];
+      }
     },
     enabled: !!sessionId,
     retry: 2,
@@ -171,7 +208,18 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   });
 
   const addToCart = async (product: Product, quantity: number = 1, specialInstructions?: string) => {
+    if (!sessionId) {
+      toast({
+        title: "Error",
+        description: "No se pudo inicializar la sesión del carrito",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
+      console.log('Adding to cart:', { product: product.name, quantity, sessionId });
+      
       const { error } = await supabase
         .from('cart_items')
         .insert({
@@ -181,7 +229,10 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
           special_instructions: specialInstructions,
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error adding to cart:', error);
+        throw error;
+      }
 
       toast({
         title: "Producto agregado",
@@ -207,7 +258,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     return cartItems.reduce((total, item) => total + (item.quantity * Number(item.products?.price || 0)), 0);
   };
 
-  // Format price with Colombian peso format
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
@@ -218,12 +268,24 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   };
 
   const handleRetry = () => {
+    console.log('Retrying to fetch data...');
     refetchProducts();
     refetchCategories();
   };
 
   const isLoading = productsLoading || categoriesLoading;
   const hasError = productsError || categoriesError;
+
+  // Debug information
+  console.log('PublicMenu state:', {
+    isLoading,
+    hasError,
+    productsCount: products?.length || 0,
+    categoriesCount: categories?.length || 0,
+    productsError: productsError?.message,
+    categoriesError: categoriesError?.message,
+    sessionId
+  });
 
   if (isLoading) {
     return (
@@ -237,6 +299,8 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   }
 
   if (hasError) {
+    console.error('Menu loading error:', { productsError, categoriesError });
+    
     return (
       <div className="min-h-screen bg-background">
         <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
@@ -269,6 +333,8 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
 
   // If no products found, show empty state
   if (!products || products.length === 0) {
+    console.warn('No products found');
+    
     return (
       <div className="min-h-screen bg-background">
         <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
@@ -306,6 +372,8 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
       </div>
     );
   }
+
+  console.log('Rendering menu with products:', products.length);
 
   return (
     <div className="min-h-screen bg-background">
