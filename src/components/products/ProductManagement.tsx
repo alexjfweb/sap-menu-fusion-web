@@ -270,7 +270,20 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
                     </div>
                   </div>
                 </CardHeader>
+                
                 <CardContent>
+                  {product.image_url && (
+                    <img 
+                      src={product.image_url} 
+                      alt={product.name}
+                      className="w-full h-32 object-cover rounded-md mb-3"
+                      onError={(e) => {
+                        console.error('Error loading image:', e);
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  )}
+                  
                   {product.description && (
                     <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                       {product.description}
