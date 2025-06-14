@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./components/Dashboard";
+import PublicMenu from "./components/menu/PublicMenu";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -76,6 +77,10 @@ const App = () => (
                 <Auth />
               </PublicRoute>
             } 
+          />
+          <Route 
+            path="/menu" 
+            element={<PublicMenu />} 
           />
           <Route 
             path="/dashboard" 
