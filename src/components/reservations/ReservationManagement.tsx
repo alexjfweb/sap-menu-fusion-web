@@ -136,20 +136,20 @@ const ReservationManagement = ({ onBack }: ReservationManagementProps) => {
 
   return (
     <div className="space-y-6">
-      {/* Header with back button */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold mb-2">Gestión de Reservas</h2>
-          <p className="text-muted-foreground">
-            Administra las reservas de mesas del restaurante
-          </p>
-        </div>
+      {/* Header with back button - positioned on the left like other sections */}
+      <div className="flex items-center space-x-4">
         {onBack && (
           <Button variant="outline" onClick={onBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Volver al Panel
           </Button>
         )}
+        <div>
+          <h2 className="text-3xl font-bold mb-2">Gestión de Reservas</h2>
+          <p className="text-muted-foreground">
+            Administra las reservas de mesas del restaurante
+          </p>
+        </div>
       </div>
 
       {/* Quick Stats */}
