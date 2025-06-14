@@ -21,6 +21,8 @@ export type Database = {
           id: string
           instagram_url: string | null
           logo_url: string | null
+          nequi_number: string | null
+          nequi_qr_url: string | null
           phone: string | null
           public_menu_url: string | null
           tax_id: string | null
@@ -41,6 +43,8 @@ export type Database = {
           id?: string
           instagram_url?: string | null
           logo_url?: string | null
+          nequi_number?: string | null
+          nequi_qr_url?: string | null
           phone?: string | null
           public_menu_url?: string | null
           tax_id?: string | null
@@ -61,6 +65,8 @@ export type Database = {
           id?: string
           instagram_url?: string | null
           logo_url?: string | null
+          nequi_number?: string | null
+          nequi_qr_url?: string | null
           phone?: string | null
           public_menu_url?: string | null
           tax_id?: string | null

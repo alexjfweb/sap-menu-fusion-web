@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Building, Save, Upload, Globe, Facebook, Instagram, Twitter, MessageCircle, Hash, Image } from 'lucide-react';
+import { ArrowLeft, Building, Save, Upload, Globe, Facebook, Instagram, Twitter, MessageCircle, Hash, Image, CreditCard, QrCode } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { Tables } from '@/integrations/supabase/types';
@@ -24,6 +24,7 @@ const BusinessInfoManagement = ({ onBack }: BusinessInfoManagementProps) => {
   const { uploadFile, uploading } = useFileUpload();
   const logoFileRef = useRef<HTMLInputElement>(null);
   const coverFileRef = useRef<HTMLInputElement>(null);
+  const nequiQrFileRef = useRef<HTMLInputElement>(null);
 
   const { data: businessInfo, isLoading, refetch } = useQuery({
     queryKey: ['business-info'],
@@ -88,8 +89,13 @@ const BusinessInfoManagement = ({ onBack }: BusinessInfoManagementProps) => {
     }));
   };
 
-  const handleFileUpload = async (file: File, field: 'logo_url' | 'cover_image_url') => {
-    const url = await uploadFile(file, field === 'logo_url' ? 'logos' : 'covers');
+  const handleFileUpload = async (file: File, field: 'logo_url' | 'cover_image_url' | 'nequi_qr_url') => {
+    let folder = 'business';
+    if (field === 'logo_url') folder = 'logos';
+    else if (field === 'cover_image_url') folder = 'covers';
+    else if (field === 'nequi_qr_url') folder = 'nequi-qr';
+    
+    const url = await uploadFile(file, folder);
     if (url) {
       handleInputChange(field, url);
     }
@@ -106,6 +112,13 @@ const BusinessInfoManagement = ({ onBack }: BusinessInfoManagementProps) => {
     const file = event.target.files?.[0];
     if (file) {
       handleFileUpload(file, 'cover_image_url');
+    }
+  };
+
+  const handleNequiQrFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleFileUpload(file, 'nequi_qr_url');
     }
   };
 
@@ -356,6 +369,96 @@ const BusinessInfoManagement = ({ onBack }: BusinessInfoManagementProps) => {
                           src={isEditing ? formData.cover_image_url || '' : businessInfo?.cover_image_url || ''}
                           alt="Cover preview"
                           className="h-32 w-full object-cover rounded-md border"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Configuración de Nequi */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Configuración de Nequi</CardTitle>
+              <CardDescription>
+                Configura tu número Nequi y código QR para pagos
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Número de Nequi */}
+                <div className="space-y-4">
+                  <Label className="text-base font-medium flex items-center gap-2">
+                    <CreditCard className="h-4 w-4" />
+                    Número de Nequi
+                  </Label>
+                  <Input
+                    id="nequi_number"
+                    value={isEditing ? formData.nequi_number || '' : businessInfo?.nequi_number || ''}
+                    onChange={(e) => handleInputChange('nequi_number', e.target.value)}
+                    disabled={!isEditing}
+                    placeholder="+57 300 000 0000"
+                  />
+                </div>
+
+                {/* Código QR de Nequi */}
+                <div className="space-y-4">
+                  <Label className="text-base font-medium flex items-center gap-2">
+                    <QrCode className="h-4 w-4" />
+                    Código QR de Nequi
+                  </Label>
+                  <div className="space-y-3">
+                    <div className="flex space-x-2">
+                      <Input
+                        id="nequi_qr_url"
+                        value={isEditing ? formData.nequi_qr_url || '' : businessInfo?.nequi_qr_url || ''}
+                        onChange={(e) => handleInputChange('nequi_qr_url', e.target.value)}
+                        disabled={!isEditing}
+                        placeholder="https://ejemplo.com/qr-nequi.png"
+                        className="flex-1"
+                      />
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        disabled={!isEditing || uploading}
+                        className="flex items-center gap-2"
+                      >
+                        <Upload className="h-4 w-4" />
+                        URL
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        disabled={!isEditing || uploading}
+                        onClick={() => nequiQrFileRef.current?.click()}
+                        className="flex items-center gap-2"
+                      >
+                        <Image className="h-4 w-4" />
+                        {uploading ? 'Subiendo...' : 'Subir desde PC'}
+                      </Button>
+                      <input
+                        ref={nequiQrFileRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleNequiQrFileSelect}
+                        className="hidden"
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        JPG, PNG, GIF hasta 5MB
+                      </span>
+                    </div>
+                    {(formData.nequi_qr_url || businessInfo?.nequi_qr_url) && (
+                      <div className="mt-2">
+                        <img
+                          src={isEditing ? formData.nequi_qr_url || '' : businessInfo?.nequi_qr_url || ''}
+                          alt="Nequi QR preview"
+                          className="h-32 w-32 object-cover rounded-md border"
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display = 'none';
                           }}
