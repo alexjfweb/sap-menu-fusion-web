@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,6 +21,9 @@ import {
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
+import { Database } from '@/integrations/supabase/types';
+
+type ReservationStatus = Database['public']['Enums']['reservation_status'];
 
 interface ReservationDetailsProps {
   reservationId: string;
@@ -55,7 +57,7 @@ const ReservationDetails = ({ reservationId, onBack }: ReservationDetailsProps) 
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ status }: { status: string }) => {
+    mutationFn: async ({ status }: { status: ReservationStatus }) => {
       const { error } = await supabase
         .from('reservations')
         .update({ status, updated_at: new Date().toISOString() })
@@ -100,7 +102,7 @@ const ReservationDetails = ({ reservationId, onBack }: ReservationDetailsProps) 
     );
   };
 
-  const handleStatusChange = (newStatus: string) => {
+  const handleStatusChange = (newStatus: ReservationStatus) => {
     updateStatusMutation.mutate({ status: newStatus });
   };
 
@@ -153,7 +155,7 @@ const ReservationDetails = ({ reservationId, onBack }: ReservationDetailsProps) 
         </div>
         
         <div className="flex items-center gap-2">
-          {getStatusBadge(reservation.status)}
+          {getStatusBadge(reservation.status || 'pendiente')}
         </div>
       </div>
 
@@ -239,7 +241,7 @@ const ReservationDetails = ({ reservationId, onBack }: ReservationDetailsProps) 
             <div>
               <label className="text-sm font-medium text-muted-foreground">Estado</label>
               <div className="mt-1">
-                {getStatusBadge(reservation.status)}
+                {getStatusBadge(reservation.status || 'pendiente')}
               </div>
             </div>
           </CardContent>

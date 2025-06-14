@@ -29,6 +29,9 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import ReservationDetails from './ReservationDetails';
 import { useToast } from '@/hooks/use-toast';
+import { Database } from '@/integrations/supabase/types';
+
+type ReservationStatus = Database['public']['Enums']['reservation_status'];
 
 const ReservationManagement = () => {
   const [selectedReservation, setSelectedReservation] = useState<string | null>(null);
@@ -59,7 +62,7 @@ const ReservationManagement = () => {
 
   // Update reservation status
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+    mutationFn: async ({ id, status }: { id: string; status: ReservationStatus }) => {
       const { error } = await supabase
         .from('reservations')
         .update({ status, updated_at: new Date().toISOString() })
@@ -103,7 +106,7 @@ const ReservationManagement = () => {
     );
   };
 
-  const handleStatusChange = (reservationId: string, newStatus: string) => {
+  const handleStatusChange = (reservationId: string, newStatus: ReservationStatus) => {
     updateStatusMutation.mutate({ id: reservationId, status: newStatus });
   };
 
@@ -251,7 +254,7 @@ const ReservationManagement = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {getStatusBadge(reservation.status)}
+                      {getStatusBadge(reservation.status || 'pendiente')}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
