@@ -6,12 +6,23 @@ export const useWhatsAppSender = () => {
   const [sending, setSending] = useState(false);
   const { data: businessInfo } = useBusinessInfo();
 
+  const getPaymentMethodName = (method: string) => {
+    switch (method) {
+      case 'nequi': return 'Nequi';
+      case 'qr': return 'QR';
+      case 'contra-entrega': return 'Contraentrega';
+      case 'stripe': return 'Tarjeta de Crédito/Débito';
+      default: return 'Otro';
+    }
+  };
+
   const sendOrderToWhatsApp = async (
     cartItems: any[], 
     totalAmount: number, 
     customerName: string, 
     customerPhone: string,
-    specialInstructions?: string
+    specialInstructions?: string,
+    paymentMethod?: string
   ) => {
     setSending(true);
     
@@ -31,8 +42,18 @@ export const useWhatsAppSender = () => {
       
       orderMessage += `\n💰 *Total: $${totalAmount.toFixed(2)}*\n`;
       
+      // Añadir información del método de pago
+      if (paymentMethod) {
+        orderMessage += `💳 *Método de pago:* ${getPaymentMethodName(paymentMethod)}\n`;
+      }
+      
       if (specialInstructions) {
-        orderMessage += `\n📝 *Instrucciones especiales:*\n${specialInstructions}`;
+        orderMessage += `\n📝 *Instrucciones especiales:*\n${specialInstructions}\n`;
+      }
+
+      // Añadir línea adicional con el método de pago en las instrucciones
+      if (paymentMethod) {
+        orderMessage += `\n_El medio de pago fue: ${getPaymentMethodName(paymentMethod)}_`;
       }
 
       // Obtener número de WhatsApp del negocio

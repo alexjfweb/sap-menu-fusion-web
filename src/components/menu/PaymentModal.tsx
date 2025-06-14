@@ -53,13 +53,14 @@ const PaymentModal = ({ isOpen, onClose, cartItems, totalAmount, sessionId, onPa
   const handleConfirmPayment = async () => {
     setShowConfirmation(false);
     
-    // Enviar por WhatsApp
+    // Enviar por WhatsApp con información del método de pago
     const result = await sendOrderToWhatsApp(
       cartItems, 
       totalAmount, 
       customerName, 
       customerPhone, 
-      specialInstructions
+      specialInstructions,
+      paymentMethod
     );
     
     setSendResult(result);
