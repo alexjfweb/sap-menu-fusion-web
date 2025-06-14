@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
-import { ShoppingCart, Plus, Share2, Calendar, ArrowLeft, AlertCircle } from 'lucide-react';
+import { ShoppingCart, Plus, Share2, Calendar, ArrowLeft, AlertCircle, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import MenuExplorer from './MenuExplorer';
 import ExpandableDescription from './ExpandableDescription';
@@ -57,10 +57,24 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }
   }, []);
 
-  const { data: products, isLoading: productsLoading, error: productsError } = useQuery({
+  const { 
+    data: products, 
+    isLoading: productsLoading, 
+    error: productsError,
+    refetch: refetchProducts 
+  } = useQuery({
     queryKey: ['public-products'],
     queryFn: async () => {
       console.log('Fetching products...');
+      
+      // Test connection first
+      const { data: testData, error: testError } = await supabase
+        .from('products')
+        .select('count')
+        .limit(1);
+      
+      console.log('Connection test:', { testData, testError });
+      
       const { data, error } = await supabase
         .from('products')
         .select(`
@@ -79,13 +93,19 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
       }
       
       console.log('Fetched products:', data);
-      return data;
+      return data || [];
     },
     retry: 3,
-    retryDelay: 1000,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
   });
 
-  const { data: categories, isLoading: categoriesLoading, error: categoriesError } = useQuery({
+  const { 
+    data: categories, 
+    isLoading: categoriesLoading, 
+    error: categoriesError,
+    refetch: refetchCategories 
+  } = useQuery({
     queryKey: ['public-categories'],
     queryFn: async () => {
       console.log('Fetching categories...');
@@ -101,10 +121,11 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
       }
       
       console.log('Fetched categories:', data);
-      return data;
+      return data || [];
     },
     retry: 3,
-    retryDelay: 1000,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    staleTime: 5 * 60 * 1000,
   });
 
   // Load cart items
@@ -132,7 +153,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         return [];
       }
       
-      return data;
+      return data || [];
     },
     enabled: !!sessionId,
     retry: 2,
@@ -196,6 +217,11 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }).format(price);
   };
 
+  const handleRetry = () => {
+    refetchProducts();
+    refetchCategories();
+  };
+
   const isLoading = productsLoading || categoriesLoading;
   const hasError = productsError || categoriesError;
 
@@ -225,11 +251,57 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Error al cargar el menú. Por favor, intenta recargar la página.
-              {productsError && <div className="mt-2 text-sm">Error de productos: {productsError.message}</div>}
-              {categoriesError && <div className="mt-2 text-sm">Error de categorías: {categoriesError.message}</div>}
+              <div className="space-y-2">
+                <p>Error al cargar el menú. Por favor, intenta nuevamente.</p>
+                {productsError && <div className="text-sm">Error de productos: {productsError.message}</div>}
+                {categoriesError && <div className="text-sm">Error de categorías: {categoriesError.message}</div>}
+                <Button onClick={handleRetry} size="sm" className="mt-2">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Reintentar
+                </Button>
+              </div>
             </AlertDescription>
           </Alert>
+        </main>
+      </div>
+    );
+  }
+
+  // If no products found, show empty state
+  if (!products || products.length === 0) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center space-x-4">
+                {onBack && (
+                  <Button variant="ghost" size="sm" onClick={onBack}>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Volver al Panel
+                  </Button>
+                )}
+                <h1 className="text-2xl font-bold">Menú del Restaurante</h1>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="container mx-auto px-4 py-8">
+          <div className="text-center py-12">
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <div className="space-y-2">
+                  <p>No hay productos disponibles en este momento.</p>
+                  <Button onClick={handleRetry} size="sm">
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Actualizar menú
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          </div>
         </main>
       </div>
     );
@@ -361,8 +433,12 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  No se encontraron productos disponibles. 
-                  {products?.length === 0 && " No hay productos registrados en el sistema."}
+                  <div className="space-y-2">
+                    <p>No se encontraron productos en esta categoría.</p>
+                    <Button onClick={() => setSelectedCategory('all')} size="sm">
+                      Ver todos los productos
+                    </Button>
+                  </div>
                 </AlertDescription>
               </Alert>
             </div>
