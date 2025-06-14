@@ -4,8 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
-import { ShoppingCart, Plus, Share2, Calendar, ArrowLeft } from 'lucide-react';
+import { ShoppingCart, Plus, Share2, Calendar, ArrowLeft, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import MenuExplorer from './MenuExplorer';
 import ExpandableDescription from './ExpandableDescription';
@@ -32,17 +33,34 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
 
   // Generate or get session ID for cart
   useEffect(() => {
-    let storedSessionId = localStorage.getItem('cart_session_id');
-    if (!storedSessionId) {
-      storedSessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-      localStorage.setItem('cart_session_id', storedSessionId);
+    try {
+      let storedSessionId = '';
+      try {
+        storedSessionId = localStorage.getItem('cart_session_id') || '';
+      } catch (error) {
+        console.log('LocalStorage not available, using session-only cart');
+      }
+      
+      if (!storedSessionId) {
+        storedSessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        try {
+          localStorage.setItem('cart_session_id', storedSessionId);
+        } catch (error) {
+          console.log('Could not save session ID to localStorage');
+        }
+      }
+      setSessionId(storedSessionId);
+    } catch (error) {
+      console.error('Error setting up session:', error);
+      // Fallback session ID
+      setSessionId('fallback_' + Date.now());
     }
-    setSessionId(storedSessionId);
   }, []);
 
-  const { data: products, isLoading } = useQuery({
+  const { data: products, isLoading: productsLoading, error: productsError } = useQuery({
     queryKey: ['public-products'],
     queryFn: async () => {
+      console.log('Fetching products...');
       const { data, error } = await supabase
         .from('products')
         .select(`
@@ -60,13 +78,17 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         throw error;
       }
       
+      console.log('Fetched products:', data);
       return data;
     },
+    retry: 3,
+    retryDelay: 1000,
   });
 
-  const { data: categories } = useQuery({
+  const { data: categories, isLoading: categoriesLoading, error: categoriesError } = useQuery({
     queryKey: ['public-categories'],
     queryFn: async () => {
+      console.log('Fetching categories...');
       const { data, error } = await supabase
         .from('categories')
         .select('*')
@@ -78,8 +100,11 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         throw error;
       }
       
+      console.log('Fetched categories:', data);
       return data;
     },
+    retry: 3,
+    retryDelay: 1000,
   });
 
   // Load cart items
@@ -88,6 +113,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     queryFn: async () => {
       if (!sessionId) return [];
       
+      console.log('Fetching cart items for session:', sessionId);
       const { data, error } = await supabase
         .from('cart_items')
         .select(`
@@ -109,6 +135,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
       return data;
     },
     enabled: !!sessionId,
+    retry: 2,
   });
 
   useEffect(() => {
@@ -169,10 +196,41 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }).format(price);
   };
 
+  const isLoading = productsLoading || categoriesLoading;
+  const hasError = productsError || categoriesError;
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Cargando menú...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex justify-between items-center">
+              <h1 className="text-2xl font-bold">Menú del Restaurante</h1>
+            </div>
+          </div>
+        </header>
+        
+        <main className="container mx-auto px-4 py-8">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Error al cargar el menú. Por favor, intenta recargar la página.
+              {productsError && <div className="mt-2 text-sm">Error de productos: {productsError.message}</div>}
+              {categoriesError && <div className="mt-2 text-sm">Error de categorías: {categoriesError.message}</div>}
+            </AlertDescription>
+          </Alert>
+        </main>
       </div>
     );
   }
@@ -235,68 +293,78 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
           />
 
           {/* Products Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProducts?.map((product) => (
-              <Card key={product.id} className="group hover:shadow-lg transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg">{product.name}</CardTitle>
-                      <CardDescription className="mt-1">
-                        {(product as any).categories?.name}
-                      </CardDescription>
+          {filteredProducts && filteredProducts.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredProducts.map((product) => (
+                <Card key={product.id} className="group hover:shadow-lg transition-shadow">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg">{product.name}</CardTitle>
+                        <CardDescription className="mt-1">
+                          {(product as any).categories?.name}
+                        </CardDescription>
+                      </div>
                     </div>
-                  </div>
-                </CardHeader>
-                
-                <CardContent>
-                  {product.image_url && (
-                    <img 
-                      src={product.image_url} 
-                      alt={product.name}
-                      className="w-full h-32 object-cover rounded-md mb-3"
+                  </CardHeader>
+                  
+                  <CardContent>
+                    {product.image_url && (
+                      <img 
+                        src={product.image_url} 
+                        alt={product.name}
+                        className="w-full h-32 object-cover rounded-md mb-3"
+                        onError={(e) => {
+                          console.error('Error loading image:', product.image_url);
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    )}
+                    
+                    <ExpandableDescription 
+                      description={product.description || ''} 
+                      maxLength={80}
                     />
-                  )}
-                  
-                  <ExpandableDescription 
-                    description={product.description || ''} 
-                    maxLength={80}
-                  />
-                  
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-2xl font-bold text-primary">
-                      {formatPrice(Number(product.price))}
-                    </span>
-                    <Badge variant="default">Disponible</Badge>
-                  </div>
+                    
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-2xl font-bold text-primary">
+                        {formatPrice(Number(product.price))}
+                      </span>
+                      <Badge variant="default">Disponible</Badge>
+                    </div>
 
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {product.is_vegetarian && (
-                      <Badge variant="outline" className="text-xs">Vegetariano</Badge>
-                    )}
-                    {product.is_vegan && (
-                      <Badge variant="outline" className="text-xs">Vegano</Badge>
-                    )}
-                    {product.is_gluten_free && (
-                      <Badge variant="outline" className="text-xs">Sin Gluten</Badge>
-                    )}
-                  </div>
-                  
-                  <Button 
-                    onClick={() => addToCart(product)}
-                    className="w-full"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Agregar al Carrito
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {filteredProducts?.length === 0 && (
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {product.is_vegetarian && (
+                        <Badge variant="outline" className="text-xs">Vegetariano</Badge>
+                      )}
+                      {product.is_vegan && (
+                        <Badge variant="outline" className="text-xs">Vegano</Badge>
+                      )}
+                      {product.is_gluten_free && (
+                        <Badge variant="outline" className="text-xs">Sin Gluten</Badge>
+                      )}
+                    </div>
+                    
+                    <Button 
+                      onClick={() => addToCart(product)}
+                      className="w-full"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Agregar al Carrito
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
             <div className="text-center py-12">
-              <p className="text-muted-foreground">No se encontraron productos disponibles</p>
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  No se encontraron productos disponibles. 
+                  {products?.length === 0 && " No hay productos registrados en el sistema."}
+                </AlertDescription>
+              </Alert>
             </div>
           )}
         </div>
