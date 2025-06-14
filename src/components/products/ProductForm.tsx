@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +8,8 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { X } from 'lucide-react';
+import { useFileUpload } from '@/hooks/useFileUpload';
+import { X, Upload, Image, Link } from 'lucide-react';
 import { Tables } from '@/integrations/supabase/types';
 
 type Product = Tables<'products'>;
@@ -27,7 +29,10 @@ const ProductForm: React.FC<ProductFormProps> = ({
   onCancel,
 }) => {
   const { toast } = useToast();
+  const { uploadFile, uploading } = useFileUpload();
   const [loading, setLoading] = useState(false);
+  const [uploadMethod, setUploadMethod] = useState<'pc' | 'url'>('pc');
+  const [imageUrl, setImageUrl] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -42,6 +47,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
     calories: '',
     ingredients: '',
     allergens: '',
+    image_url: '',
   });
 
   useEffect(() => {
@@ -60,9 +66,32 @@ const ProductForm: React.FC<ProductFormProps> = ({
         calories: product.calories?.toString() || '',
         ingredients: product.ingredients?.join(', ') || '',
         allergens: product.allergens?.join(', ') || '',
+        image_url: product.image_url || '',
       });
+      setImageUrl(product.image_url || '');
     }
   }, [product]);
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const uploadedUrl = await uploadFile(file, 'products');
+    if (uploadedUrl) {
+      setFormData({ ...formData, image_url: uploadedUrl });
+      setImageUrl(uploadedUrl);
+    }
+  };
+
+  const handleUrlSubmit = () => {
+    if (imageUrl) {
+      setFormData({ ...formData, image_url: imageUrl });
+      toast({
+        title: "URL añadida",
+        description: "La URL de la imagen se ha añadido correctamente",
+      });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +112,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
         calories: formData.calories ? parseInt(formData.calories) : null,
         ingredients: formData.ingredients ? formData.ingredients.split(',').map(i => i.trim()) : null,
         allergens: formData.allergens ? formData.allergens.split(',').map(a => a.trim()) : null,
+        image_url: formData.image_url || null,
       };
 
       let error;
@@ -163,6 +193,110 @@ const ProductForm: React.FC<ProductFormProps> = ({
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={3}
               />
+            </div>
+
+            {/* Sección de imagen */}
+            <div className="space-y-4">
+              <Label>Imagen del Producto</Label>
+              
+              {/* Selector de método de subida */}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={uploadMethod === 'pc' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setUploadMethod('pc')}
+                  className="flex items-center gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  Subir desde PC
+                </Button>
+                <Button
+                  type="button"
+                  variant={uploadMethod === 'url' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setUploadMethod('url')}
+                  className="flex items-center gap-2"
+                >
+                  <Link className="h-4 w-4" />
+                  URL de imagen
+                </Button>
+              </div>
+
+              {/* Método de subida desde PC */}
+              {uploadMethod === 'pc' && (
+                <div className="space-y-2">
+                  <div className="border-2 border-dashed border-border rounded-lg p-4">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      className="w-full"
+                      disabled={uploading}
+                    />
+                    {uploading && (
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Subiendo imagen...
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Método de subida por URL */}
+              {uploadMethod === 'url' && (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="https://ejemplo.com/imagen.jpg"
+                      value={imageUrl}
+                      onChange={(e) => setImageUrl(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleUrlSubmit}
+                      size="sm"
+                      disabled={!imageUrl}
+                    >
+                      Añadir
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Vista previa de la imagen */}
+              {formData.image_url && (
+                <div className="space-y-2">
+                  <Label>Vista previa:</Label>
+                  <div className="relative w-32 h-32 border rounded-lg overflow-hidden">
+                    <img
+                      src={formData.image_url}
+                      alt="Vista previa del producto"
+                      className="w-full h-full object-cover"
+                      onError={() => {
+                        toast({
+                          title: "Error",
+                          description: "No se pudo cargar la imagen",
+                          variant: "destructive",
+                        });
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-1 right-1 h-6 w-6 p-0"
+                      onClick={() => {
+                        setFormData({ ...formData, image_url: '' });
+                        setImageUrl('');
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -284,8 +418,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
               <Button type="button" variant="outline" onClick={onCancel}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? 'Guardando...' : (product ? 'Actualizar' : 'Crear')}
+              <Button type="submit" disabled={loading || uploading}>
+                {loading || uploading ? 'Guardando...' : (product ? 'Actualizar' : 'Crear')}
               </Button>
             </div>
           </form>
