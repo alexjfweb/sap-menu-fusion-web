@@ -36,15 +36,15 @@ const AdminDashboard = () => {
   }
 
   if (activeSection === 'products') {
-    return <ProductManagement onBack={handleBackToDashboard} />;
+    return <ProductManagement />;
   }
 
   if (activeSection === 'reservations') {
-    return <ReservationManagement onBack={handleBackToDashboard} />;
+    return <ReservationManagement />;
   }
 
   if (activeSection === 'reports') {
-    return <ReportsManagement onBack={handleBackToDashboard} />;
+    return <ReportsManagement />;
   }
 
   if (activeSection === 'users') {
@@ -52,7 +52,7 @@ const AdminDashboard = () => {
   }
 
   if (activeSection === 'settings') {
-    return <GlobalSettings onBack={handleBackToDashboard} />;
+    return <GlobalSettings />;
   }
 
   return (
