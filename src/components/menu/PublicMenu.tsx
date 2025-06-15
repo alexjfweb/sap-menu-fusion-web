@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -64,19 +63,22 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   }, []);
 
   // Get menu customization using the new public hook
-  const { data: customization, isLoading: customizationLoading, error: customizationError } = usePublicMenuCustomization();
+  const { data: customization, isLoading: customizationLoading, error: customizationError, refetch: refetchCustomization } = usePublicMenuCustomization();
   
-  // Asegurar que siempre tengamos colores, ya sea personalizados o por defecto
-  const colors = customization ? {
-    ...getDefaultCustomization(),
-    ...customization
-  } : getDefaultCustomization();
+  // Asegurar que siempre tengamos colores, combinando personalizados con defaults
+  const colors = React.useMemo(() => {
+    const defaults = getDefaultCustomization();
+    if (customization) {
+      return { ...defaults, ...customization };
+    }
+    return defaults;
+  }, [customization]);
 
   console.log('Menu customization status:', {
     customizationLoading,
     customizationError: customizationError?.message,
     hasCustomization: !!customization,
-    colors: colors
+    colorsApplied: colors
   });
 
   // Fetch business info
@@ -320,8 +322,14 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     productsError: productsError?.message,
     categoriesError: categoriesError?.message,
     sessionId,
-    customization: !!customization
+    customization: !!customization,
+    actualColors: colors
   });
+
+  // Forzar actualización de personalización cada vez que se carga el componente
+  useEffect(() => {
+    refetchCustomization();
+  }, [refetchCustomization]);
 
   if (isLoading) {
     return (

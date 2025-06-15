@@ -46,7 +46,6 @@ export const usePublicMenuCustomization = () => {
         
         if (businessError) {
           console.error('Error fetching business info for customization:', businessError);
-          // Si hay error, devolvemos null para usar colores por defecto
           return null;
         }
         
@@ -61,7 +60,6 @@ export const usePublicMenuCustomization = () => {
         
         if (customizationError) {
           if (customizationError.code === 'PGRST116') {
-            // No existe configuración personalizada, devolvemos null
             console.log('No custom configuration found, using defaults');
             return null;
           } else {
@@ -77,10 +75,11 @@ export const usePublicMenuCustomization = () => {
         return null;
       }
     },
-    staleTime: 1000, // 1 segundo de cache
-    retry: 2,
+    staleTime: 0, // No cache para obtener siempre los datos más recientes
+    gcTime: 0, // No mantener en cache
+    retry: 1,
     refetchOnMount: true,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
 };
