@@ -29,60 +29,79 @@ export const useMenuCustomization = (businessId?: string) => {
   });
 };
 
-// Hook completamente reescrito para solucionar el problema de colores
+// SOLUCIÓN DEFINITIVA: Hook completamente reescrito con estrategia robusta
 export const usePublicMenuCustomization = () => {
   return useQuery({
-    queryKey: ['public-menu-customization-fixed'],
+    queryKey: ['public-menu-customization-definitive'],
     queryFn: async () => {
-      console.log('🔍 [FIX] Starting fresh menu customization fetch...');
+      console.log('🔧 [DEFINITIVO] Iniciando obtención de personalización...');
       
       try {
-        // Paso 1: Obtener business_id
-        const { data: businessData, error: businessError } = await supabase
+        // PASO 1: Obtener business_id con manejo de errores específico
+        console.log('📍 [DEFINITIVO] Obteniendo business_id...');
+        const businessQuery = await supabase
           .from('business_info')
           .select('id')
-          .limit(1)
-          .single();
+          .limit(1);
         
-        if (businessError || !businessData?.id) {
-          console.log('⚠️ [FIX] No business found, returning null');
+        console.log('📍 [DEFINITIVO] Resultado business query:', businessQuery);
+        
+        if (businessQuery.error) {
+          console.error('❌ [DEFINITIVO] Error obteniendo business:', businessQuery.error);
+          throw new Error(`Business query failed: ${businessQuery.error.message}`);
+        }
+        
+        if (!businessQuery.data || businessQuery.data.length === 0) {
+          console.warn('⚠️ [DEFINITIVO] No se encontró información de negocio');
           return null;
         }
         
-        console.log('✅ [FIX] Business ID found:', businessData.id);
+        const businessId = businessQuery.data[0].id;
+        console.log('✅ [DEFINITIVO] Business ID obtenido:', businessId);
         
-        // Paso 2: Obtener personalización con parámetros específicos
-        const { data: customizationData, error: customizationError } = await supabase
+        // PASO 2: Obtener personalización con query específico
+        console.log('🎨 [DEFINITIVO] Obteniendo personalización para business:', businessId);
+        const customizationQuery = await supabase
           .from('menu_customization')
           .select('*')
-          .eq('business_id', businessData.id)
-          .maybeSingle();
+          .eq('business_id', businessId);
         
-        if (customizationError) {
-          console.error('❌ [FIX] Error fetching customization:', customizationError);
+        console.log('🎨 [DEFINITIVO] Resultado customization query:', customizationQuery);
+        
+        if (customizationQuery.error) {
+          console.error('❌ [DEFINITIVO] Error obteniendo personalización:', customizationQuery.error);
+          throw new Error(`Customization query failed: ${customizationQuery.error.message}`);
+        }
+        
+        if (!customizationQuery.data || customizationQuery.data.length === 0) {
+          console.warn('⚠️ [DEFINITIVO] No se encontró personalización, retornando null');
           return null;
         }
         
-        if (!customizationData) {
-          console.log('⚠️ [FIX] No customization found, returning null');
-          return null;
+        const customization = customizationQuery.data[0];
+        console.log('🎨 [DEFINITIVO] Personalización obtenida exitosamente:', customization);
+        
+        // VALIDACIÓN ADICIONAL: Verificar que los datos son válidos
+        if (!customization.menu_bg_color || !customization.button_bg_color) {
+          console.warn('⚠️ [DEFINITIVO] Personalización incompleta, usando datos parciales');
         }
         
-        console.log('🎨 [FIX] Successfully fetched customization:', customizationData);
-        return customizationData;
+        return customization;
+        
       } catch (error) {
-        console.error('💥 [FIX] Unexpected error:', error);
+        console.error('💥 [DEFINITIVO] Error inesperado:', error);
+        // En caso de error, retornar null para usar valores por defecto
         return null;
       }
     },
-    // Configuración agresiva para forzar actualización
+    // Configuración agresiva para asegurar obtención de datos
     staleTime: 0,
     gcTime: 0,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
-    refetchInterval: false,
-    retry: 1,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 };
 

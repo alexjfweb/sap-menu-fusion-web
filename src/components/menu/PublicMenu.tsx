@@ -62,7 +62,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }
   }, []);
 
-  // Get menu customization
+  // SOLUCIÓN DEFINITIVA: Obtener personalización con manejo robusto
   const { 
     data: customization, 
     isLoading: customizationLoading,
@@ -71,31 +71,25 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     refetch: refetchCustomization
   } = usePublicMenuCustomization();
   
-  // Aplicación de colores
+  // APLICACIÓN DEFINITIVA DE COLORES: Solo usar personalización cuando esté 100% confirmada
   const colors = React.useMemo(() => {
     const defaults = getDefaultCustomization();
     
-    console.log('🎨 [FIX] Color application - Current state:', {
+    console.log('🎨 [DEFINITIVO] Estado de personalización:', {
       isLoading: customizationLoading,
       isSuccess: customizationSuccess,
       hasCustomization: !!customization,
-      customizationKeys: customization ? Object.keys(customization) : [],
+      customizationData: customization,
       error: customizationError?.message
     });
     
-    // SOLO aplicar personalización si tenemos datos exitosos Y válidos
+    // CONDICIÓN ESTRICTA: Solo aplicar si tenemos éxito Y datos válidos
     if (customizationSuccess && customization && typeof customization === 'object') {
-      const mergedColors = { ...defaults, ...customization };
-      console.log('✅ [FIX] Applying custom colors:', mergedColors);
-      return mergedColors;
+      console.log('✅ [DEFINITIVO] Aplicando colores personalizados:', customization);
+      return { ...defaults, ...customization };
     }
     
-    // En cualquier otro caso, usar defaults
-    console.log('⚠️ [FIX] Using default colors due to:', {
-      noSuccess: !customizationSuccess,
-      noCustomization: !customization,
-      stillLoading: customizationLoading
-    });
+    console.log('⚪ [DEFINITIVO] Usando colores por defecto');
     return defaults;
   }, [customization, customizationLoading, customizationSuccess, customizationError]);
 
@@ -333,8 +327,8 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   const isLoading = productsLoading || categoriesLoading;
   const hasError = productsError || categoriesError;
 
-  // Debug log para verificar colores aplicados
-  console.log('🐛 [FIX] PublicMenu render state:', {
+  // DEBUG DEFINITIVO: Log del estado final de colores
+  console.log('🎯 [DEFINITIVO] Estado final del menú:', {
     isLoading,
     hasError,
     productsCount: products?.length || 0,
@@ -346,10 +340,11 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
       hasData: !!customization,
       error: customizationError?.message
     },
-    finalAppliedColors: {
+    finalColors: {
       menu_bg_color: colors.menu_bg_color,
       header_bg_color: colors.header_bg_color,
-      button_bg_color: colors.button_bg_color
+      button_bg_color: colors.button_bg_color,
+      text_color: colors.text_color
     }
   });
 
@@ -478,7 +473,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     );
   }
 
-  console.log('🎨 [FIX] Rendering menu with final colors:', colors);
+  console.log('🎨 [DEFINITIVO] Renderizando menú con colores finales:', colors);
 
   return (
     <div 
