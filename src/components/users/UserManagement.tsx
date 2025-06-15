@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,11 +12,13 @@ import {
   Shield,
   Mail,
   Calendar,
-  Filter
+  Filter,
+  CheckCircle
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 import UserForm from './UserForm';
 
 type Profile = Tables<'profiles'>;
@@ -28,12 +29,14 @@ interface UserManagementProps {
 
 const UserManagement = ({ onBack }: UserManagementProps) => {
   const { profile: currentUserProfile } = useAuth();
+  const { toast } = useToast();
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('all');
   const [showUserForm, setShowUserForm] = useState(false);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
+  const [recentlyCreatedUser, setRecentlyCreatedUser] = useState<string | null>(null);
 
   // Función para verificar si el usuario actual puede ver cuentas Super Admin
   const canViewSuperAdmins = () => {
@@ -214,6 +217,21 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
   const handleUserCreated = () => {
     console.log('User created callback triggered, refreshing user list...');
     fetchUsers();
+    
+    // Mostrar confirmación adicional de éxito
+    toast({
+      title: "🎉 ¡Perfecto!",
+      description: "El nuevo empleado aparece en tu lista de usuarios",
+    });
+    
+    // Marcar al usuario recién creado para resaltarlo visualmente
+    setTimeout(() => {
+      const latestUser = users[0]; // El usuario más reciente
+      if (latestUser) {
+        setRecentlyCreatedUser(latestUser.id);
+        setTimeout(() => setRecentlyCreatedUser(null), 3000); // Quitar resaltado después de 3 segundos
+      }
+    }, 1000);
   };
 
   const getRoleBadgeColor = (role: string) => {
@@ -395,13 +413,20 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
                 {filteredUsers.map((user) => (
                   <div
                     key={user.id}
-                    className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
+                    className={`flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors ${
+                      recentlyCreatedUser === user.id 
+                        ? 'bg-green-50 border-green-200 shadow-md' 
+                        : ''
+                    }`}
                   >
                     <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center relative">
                         <span className="text-sm font-semibold text-primary">
                           {user.full_name?.charAt(0) || user.email.charAt(0).toUpperCase()}
                         </span>
+                        {recentlyCreatedUser === user.id && (
+                          <CheckCircle className="absolute -top-1 -right-1 h-5 w-5 text-green-600 bg-white rounded-full" />
+                        )}
                       </div>
                       <div>
                         <h3 className="font-semibold">{user.full_name || 'Sin nombre'}</h3>
@@ -416,6 +441,9 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
                         {currentUserProfile?.role === 'admin' && user.role === 'empleado' && user.created_by === currentUserProfile.id && (
                           <div className="text-xs text-green-600 font-medium mt-1">
                             Creado por ti
+                            {recentlyCreatedUser === user.id && (
+                              <span className="ml-2 text-green-700 font-bold">¡NUEVO!</span>
+                            )}
                           </div>
                         )}
                       </div>

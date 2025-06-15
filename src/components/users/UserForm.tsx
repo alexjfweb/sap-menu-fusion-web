@@ -155,14 +155,13 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
         // Crear nuevo usuario
         console.log('Creating new user with data:', formData);
         
-        // Primero crear el usuario en auth
-        const { data: authData, error: authError } = await supabase.auth.signUp({
+        // Crear usuario usando el admin session
+        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
           email: formData.email,
           password: formData.password,
-          options: {
-            data: {
-              full_name: formData.full_name
-            }
+          email_confirm: true, // Auto-confirmar el email para evitar redirección
+          user_metadata: {
+            full_name: formData.full_name
           }
         });
 
@@ -202,13 +201,19 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
         }
 
         toast({
-          title: "Usuario creado",
-          description: `Usuario ${formData.full_name} creado exitosamente`,
+          title: "✅ Usuario creado exitosamente",
+          description: `El empleado ${formData.full_name} ha sido agregado a tu equipo`,
         });
 
         console.log('User created successfully');
+        
+        // Primero actualizar la lista de usuarios
         onUserCreated();
-        onClose();
+        
+        // Luego cerrar el formulario y regresar a la gestión de usuarios
+        setTimeout(() => {
+          onClose();
+        }, 500);
 
       } else {
         // Editar usuario existente
@@ -257,6 +262,7 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Header */}
       <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-4">
