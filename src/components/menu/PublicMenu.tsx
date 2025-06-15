@@ -62,7 +62,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }
   }, []);
 
-  // Fetch customization with aggressive refetching
+  // Fetch customization with better error handling
   const { 
     data: customization, 
     isLoading: customizationLoading,
@@ -70,22 +70,40 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     refetch: refetchCustomization
   } = usePublicMenuCustomization();
   
-  // Apply colors with immediate effect when customization changes
+  // Apply colors - use customization if available, otherwise defaults
   const colors = React.useMemo(() => {
     const defaults = getDefaultCustomization();
     
-    console.log('🎨 [COLORS] Current customization data:', customization);
+    console.log('🎨 [COLORS] Raw customization data:', customization);
     console.log('🎨 [COLORS] Is loading:', customizationLoading);
+    console.log('🎨 [COLORS] Error:', customizationError);
     
     if (customization) {
-      const appliedColors = { ...defaults, ...customization };
+      // Merge defaults with custom colors, ensuring all fields have values
+      const appliedColors = {
+        menu_bg_color: customization.menu_bg_color || defaults.menu_bg_color,
+        header_bg_color: customization.header_bg_color || defaults.header_bg_color,
+        text_color: customization.text_color || defaults.text_color,
+        header_text_color: customization.header_text_color || defaults.header_text_color,
+        button_bg_color: customization.button_bg_color || defaults.button_bg_color,
+        button_text_color: customization.button_text_color || defaults.button_text_color,
+        contact_button_bg_color: customization.contact_button_bg_color || defaults.contact_button_bg_color,
+        contact_button_text_color: customization.contact_button_text_color || defaults.contact_button_text_color,
+        product_card_bg_color: customization.product_card_bg_color || defaults.product_card_bg_color,
+        product_card_border_color: customization.product_card_border_color || defaults.product_card_border_color,
+        product_name_color: customization.product_name_color || defaults.product_name_color,
+        product_description_color: customization.product_description_color || defaults.product_description_color,
+        product_price_color: customization.product_price_color || defaults.product_price_color,
+        shadow_color: customization.shadow_color || defaults.shadow_color,
+        social_links_color: customization.social_links_color || defaults.social_links_color,
+      };
       console.log('✅ [COLORS] Custom colors applied:', appliedColors);
       return appliedColors;
     }
     
-    console.log('⚪ [COLORS] Using defaults (no customization found)');
+    console.log('⚪ [COLORS] Using defaults (no customization available)');
     return defaults;
-  }, [customization, customizationLoading]);
+  }, [customization, customizationLoading, customizationError]);
 
   // Add automatic refresh every 10 seconds when customization is not available
   useEffect(() => {
@@ -335,6 +353,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
 
   console.log('🎯 [RENDER] Current colors being applied:', colors);
   console.log('🎯 [RENDER] Has customization:', !!customization);
+  console.log('🎯 [RENDER] Customization loading:', customizationLoading);
 
   // Show loading
   if (isLoading) {
@@ -497,7 +516,8 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
                 >
                   Menú del Restaurante
                 </h1>
-                {!customization && (
+                {/* Solo mostrar el badge si realmente no hay customización y no está cargando */}
+                {!customization && !customizationLoading && (
                   <Badge 
                     variant="outline" 
                     className="text-xs"

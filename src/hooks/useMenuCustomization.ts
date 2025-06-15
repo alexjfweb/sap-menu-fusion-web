@@ -37,40 +37,29 @@ export const usePublicMenuCustomization = () => {
       console.log('🔧 [PUBLIC CUSTOMIZATION] Fetching menu customization...');
       
       try {
-        // Direct fetch to bypass potential RLS issues
-        const response = await fetch(
-          `https://hlbbaaewjebasisxgnrt.supabase.co/rest/v1/menu_customization?select=*&limit=1`,
-          {
-            headers: {
-              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhsYmJhYWV3amViYXNpc3hnbnJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk1MDMwODYsImV4cCI6MjA2NTA3OTA4Nn0.0PfH9-e4VHi0yWYUzMr_fhONY2-eYBMeWWX2joIVo9Y',
-              'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhsYmJhYWV3amViYXNpc3hnbnJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk1MDMwODYsImV4cCI6MjA2NTA3OTA4Nn0.0PfH9-e4VHi0yWYUzMr_fhONY2-eYBMeWWX2joIVo9Y`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
+        const { data, error } = await supabase
+          .from('menu_customization')
+          .select('*')
+          .limit(1)
+          .single();
 
-        if (!response.ok) {
-          console.warn('⚠️ [PUBLIC CUSTOMIZATION] Fetch failed:', response.status);
+        if (error) {
+          console.warn('⚠️ [PUBLIC CUSTOMIZATION] Error fetching:', error);
           return null;
         }
 
-        const data = await response.json();
-        const customization = data && data.length > 0 ? data[0] : null;
-
-        console.log('✅ [PUBLIC CUSTOMIZATION] Customization fetched:', customization);
-        return customization;
+        console.log('✅ [PUBLIC CUSTOMIZATION] Customization fetched:', data);
+        return data;
         
       } catch (error) {
         console.error('💥 [PUBLIC CUSTOMIZATION] Error:', error);
         return null;
       }
     },
-    staleTime: 0, // Always fetch fresh data
-    gcTime: 0, // Don't cache
+    staleTime: 1 * 60 * 1000, // 1 minute
     refetchOnMount: true,
     refetchOnWindowFocus: true,
-    refetchInterval: 5000, // Refetch every 5 seconds to catch changes
-    retry: 1,
+    retry: 3,
   });
 };
 
