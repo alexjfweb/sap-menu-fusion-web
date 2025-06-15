@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
+import { useAuth } from '@/hooks/useAuth';
 import UserForm from './UserForm';
 
 type Profile = Tables<'profiles'>;
@@ -26,12 +27,60 @@ interface UserManagementProps {
 }
 
 const UserManagement = ({ onBack }: UserManagementProps) => {
+  const { profile: currentUserProfile } = useAuth();
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('all');
   const [showUserForm, setShowUserForm] = useState(false);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
+
+  // Función para verificar si el usuario actual puede ver cuentas Super Admin
+  const canViewSuperAdmins = () => {
+    return currentUserProfile?.role === 'superadmin';
+  };
+
+  // Función para verificar si el usuario actual puede gestionar una cuenta específica
+  const canManageUser = (targetUser: Profile) => {
+    if (!currentUserProfile) return false;
+    
+    // Super Admin puede gestionar cualquier cuenta
+    if (currentUserProfile.role === 'superadmin') {
+      return true;
+    }
+    
+    // Admin y Empleado NO pueden gestionar cuentas Super Admin
+    if (targetUser.role === 'superadmin') {
+      return false;
+    }
+    
+    // Admin puede gestionar empleados
+    if (currentUserProfile.role === 'admin' && targetUser.role === 'empleado') {
+      return true;
+    }
+    
+    // Los usuarios pueden gestionar su propio perfil
+    return currentUserProfile.id === targetUser.id;
+  };
+
+  // Función para filtrar usuarios según el rol del usuario actual
+  const filterUsersByPermissions = (userList: Profile[]) => {
+    if (!currentUserProfile) return [];
+    
+    return userList.filter(user => {
+      // Si el usuario actual es Super Admin, puede ver todos
+      if (currentUserProfile.role === 'superadmin') {
+        return true;
+      }
+      
+      // Admin y Empleado NO pueden ver cuentas Super Admin
+      if (user.role === 'superadmin') {
+        return false;
+      }
+      
+      return true;
+    });
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -53,7 +102,10 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
       }
       
       console.log('Users fetched:', data);
-      setUsers(data || []);
+      
+      // Aplicar filtro de permisos
+      const filteredUsers = filterUsersByPermissions(data || []);
+      setUsers(filteredUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
     } finally {
@@ -62,6 +114,13 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
   };
 
   const handleDeleteUser = async (userId: string) => {
+    const targetUser = users.find(u => u.id === userId);
+    
+    if (!targetUser || !canManageUser(targetUser)) {
+      console.error('No tienes permisos para eliminar este usuario');
+      return;
+    }
+
     if (!confirm('¿Estás seguro de que quieres eliminar este usuario?')) return;
 
     try {
@@ -78,6 +137,11 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
   };
 
   const handleEditUser = (user: Profile) => {
+    if (!canManageUser(user)) {
+      console.error('No tienes permisos para editar este usuario');
+      return;
+    }
+    
     setEditingUser(user);
     setShowUserForm(true);
   };
@@ -89,7 +153,6 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
 
   const handleUserCreated = () => {
     console.log('User created callback triggered, refreshing user list...');
-    // Refresh the users list after creating a new user
     fetchUsers();
   };
 
@@ -104,12 +167,20 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
     }
   };
 
+  // Aplicar filtros de búsqueda y rol
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = selectedRole === 'all' || user.role === selectedRole;
     return matchesSearch && matchesRole && user.is_active;
   });
+
+  // Calcular estadísticas considerando los permisos del usuario
+  const getVisibleUserCount = (role?: string) => {
+    const visibleUsers = filterUsersByPermissions(users.filter(u => u.is_active));
+    if (!role) return visibleUsers.length;
+    return visibleUsers.filter(u => u.role === role).length;
+  };
 
   if (showUserForm) {
     return (
@@ -165,7 +236,9 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
               className="px-3 py-2 border border-input rounded-md bg-background"
             >
               <option value="all">Todos los roles</option>
-              <option value="superadmin">Super Administrador</option>
+              {canViewSuperAdmins() && (
+                <option value="superadmin">Super Administrador</option>
+              )}
               <option value="admin">Administrador</option>
               <option value="empleado">Empleado</option>
             </select>
@@ -176,25 +249,27 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <Card>
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-primary">{users.filter(u => u.is_active).length}</div>
-              <p className="text-sm text-muted-foreground">Usuarios Activos</p>
+              <div className="text-2xl font-bold text-primary">{getVisibleUserCount()}</div>
+              <p className="text-sm text-muted-foreground">Usuarios Visibles</p>
             </CardContent>
           </Card>
+          {canViewSuperAdmins() && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-red-600">{getVisibleUserCount('superadmin')}</div>
+                <p className="text-sm text-muted-foreground">Super Admins</p>
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-red-600">{users.filter(u => u.role === 'superadmin').length}</div>
-              <p className="text-sm text-muted-foreground">Super Admins</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-blue-600">{users.filter(u => u.role === 'admin').length}</div>
+              <div className="text-2xl font-bold text-blue-600">{getVisibleUserCount('admin')}</div>
               <p className="text-sm text-muted-foreground">Administradores</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-green-600">{users.filter(u => u.role === 'empleado').length}</div>
+              <div className="text-2xl font-bold text-green-600">{getVisibleUserCount('empleado')}</div>
               <p className="text-sm text-muted-foreground">Empleados</p>
             </CardContent>
           </Card>
@@ -205,7 +280,12 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
           <CardHeader>
             <CardTitle>Lista de Usuarios</CardTitle>
             <CardDescription>
-              Gestiona todos los usuarios del sistema y sus roles
+              Gestiona los usuarios del sistema según tus permisos
+              {!canViewSuperAdmins() && (
+                <span className="block text-sm text-muted-foreground mt-1">
+                  Nota: Las cuentas Super Admin están ocultas según tu nivel de acceso
+                </span>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -254,6 +334,7 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
                           variant="outline"
                           size="sm"
                           onClick={() => handleEditUser(user)}
+                          disabled={!canManageUser(user)}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -261,7 +342,8 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
                           variant="outline"
                           size="sm"
                           onClick={() => handleDeleteUser(user.id)}
-                          className="text-red-600 hover:text-red-700"
+                          disabled={!canManageUser(user)}
+                          className="text-red-600 hover:text-red-700 disabled:text-gray-400"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
