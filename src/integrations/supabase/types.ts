@@ -464,32 +464,44 @@ export type Database = {
       }
       profiles: {
         Row: {
+          address: string | null
           avatar_url: string | null
           created_at: string | null
           email: string
           full_name: string | null
           id: string
           is_active: boolean | null
+          password_hash: string | null
+          phone_landline: string | null
+          phone_mobile: string | null
           role: Database["public"]["Enums"]["user_role"] | null
           updated_at: string | null
         }
         Insert: {
+          address?: string | null
           avatar_url?: string | null
           created_at?: string | null
           email: string
           full_name?: string | null
           id: string
           is_active?: boolean | null
+          password_hash?: string | null
+          phone_landline?: string | null
+          phone_mobile?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
           updated_at?: string | null
         }
         Update: {
+          address?: string | null
           avatar_url?: string | null
           created_at?: string | null
           email?: string
           full_name?: string | null
           id?: string
           is_active?: boolean | null
+          password_hash?: string | null
+          phone_landline?: string | null
+          phone_mobile?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
           updated_at?: string | null
         }

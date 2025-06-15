@@ -21,6 +21,17 @@ interface UserFormData {
   full_name: string;
   role: 'superadmin' | 'admin' | 'empleado';
   is_active: boolean;
+  password: string;
+  phone_landline: string;
+  phone_mobile: string;
+  address: string;
+}
+
+interface ValidationErrors {
+  email?: string;
+  password?: string;
+  phone_landline?: string;
+  phone_mobile?: string;
 }
 
 const UserForm = ({ user, onClose, onBack }: UserFormProps) => {
@@ -29,9 +40,14 @@ const UserForm = ({ user, onClose, onBack }: UserFormProps) => {
     full_name: '',
     role: 'empleado',
     is_active: true,
+    password: '',
+    phone_landline: '',
+    phone_mobile: '',
+    address: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
 
   const isEditing = !!user;
 
@@ -42,9 +58,41 @@ const UserForm = ({ user, onClose, onBack }: UserFormProps) => {
         full_name: user.full_name || '',
         role: user.role as 'superadmin' | 'admin' | 'empleado',
         is_active: user.is_active || true,
+        password: '', // Never pre-fill password
+        phone_landline: user.phone_landline || '',
+        phone_mobile: user.phone_mobile || '',
+        address: user.address || '',
       });
     }
   }, [user]);
+
+  const validateForm = (): boolean => {
+    const errors: ValidationErrors = {};
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      errors.email = 'Por favor ingresa un email válido';
+    }
+
+    // Password validation (only for new users)
+    if (!isEditing && formData.password.length < 6) {
+      errors.password = 'La contraseña debe tener al menos 6 caracteres';
+    }
+
+    // Phone landline validation (optional but must be valid if provided)
+    if (formData.phone_landline && !/^\d{7,10}$/.test(formData.phone_landline.replace(/\s/g, ''))) {
+      errors.phone_landline = 'El teléfono fijo debe tener entre 7 y 10 dígitos';
+    }
+
+    // Phone mobile validation (optional but must be valid if provided)
+    if (formData.phone_mobile && !/^\d{10}$/.test(formData.phone_mobile.replace(/\s/g, ''))) {
+      errors.phone_mobile = 'El teléfono móvil debe tener 10 dígitos';
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -52,32 +100,75 @@ const UserForm = ({ user, onClose, onBack }: UserFormProps) => {
       ...prev,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
     }));
+
+    // Clear validation error when user starts typing
+    if (validationErrors[name as keyof ValidationErrors]) {
+      setValidationErrors(prev => ({
+        ...prev,
+        [name]: undefined
+      }));
+    }
   };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
       if (isEditing) {
         // Update existing user
+        const updateData: any = {
+          full_name: formData.full_name || null,
+          role: formData.role,
+          is_active: formData.is_active,
+          phone_landline: formData.phone_landline || null,
+          phone_mobile: formData.phone_mobile || null,
+          address: formData.address || null,
+          updated_at: new Date().toISOString(),
+        };
+
         const { error } = await supabase
           .from('profiles')
-          .update({
-            full_name: formData.full_name || null,
-            role: formData.role,
-            is_active: formData.is_active,
-            updated_at: new Date().toISOString(),
-          })
+          .update(updateData)
           .eq('id', user.id);
 
         if (error) throw error;
       } else {
-        // Create new user (this would typically be done through auth.signUp)
-        // For now, we'll show a message that this needs to be implemented
-        setError('La creación de nuevos usuarios debe implementarse a través del sistema de autenticación');
-        return;
+        // Create new user through Supabase Auth
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: {
+              full_name: formData.full_name,
+            }
+          }
+        });
+
+        if (authError) throw authError;
+
+        if (authData.user) {
+          // Update the profile with additional data
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({
+              full_name: formData.full_name || null,
+              role: formData.role,
+              is_active: formData.is_active,
+              phone_landline: formData.phone_landline || null,
+              phone_mobile: formData.phone_mobile || null,
+              address: formData.address || null,
+            })
+            .eq('id', authData.user.id);
+
+          if (profileError) throw profileError;
+        }
       }
 
       onClose();
@@ -132,6 +223,7 @@ const UserForm = ({ user, onClose, onBack }: UserFormProps) => {
               )}
 
               <form onSubmit={onSubmit} className="space-y-6">
+                {/* Email */}
                 <div className="space-y-2">
                   <Label htmlFor="email">Email *</Label>
                   <Input
@@ -140,11 +232,36 @@ const UserForm = ({ user, onClose, onBack }: UserFormProps) => {
                     type="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    disabled={isEditing} // Email no se puede cambiar en edición
+                    disabled={isEditing}
                     required
+                    className={validationErrors.email ? 'border-red-500' : ''}
                   />
+                  {validationErrors.email && (
+                    <p className="text-red-500 text-sm">{validationErrors.email}</p>
+                  )}
                 </div>
 
+                {/* Password - Only for new users */}
+                {!isEditing && (
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Contraseña *</Label>
+                    <Input
+                      id="password"
+                      name="password"
+                      type="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      required
+                      placeholder="Mínimo 6 caracteres"
+                      className={validationErrors.password ? 'border-red-500' : ''}
+                    />
+                    {validationErrors.password && (
+                      <p className="text-red-500 text-sm">{validationErrors.password}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Full Name */}
                 <div className="space-y-2">
                   <Label htmlFor="full_name">Nombre Completo</Label>
                   <Input
@@ -156,6 +273,7 @@ const UserForm = ({ user, onClose, onBack }: UserFormProps) => {
                   />
                 </div>
 
+                {/* Role */}
                 <div className="space-y-2">
                   <Label htmlFor="role">Rol *</Label>
                   <select
@@ -172,6 +290,58 @@ const UserForm = ({ user, onClose, onBack }: UserFormProps) => {
                   </select>
                 </div>
 
+                {/* Contact Information */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Información de Contacto</h3>
+                  
+                  {/* Phone Landline */}
+                  <div className="space-y-2">
+                    <Label htmlFor="phone_landline">Teléfono Fijo</Label>
+                    <Input
+                      id="phone_landline"
+                      name="phone_landline"
+                      type="tel"
+                      value={formData.phone_landline}
+                      onChange={handleInputChange}
+                      placeholder="ej: 6012345678"
+                      className={validationErrors.phone_landline ? 'border-red-500' : ''}
+                    />
+                    {validationErrors.phone_landline && (
+                      <p className="text-red-500 text-sm">{validationErrors.phone_landline}</p>
+                    )}
+                  </div>
+
+                  {/* Phone Mobile */}
+                  <div className="space-y-2">
+                    <Label htmlFor="phone_mobile">Teléfono Móvil</Label>
+                    <Input
+                      id="phone_mobile"
+                      name="phone_mobile"
+                      type="tel"
+                      value={formData.phone_mobile}
+                      onChange={handleInputChange}
+                      placeholder="ej: 3001234567"
+                      className={validationErrors.phone_mobile ? 'border-red-500' : ''}
+                    />
+                    {validationErrors.phone_mobile && (
+                      <p className="text-red-500 text-sm">{validationErrors.phone_mobile}</p>
+                    )}
+                  </div>
+
+                  {/* Address */}
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Dirección</Label>
+                    <Input
+                      id="address"
+                      name="address"
+                      value={formData.address}
+                      onChange={handleInputChange}
+                      placeholder="Ingresa la dirección completa"
+                    />
+                  </div>
+                </div>
+
+                {/* Active Status */}
                 <div className="flex items-center space-x-2">
                   <input
                     id="is_active"
@@ -184,6 +354,7 @@ const UserForm = ({ user, onClose, onBack }: UserFormProps) => {
                   <Label htmlFor="is_active">Usuario activo</Label>
                 </div>
 
+                {/* Form Actions */}
                 <div className="flex space-x-4 pt-6">
                   <Button
                     type="button"
