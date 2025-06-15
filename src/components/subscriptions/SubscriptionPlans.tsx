@@ -271,7 +271,7 @@ const SubscriptionPlans = () => {
                   {Array.isArray(plan.features) && plan.features.map((feature, index) => (
                     <li key={index} className="flex items-center text-muted-foreground">
                       <span className="w-1 h-1 bg-primary rounded-full mr-2"></span>
-                      {feature}
+                      {String(feature)}
                     </li>
                   ))}
                 </ul>

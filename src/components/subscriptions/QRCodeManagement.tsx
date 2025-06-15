@@ -20,8 +20,12 @@ import { Tables } from '@/integrations/supabase/types';
 type QRCode = Tables<'qr_codes'>;
 type SubscriptionPlan = Tables<'subscription_plans'>;
 
+interface QRCodeWithPlan extends QRCode {
+  subscription_plans?: SubscriptionPlan;
+}
+
 const QRCodeManagement = () => {
-  const [previewCode, setPreviewCode] = useState<QRCode | null>(null);
+  const [previewCode, setPreviewCode] = useState<QRCodeWithPlan | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -37,7 +41,7 @@ const QRCodeManagement = () => {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data;
+      return data as QRCodeWithPlan[];
     },
   });
 
@@ -217,18 +221,18 @@ const QRCodeManagement = () => {
 
       {/* Lista de códigos QR existentes */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {qrCodes?.map((qrCode: any) => (
+        {qrCodes?.map((qrCode) => (
           <Card key={qrCode.id} className={`relative ${isExpired(qrCode.expires_at) ? 'border-destructive' : ''}`}>
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div className="flex items-center space-x-2">
-                  {getProviderIcon(qrCode.payment_provider)}
+                  {getProviderIcon(qrCode.payment_provider || '')}
                   <div>
                     <CardTitle className="text-lg">
                       {qrCode.subscription_plans?.name}
                     </CardTitle>
                     <CardDescription>
-                      {getProviderLabel(qrCode.payment_provider)}
+                      {getProviderLabel(qrCode.payment_provider || '')}
                     </CardDescription>
                   </div>
                 </div>
@@ -354,7 +358,7 @@ const QRCodeManagement = () => {
               <div className="space-y-2">
                 <p className="font-medium">{previewCode.subscription_plans?.name}</p>
                 <p className="text-sm text-muted-foreground">
-                  {getProviderLabel(previewCode.payment_provider)}
+                  {getProviderLabel(previewCode.payment_provider || '')}
                 </p>
               </div>
               <Button onClick={() => setPreviewCode(null)}>
