@@ -424,6 +424,218 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_reminder_audit_log: {
+        Row: {
+          action: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          ip_address: unknown | null
+          performed_by: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: unknown | null
+          performed_by?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: unknown | null
+          performed_by?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      payment_reminder_configs: {
+        Row: {
+          created_at: string | null
+          days_before: number
+          delivery_method: string
+          id: string
+          is_active: boolean | null
+          max_retries: number | null
+          name: string
+          reminder_type: string
+          retry_interval_hours: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          days_before: number
+          delivery_method: string
+          id?: string
+          is_active?: boolean | null
+          max_retries?: number | null
+          name: string
+          reminder_type: string
+          retry_interval_hours?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          days_before?: number
+          delivery_method?: string
+          id?: string
+          is_active?: boolean | null
+          max_retries?: number | null
+          name?: string
+          reminder_type?: string
+          retry_interval_hours?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      payment_reminder_history: {
+        Row: {
+          config_id: string | null
+          created_at: string | null
+          delivery_method: string
+          error_message: string | null
+          id: string
+          message_content: string
+          next_retry_at: string | null
+          retry_count: number | null
+          sent_at: string | null
+          status: string | null
+          subscription_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          config_id?: string | null
+          created_at?: string | null
+          delivery_method: string
+          error_message?: string | null
+          id?: string
+          message_content: string
+          next_retry_at?: string | null
+          retry_count?: number | null
+          sent_at?: string | null
+          status?: string | null
+          subscription_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          config_id?: string | null
+          created_at?: string | null
+          delivery_method?: string
+          error_message?: string | null
+          id?: string
+          message_content?: string
+          next_retry_at?: string | null
+          retry_count?: number | null
+          sent_at?: string | null
+          status?: string | null
+          subscription_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_reminder_history_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "payment_reminder_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_reminder_history_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "user_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_reminder_settings: {
+        Row: {
+          audit_log_enabled: boolean | null
+          created_at: string | null
+          email_provider_config: Json | null
+          id: string
+          max_messages_per_day: number | null
+          sms_provider_config: Json | null
+          spam_protection_enabled: boolean | null
+          updated_at: string | null
+          updated_by: string | null
+          whatsapp_provider_config: Json | null
+        }
+        Insert: {
+          audit_log_enabled?: boolean | null
+          created_at?: string | null
+          email_provider_config?: Json | null
+          id?: string
+          max_messages_per_day?: number | null
+          sms_provider_config?: Json | null
+          spam_protection_enabled?: boolean | null
+          updated_at?: string | null
+          updated_by?: string | null
+          whatsapp_provider_config?: Json | null
+        }
+        Update: {
+          audit_log_enabled?: boolean | null
+          created_at?: string | null
+          email_provider_config?: Json | null
+          id?: string
+          max_messages_per_day?: number | null
+          sms_provider_config?: Json | null
+          spam_protection_enabled?: boolean | null
+          updated_at?: string | null
+          updated_by?: string | null
+          whatsapp_provider_config?: Json | null
+        }
+        Relationships: []
+      }
+      payment_reminder_templates: {
+        Row: {
+          config_id: string | null
+          created_at: string | null
+          delivery_method: string
+          id: string
+          message_body: string
+          subject: string | null
+          tone: string | null
+          updated_at: string | null
+          variables: Json | null
+        }
+        Insert: {
+          config_id?: string | null
+          created_at?: string | null
+          delivery_method: string
+          id?: string
+          message_body: string
+          subject?: string | null
+          tone?: string | null
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Update: {
+          config_id?: string | null
+          created_at?: string | null
+          delivery_method?: string
+          id?: string
+          message_body?: string
+          subject?: string | null
+          tone?: string | null
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_reminder_templates_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "payment_reminder_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_reservations: {
         Row: {
           created_at: string

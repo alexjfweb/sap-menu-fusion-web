@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,7 +16,8 @@ import {
   Clock,
   Building,
   CreditCard,
-  Database
+  Database,
+  Bell
 } from 'lucide-react';
 import OrderManagement from '../orders/OrderManagement';
 import ProductManagement from '../products/ProductManagement';
@@ -32,6 +32,7 @@ import DatabaseManagement from '../database/DatabaseManagement';
 import MaintenanceTools from '../maintenance/MaintenanceTools';
 import SubscriptionManagement from '../subscriptions/SubscriptionManagement';
 import DatabaseTestPanel from '../DatabaseTestPanel';
+import PaymentReminderManagement from '../payment-reminders/PaymentReminderManagement';
 
 const SuperAdminDashboard = () => {
   const { profile, signOut } = useAuth();
@@ -88,6 +89,10 @@ const SuperAdminDashboard = () => {
 
   if (activeSection === 'subscriptions') {
     return <SubscriptionManagement onBack={handleBackToDashboard} />;
+  }
+
+  if (activeSection === 'payment-reminders') {
+    return <PaymentReminderManagement onBack={handleBackToDashboard} />;
   }
 
   return (
@@ -271,6 +276,27 @@ const SuperAdminDashboard = () => {
                 onClick={() => setActiveSection('users')}
               >
                 Gestionar Usuarios
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Recordatorios de Pago */}
+          <Card className="hover:shadow-lg transition-shadow duration-300">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Bell className="h-5 w-5 text-primary" />
+                <span>Recordatorios de Pago</span>
+              </CardTitle>
+              <CardDescription>
+                Gestiona recordatorios automáticos de vencimientos
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('payment-reminders')}
+              >
+                Gestionar Recordatorios
               </Button>
             </CardContent>
           </Card>
