@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -66,41 +65,39 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   // Get menu customization
   const { 
     data: customization, 
-    isLoading: customizationLoading, 
-    error: customizationError, 
-    refetch: refetchCustomization,
+    isLoading: customizationLoading,
     isSuccess: customizationSuccess,
-    isFetched: customizationFetched
+    error: customizationError,
+    refetch: refetchCustomization
   } = usePublicMenuCustomization();
   
-  // Aplicar colores con lógica mejorada
+  // Aplicación de colores
   const colors = React.useMemo(() => {
     const defaults = getDefaultCustomization();
     
-    console.log('🎨 Color application logic:', {
-      customizationLoading,
-      customizationFetched, 
-      customizationSuccess,
+    console.log('🎨 [FIX] Color application - Current state:', {
+      isLoading: customizationLoading,
+      isSuccess: customizationSuccess,
       hasCustomization: !!customization,
-      customizationData: customization
+      customizationKeys: customization ? Object.keys(customization) : [],
+      error: customizationError?.message
     });
     
-    // Solo aplicar customización si tenemos datos válidos
-    if (customizationFetched && customization) {
-      console.log('✅ Applying custom colors:', customization);
-      return { ...defaults, ...customization };
+    // SOLO aplicar personalización si tenemos datos exitosos Y válidos
+    if (customizationSuccess && customization && typeof customization === 'object') {
+      const mergedColors = { ...defaults, ...customization };
+      console.log('✅ [FIX] Applying custom colors:', mergedColors);
+      return mergedColors;
     }
     
-    // Si ya terminó de buscar y no hay customización, usar defaults
-    if (customizationFetched && !customization) {
-      console.log('⚠️ No customization found, using defaults');
-      return defaults;
-    }
-    
-    // Mientras está cargando, usar defaults temporalmente
-    console.log('⏳ Still loading, using temporary defaults');
+    // En cualquier otro caso, usar defaults
+    console.log('⚠️ [FIX] Using default colors due to:', {
+      noSuccess: !customizationSuccess,
+      noCustomization: !customization,
+      stillLoading: customizationLoading
+    });
     return defaults;
-  }, [customization, customizationLoading, customizationFetched, customizationSuccess]);
+  }, [customization, customizationLoading, customizationSuccess, customizationError]);
 
   // Fetch business info
   const { 
@@ -336,8 +333,8 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   const isLoading = productsLoading || categoriesLoading;
   const hasError = productsError || categoriesError;
 
-  // Debugging log para ver el estado actual
-  console.log('🐛 PublicMenu render state:', {
+  // Debug log para verificar colores aplicados
+  console.log('🐛 [FIX] PublicMenu render state:', {
     isLoading,
     hasError,
     productsCount: products?.length || 0,
@@ -345,12 +342,15 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     sessionId,
     customizationState: {
       loading: customizationLoading,
-      fetched: customizationFetched,
       success: customizationSuccess,
       hasData: !!customization,
       error: customizationError?.message
     },
-    appliedColors: colors
+    finalAppliedColors: {
+      menu_bg_color: colors.menu_bg_color,
+      header_bg_color: colors.header_bg_color,
+      button_bg_color: colors.button_bg_color
+    }
   });
 
   // Mostrar loading solo si los datos principales están cargando
@@ -478,7 +478,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     );
   }
 
-  console.log('🎨 Rendering menu with custom colors:', colors);
+  console.log('🎨 [FIX] Rendering menu with final colors:', colors);
 
   return (
     <div 

@@ -29,63 +29,60 @@ export const useMenuCustomization = (businessId?: string) => {
   });
 };
 
-// Hook mejorado para el menú público con mejor manejo de errores y datos
+// Hook completamente reescrito para solucionar el problema de colores
 export const usePublicMenuCustomization = () => {
   return useQuery({
-    queryKey: ['public-menu-customization'],
+    queryKey: ['public-menu-customization-fixed'],
     queryFn: async () => {
-      console.log('🔍 Fetching public menu customization...');
+      console.log('🔍 [FIX] Starting fresh menu customization fetch...');
       
       try {
-        // Primero obtener el business_id
+        // Paso 1: Obtener business_id
         const { data: businessData, error: businessError } = await supabase
           .from('business_info')
           .select('id')
           .limit(1)
           .single();
         
-        if (businessError) {
-          console.error('❌ Error fetching business info:', businessError);
-          throw businessError;
-        }
-        
-        if (!businessData?.id) {
-          console.log('⚠️ No business found');
+        if (businessError || !businessData?.id) {
+          console.log('⚠️ [FIX] No business found, returning null');
           return null;
         }
         
-        console.log('✅ Business ID found:', businessData.id);
+        console.log('✅ [FIX] Business ID found:', businessData.id);
         
-        // Obtener la personalización
+        // Paso 2: Obtener personalización con parámetros específicos
         const { data: customizationData, error: customizationError } = await supabase
           .from('menu_customization')
           .select('*')
           .eq('business_id', businessData.id)
-          .single();
+          .maybeSingle();
         
         if (customizationError) {
-          if (customizationError.code === 'PGRST116') {
-            console.log('⚠️ No customization found for business');
-            return null;
-          }
-          console.error('❌ Error fetching menu customization:', customizationError);
-          throw customizationError;
+          console.error('❌ [FIX] Error fetching customization:', customizationError);
+          return null;
         }
         
-        console.log('🎨 Successfully fetched menu customization:', customizationData);
+        if (!customizationData) {
+          console.log('⚠️ [FIX] No customization found, returning null');
+          return null;
+        }
+        
+        console.log('🎨 [FIX] Successfully fetched customization:', customizationData);
         return customizationData;
       } catch (error) {
-        console.error('💥 Unexpected error in menu customization fetch:', error);
-        throw error;
+        console.error('💥 [FIX] Unexpected error:', error);
+        return null;
       }
     },
+    // Configuración agresiva para forzar actualización
     staleTime: 0,
     gcTime: 0,
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     refetchOnMount: true,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
+    refetchInterval: false,
+    retry: 1,
   });
 };
 
