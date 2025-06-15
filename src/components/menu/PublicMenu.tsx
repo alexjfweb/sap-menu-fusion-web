@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +12,7 @@ import ExpandableDescription from './ExpandableDescription';
 import ShoppingCartModal from './ShoppingCartModal';
 import ShareModal from './ShareModal';
 import ReservationModal from './ReservationModal';
+import BusinessInfoDisplay from './BusinessInfoDisplay';
 import { Tables } from '@/integrations/supabase/types';
 
 type Product = Tables<'products'>;
@@ -62,6 +62,40 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
       setSessionId(fallbackId);
     }
   }, []);
+
+  // Fetch business info
+  const { 
+    data: businessInfo, 
+    isLoading: businessInfoLoading, 
+    error: businessInfoError 
+  } = useQuery({
+    queryKey: ['public-business-info'],
+    queryFn: async () => {
+      console.log('Fetching business info from Supabase...');
+      
+      try {
+        const { data, error } = await supabase
+          .from('business_info')
+          .select('*')
+          .single();
+        
+        console.log('Business info query result:', { data, error });
+        
+        if (error) {
+          console.error('Error fetching business info:', error);
+          throw new Error(`Failed to fetch business info: ${error.message}`);
+        }
+        
+        console.log('Successfully fetched business info');
+        return data;
+      } catch (error) {
+        console.error('Business info fetch error:', error);
+        throw error;
+      }
+    },
+    retry: 2,
+    staleTime: 10 * 60 * 1000,
+  });
 
   const { 
     data: products, 
@@ -425,6 +459,11 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="space-y-6">
+          {/* Business Info Display */}
+          {businessInfo && !businessInfoLoading && (
+            <BusinessInfoDisplay businessInfo={businessInfo} />
+          )}
+
           {/* Menu Explorer */}
           <MenuExplorer
             categories={categories || []}
