@@ -5,7 +5,7 @@ import EmpleadoDashboard from './dashboards/EmpleadoDashboard';
 import AdminDashboard from './dashboards/AdminDashboard';
 import SuperAdminDashboard from './dashboards/SuperAdminDashboard';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, User } from 'lucide-react';
+import { RefreshCw, User, AlertCircle } from 'lucide-react';
 
 const Dashboard = () => {
   const { profile, loading, user, signOut } = useAuth();
@@ -26,10 +26,10 @@ const Dashboard = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
-          <User className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Error cargando perfil</h2>
+          <AlertCircle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Creando perfil de usuario</h2>
           <p className="text-muted-foreground mb-6">
-            No se pudo cargar la información de tu perfil. Esto puede ser un problema temporal.
+            Tu sesión está activa pero necesitamos crear tu perfil. Esto puede tomar unos momentos.
           </p>
           <div className="space-y-3">
             <Button 
@@ -37,7 +37,7 @@ const Dashboard = () => {
               className="w-full"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
-              Intentar de nuevo
+              Reintentar
             </Button>
             <Button 
               variant="outline" 
@@ -51,6 +51,9 @@ const Dashboard = () => {
             <p className="font-semibold mb-1">Información de depuración:</p>
             <p>Usuario: {user.email}</p>
             <p>ID: {user.id}</p>
+            <p className="text-yellow-600 mt-2">
+              Si este problema persiste, contacta al administrador del sistema.
+            </p>
           </div>
         </div>
       </div>

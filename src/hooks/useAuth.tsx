@@ -19,7 +19,7 @@ export const useAuth = () => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id);
+        fetchOrCreateProfile(session.user);
       } else {
         setLoading(false);
       }
@@ -33,7 +33,7 @@ export const useAuth = () => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id);
+        fetchOrCreateProfile(session.user);
       } else {
         setProfile(null);
         setLoading(false);
@@ -43,24 +43,26 @@ export const useAuth = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchOrCreateProfile = async (user: User) => {
     try {
-      console.log('Fetching profile for user:', userId);
+      console.log('Fetching profile for user:', user.id);
       
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('id', user.id)
         .single();
 
       if (error) {
         console.error('Error fetching profile:', error);
-        // If profile doesn't exist, this might be a new user
+        
+        // If profile doesn't exist (PGRST116), create it automatically
         if (error.code === 'PGRST116') {
-          console.log('Profile not found, user might need profile creation');
-          setProfile(null);
+          console.log('Profile not found, creating new profile for user:', user.email);
+          await createProfile(user);
         } else {
           console.error('Database error:', error.message);
+          setProfile(null);
         }
       } else {
         console.log('Profile fetched successfully:', data);
@@ -68,8 +70,46 @@ export const useAuth = () => {
       }
     } catch (error) {
       console.error('Unexpected error fetching profile:', error);
+      setProfile(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const createProfile = async (user: User) => {
+    try {
+      console.log('Creating profile for user:', user.email);
+      
+      // Extract name from user metadata or use email
+      const fullName = user.user_metadata?.full_name || 
+                      user.user_metadata?.name || 
+                      user.email?.split('@')[0] || 
+                      'Usuario';
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert([
+          {
+            id: user.id,
+            email: user.email!,
+            full_name: fullName,
+            role: 'empleado', // Default role
+            is_active: true
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating profile:', error);
+        setProfile(null);
+      } else {
+        console.log('Profile created successfully:', data);
+        setProfile(data);
+      }
+    } catch (error) {
+      console.error('Unexpected error creating profile:', error);
+      setProfile(null);
     }
   };
 
