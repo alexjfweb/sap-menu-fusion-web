@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { ChefHat, ClipboardList, Calendar, LogOut } from 'lucide-react';
 import OrderManagement from '@/components/orders/OrderManagement';
 import ReservationManagement from '@/components/reservations/ReservationManagement';
+import PublicMenu from '@/components/menu/PublicMenu';
 
 const EmpleadoDashboard = () => {
   const { profile, signOut } = useAuth();
@@ -19,6 +20,10 @@ const EmpleadoDashboard = () => {
     setCurrentView('reservations');
   };
 
+  const handleViewMenu = () => {
+    setCurrentView('menu');
+  };
+
   const handleBackToDashboard = () => {
     setCurrentView('dashboard');
   };
@@ -29,6 +34,31 @@ const EmpleadoDashboard = () => {
 
   if (currentView === 'reservations') {
     return <ReservationManagement onBack={handleBackToDashboard} />;
+  }
+
+  if (currentView === 'menu') {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div className="flex items-center space-x-2">
+              <ChefHat className="h-8 w-8 text-primary" />
+              <h1 className="text-2xl font-bold">SAP Menu - Menú del Día</h1>
+            </div>
+            <div className="flex items-center space-x-4">
+              <Button variant="outline" size="sm" onClick={handleBackToDashboard}>
+                Volver al Panel
+              </Button>
+              <Button variant="outline" size="sm" onClick={signOut}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Cerrar Sesión
+              </Button>
+            </div>
+          </div>
+        </header>
+        <PublicMenu />
+      </div>
+    );
   }
 
   return (
@@ -110,7 +140,7 @@ const EmpleadoDashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full">
+              <Button className="w-full" onClick={handleViewMenu}>
                 Ver Menú
               </Button>
             </CardContent>
