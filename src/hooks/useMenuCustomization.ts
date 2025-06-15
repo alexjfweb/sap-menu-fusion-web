@@ -78,7 +78,7 @@ export const usePublicMenuCustomization = () => {
       }
     },
     staleTime: 0, // No cache - siempre fetch fresh data
-    cacheTime: 0, // No mantener en cache
+    gcTime: 0, // No mantener en cache (reemplaza cacheTime en v5)
     retry: 1,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
