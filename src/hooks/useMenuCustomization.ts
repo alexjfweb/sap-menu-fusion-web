@@ -37,16 +37,20 @@ export const usePublicMenuCustomization = () => {
       console.log('Fetching public menu customization...');
       
       try {
-        // Primero obtenemos la información del negocio
+        // Primero obtenemos la información del negocio disponible públicamente
         const { data: businessData, error: businessError } = await supabase
           .from('business_info')
           .select('id')
+          .limit(1)
           .single();
         
         if (businessError) {
           console.error('Error fetching business info for customization:', businessError);
+          // Si hay error, devolvemos null para usar colores por defecto
           return null;
         }
+        
+        console.log('Business ID found:', businessData.id);
         
         // Luego obtenemos la personalización de ese negocio
         const { data: customizationData, error: customizationError } = await supabase
@@ -55,9 +59,15 @@ export const usePublicMenuCustomization = () => {
           .eq('business_id', businessData.id)
           .single();
         
-        if (customizationError && customizationError.code !== 'PGRST116') {
-          console.error('Error fetching menu customization:', customizationError);
-          return null;
+        if (customizationError) {
+          if (customizationError.code === 'PGRST116') {
+            // No existe configuración personalizada, devolvemos null
+            console.log('No custom configuration found, using defaults');
+            return null;
+          } else {
+            console.error('Error fetching menu customization:', customizationError);
+            return null;
+          }
         }
         
         console.log('Successfully fetched menu customization:', customizationData);
@@ -67,8 +77,10 @@ export const usePublicMenuCustomization = () => {
         return null;
       }
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    retry: 2,
+    staleTime: 1 * 60 * 1000, // 1 minuto para que se actualice más rápido
+    retry: 1,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 };
 

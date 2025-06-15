@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -97,10 +98,19 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   });
 
   // Get menu customization using the new public hook
-  const { data: customization } = usePublicMenuCustomization();
-  const colors = customization || getDefaultCustomization();
+  const { data: customization, isLoading: customizationLoading } = usePublicMenuCustomization();
+  
+  // Asegurar que siempre tengamos colores, ya sea personalizados o por defecto
+  const colors = customization ? {
+    ...getDefaultCustomization(),
+    ...customization
+  } : getDefaultCustomization();
 
-  console.log('Using customization colors:', colors);
+  console.log('Menu customization status:', {
+    customizationLoading,
+    hasCustomization: !!customization,
+    colors: colors
+  });
 
   // Fetch products
   const { 
@@ -312,7 +322,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     refetchCategories();
   };
 
-  const isLoading = productsLoading || categoriesLoading;
+  const isLoading = productsLoading || categoriesLoading || customizationLoading;
   const hasError = productsError || categoriesError;
 
   console.log('PublicMenu state:', {
