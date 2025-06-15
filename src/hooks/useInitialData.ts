@@ -34,14 +34,14 @@ export const useInitialData = () => {
           return;
         }
 
-        // Insertar productos de ejemplo
+        // Insertar productos de ejemplo con tipos correctos
         const productsToInsert = [
           {
             name: 'Ensalada César',
             description: 'Ensalada fresca con lechuga, crutones, parmesano y aderezo césar',
             price: 15.50,
             category_id: categories.find(c => c.name === 'Entradas')?.id,
-            product_type: 'entrada',
+            product_type: 'entrada' as const,
             preparation_time: 10,
             is_vegetarian: true,
             is_available: true
@@ -51,7 +51,7 @@ export const useInitialData = () => {
             description: 'Pasta con salsa carbonara, panceta, huevo y parmesano',
             price: 22.90,
             category_id: categories.find(c => c.name === 'Platos Principales')?.id,
-            product_type: 'plato',
+            product_type: 'plato' as const,
             preparation_time: 20,
             is_vegetarian: false,
             is_available: true
@@ -61,7 +61,7 @@ export const useInitialData = () => {
             description: 'Agua mineral natural 500ml',
             price: 4.50,
             category_id: categories.find(c => c.name === 'Bebidas')?.id,
-            product_type: 'bebida',
+            product_type: 'bebida' as const,
             preparation_time: 2,
             is_vegetarian: true,
             is_available: true
@@ -71,7 +71,7 @@ export const useInitialData = () => {
             description: 'Pizza clásica con tomate, mozzarella y albahaca fresca',
             price: 18.00,
             category_id: categories.find(c => c.name === 'Platos Principales')?.id,
-            product_type: 'plato',
+            product_type: 'plato' as const,
             preparation_time: 25,
             is_vegetarian: true,
             is_available: true
@@ -81,7 +81,7 @@ export const useInitialData = () => {
             description: 'Coca Cola 350ml',
             price: 5.00,
             category_id: categories.find(c => c.name === 'Bebidas')?.id,
-            product_type: 'bebida',
+            product_type: 'bebida' as const,
             preparation_time: 1,
             is_vegetarian: true,
             is_available: true
