@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -195,13 +194,6 @@ const AuthForm = () => {
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
                 </Button>
-                
-                {/* Cuentas de prueba */}
-                <div className="mt-4 p-3 bg-muted rounded-md text-sm">
-                  <p className="font-semibold mb-1">Cuenta de prueba (Admin):</p>
-                  <p>Email: karen@gmail.com</p>
-                  <p>Contraseña: 123456</p>
-                </div>
               </form>
             </TabsContent>
             
