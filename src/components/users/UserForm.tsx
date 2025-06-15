@@ -152,21 +152,24 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
 
     try {
       if (isCreating) {
-        // Crear nuevo usuario
-        console.log('Creating new user with data:', formData);
+        console.log('Creating new user with standard signup method');
         
-        // Crear usuario usando el admin session
-        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        // Crear usuario usando el método estándar de signup
+        const { data: authData, error: authError } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
-          email_confirm: true, // Auto-confirmar el email para evitar redirección
-          user_metadata: {
-            full_name: formData.full_name
+          options: {
+            data: {
+              full_name: formData.full_name
+            }
           }
         });
 
         if (authError) {
           console.error('Auth error:', authError);
+          if (authError.message.includes('User already registered')) {
+            throw new Error('Ya existe un usuario con este email');
+          }
           throw authError;
         }
 
@@ -174,9 +177,9 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
           throw new Error('No se pudo crear el usuario');
         }
 
-        console.log('Auth user created:', authData.user.id);
+        console.log('User created with ID:', authData.user.id);
 
-        // Crear o actualizar el perfil con la relación de creador
+        // Actualizar el perfil con los datos adicionales y la relación de creador
         const profileData = {
           id: authData.user.id,
           email: formData.email,
@@ -186,10 +189,11 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
           address: formData.address || null,
           role: formData.role,
           created_by: currentUserProfile.id, // Asignar el creador
-          is_active: true
+          is_active: true,
+          password_hash: null // Este campo no se usa para nuevos usuarios
         };
 
-        console.log('Creating profile with data:', profileData);
+        console.log('Updating profile with data:', profileData);
 
         const { error: profileError } = await supabase
           .from('profiles')
@@ -207,10 +211,10 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
 
         console.log('User created successfully');
         
-        // Primero actualizar la lista de usuarios
+        // Actualizar la lista de usuarios
         onUserCreated();
         
-        // Luego cerrar el formulario y regresar a la gestión de usuarios
+        // Cerrar el formulario
         setTimeout(() => {
           onClose();
         }, 500);
