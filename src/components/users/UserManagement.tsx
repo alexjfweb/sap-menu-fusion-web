@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -65,27 +64,52 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
 
   // Función para filtrar usuarios según el rol del usuario actual
   const filterUsersByPermissions = (userList: Profile[]) => {
-    if (!currentUserProfile) return [];
+    if (!currentUserProfile) {
+      console.log('No current user profile found');
+      return [];
+    }
     
-    return userList.filter(user => {
+    console.log('Filtering users with current user profile:', {
+      email: currentUserProfile.email,
+      role: currentUserProfile.role,
+      id: currentUserProfile.id
+    });
+    
+    const filtered = userList.filter(user => {
+      console.log('Evaluating user:', {
+        email: user.email,
+        role: user.role,
+        id: user.id,
+        is_active: user.is_active
+      });
+      
       // Si el usuario actual es Super Admin, puede ver todos
       if (currentUserProfile.role === 'superadmin') {
+        console.log(`SuperAdmin can see user ${user.email}`);
         return true;
       }
       
       // Admin y Empleado NO pueden ver cuentas Super Admin
       if (user.role === 'superadmin') {
+        console.log(`Hiding SuperAdmin user ${user.email} from ${currentUserProfile.role}`);
         return false;
       }
       
       // Admin puede ver empleados y su propio perfil
       if (currentUserProfile.role === 'admin') {
-        return user.role === 'empleado' || user.id === currentUserProfile.id;
+        const canSee = user.role === 'empleado' || user.id === currentUserProfile.id;
+        console.log(`Admin ${currentUserProfile.email} can see user ${user.email}:`, canSee);
+        return canSee;
       }
       
       // Empleado solo puede ver su propio perfil
-      return user.id === currentUserProfile.id;
+      const isOwnProfile = user.id === currentUserProfile.id;
+      console.log(`Employee can see their own profile (${user.email}):`, isOwnProfile);
+      return isOwnProfile;
     });
+    
+    console.log('Filtered users result:', filtered.map(u => ({ email: u.email, role: u.role })));
+    return filtered;
   };
 
   useEffect(() => {
@@ -95,7 +119,8 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      console.log('Fetching users for current user profile:', currentUserProfile);
+      console.log('=== FETCHING USERS ===');
+      console.log('Current user profile:', currentUserProfile);
       
       const { data, error } = await supabase
         .from('profiles')
@@ -108,11 +133,31 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
         throw error;
       }
       
-      console.log('Raw users fetched from database:', data);
+      console.log('=== RAW DATABASE RESULTS ===');
+      console.log('Total users fetched from database:', data?.length || 0);
+      data?.forEach((user, index) => {
+        console.log(`User ${index + 1}:`, {
+          email: user.email,
+          role: user.role,
+          is_active: user.is_active,
+          created_at: user.created_at
+        });
+      });
+      
+      // Buscar específicamente al usuario José
+      const joseUser = data?.find(u => u.email === 'jose@gmail.com');
+      if (joseUser) {
+        console.log('=== JOSÉ FOUND IN DATABASE ===');
+        console.log('José user details:', joseUser);
+      } else {
+        console.log('=== JOSÉ NOT FOUND IN DATABASE ===');
+        console.log('Available emails:', data?.map(u => u.email));
+      }
       
       // Aplicar filtro de permisos
       const filteredUsers = filterUsersByPermissions(data || []);
-      console.log('Filtered users according to permissions:', filteredUsers);
+      console.log('=== FINAL FILTERED RESULTS ===');
+      console.log('Users after permission filtering:', filteredUsers.length);
       setUsers(filteredUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -309,9 +354,23 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
                   }
                 </p>
                 {currentUserProfile?.role === 'admin' && users.length === 0 && (
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Como administrador, deberías poder ver empleados y tu propio perfil.
-                  </p>
+                  <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                    <p className="text-sm text-yellow-800 font-semibold">Información de depuración:</p>
+                    <p className="text-sm text-yellow-700 mt-2">
+                      Como administrador, deberías poder ver empleados y tu propio perfil.
+                    </p>
+                    <p className="text-sm text-yellow-700">
+                      Revisa la consola del navegador (F12) para ver logs detallados de la consulta.
+                    </p>
+                    <Button 
+                      onClick={fetchUsers} 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-2"
+                    >
+                      Recargar usuarios
+                    </Button>
+                  </div>
                 )}
               </div>
             ) : (
