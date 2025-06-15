@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -73,38 +74,22 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
       return [];
     }
     
-    console.log('🔍 === DETAILED FILTERING ANALYSIS ===');
-    console.log('👤 Current user profile:', {
+    console.log('🔍 Filtering users for current user:', {
       id: currentUserProfile.id,
       email: currentUserProfile.email,
-      role: currentUserProfile.role,
-      created_by: currentUserProfile.created_by
+      role: currentUserProfile.role
     });
     
     console.log(`📊 Total users to filter: ${userList.length}`);
-    userList.forEach((user, index) => {
-      console.log(`👥 User ${index + 1}:`, {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        created_by: user.created_by,
-        is_active: user.is_active,
-        full_name: user.full_name
-      });
-    });
     
     const filtered = userList.filter(user => {
-      console.log(`🔎 Evaluating user: ${user.email} (${user.role})`);
-      
       // Si el usuario actual es Super Admin, puede ver todos
       if (currentUserProfile.role === 'superadmin') {
-        console.log(`✅ SuperAdmin can see user ${user.email}`);
         return true;
       }
       
       // Admin y Empleado NO pueden ver cuentas Super Admin
       if (user.role === 'superadmin') {
-        console.log(`❌ Hiding SuperAdmin user ${user.email} from ${currentUserProfile.role}`);
         return false;
       }
       
@@ -115,46 +100,29 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
         const isOwnProfile = user.id === currentUserProfile.id;
         const isCreatedEmployee = user.role === 'empleado' && user.created_by === currentUserProfile.id;
         
-        console.log(`🔍 Admin evaluation for ${user.email}:`, {
-          isOwnProfile,
-          isCreatedEmployee,
-          userCreatedBy: user.created_by,
-          adminId: currentUserProfile.id,
-          createdByMatch: user.created_by === currentUserProfile.id,
-          userRole: user.role
-        });
-        
-        const canSee = isOwnProfile || isCreatedEmployee;
-        console.log(`${canSee ? '✅' : '❌'} Admin ${currentUserProfile.email} can see user ${user.email}: ${canSee}`);
-        return canSee;
+        return isOwnProfile || isCreatedEmployee;
       }
       
       // Empleado solo puede ver su propio perfil
-      const isOwnProfile = user.id === currentUserProfile.id;
-      console.log(`${isOwnProfile ? '✅' : '❌'} Employee can see their own profile (${user.email}): ${isOwnProfile}`);
-      return isOwnProfile;
+      return user.id === currentUserProfile.id;
     });
     
-    console.log('📋 === FILTERING RESULTS ===');
     console.log(`✨ Filtered users count: ${filtered.length}`);
-    filtered.forEach((user, index) => {
-      console.log(`✅ User ${index + 1}: ${user.email} (${user.role}) - Created by: ${user.created_by}`);
-    });
     
     return filtered;
   };
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
   const fetchUsers = async () => {
+    if (!currentUserProfile) {
+      console.log('No current user profile, skipping fetch');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      console.log('🚀 === STARTING USER FETCH ===');
-      console.log('👤 Current user profile:', currentUserProfile?.email, currentUserProfile?.role);
+      console.log('🚀 Fetching users for:', currentUserProfile.email, currentUserProfile.role);
       
-      // Asegurar que se incluyan TODOS los campos necesarios en la consulta, incluyendo password_hash
       const { data, error } = await supabase
         .from('profiles')
         .select(`
@@ -180,43 +148,24 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
         throw error;
       }
       
-      console.log('📦 === RAW DATABASE RESULTS ===');
-      console.log(`📊 Total users fetched: ${data?.length || 0}`);
-      
-      if (data && data.length > 0) {
-        data.forEach((user, index) => {
-          console.log(`👥 DB User ${index + 1}:`, {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-            created_by: user.created_by,
-            is_active: user.is_active,
-            full_name: user.full_name,
-            created_at: user.created_at
-          });
-        });
-      } else {
-        console.log('⚠️ No users returned from database');
-      }
+      console.log(`📦 Fetched ${data?.length || 0} users from database`);
       
       // Aplicar filtro de permisos
       const filteredUsers = filterUsersByPermissions(data || []);
       
-      console.log('🎯 === FINAL RESULTS ===');
-      console.log(`📈 Users after permission filtering: ${filteredUsers.length}`);
-      
-      if (filteredUsers.length === 0) {
-        console.log('⚠️ NO USERS VISIBLE TO CURRENT USER');
-        console.log('🔍 Possible reasons:');
-        console.log('1. Current user profile is null/undefined');
-        console.log('2. No users in database match the visibility criteria');
-        console.log('3. created_by relationships are not set correctly');
-        console.log('4. User roles are not as expected');
-      }
+      console.log(`🎯 Final visible users: ${filteredUsers.length}`);
       
       setUsers(filteredUsers);
+      
+      if (filteredUsers.length === 0 && currentUserProfile.role === 'admin') {
+        console.log('⚠️ Admin has no visible users - possible reasons:');
+        console.log('1. No employees created yet');
+        console.log('2. created_by relationships not set correctly');
+        console.log('3. Users marked as inactive');
+      }
+      
     } catch (error) {
-      console.error('💥 Fatal error fetching users:', error);
+      console.error('💥 Error fetching users:', error);
       toast({
         title: "Error",
         description: "Error al cargar la lista de usuarios",
@@ -226,6 +175,13 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
       setLoading(false);
     }
   };
+
+  // Cargar usuarios automáticamente cuando el componente se monta y cuando cambia el currentUserProfile
+  useEffect(() => {
+    if (currentUserProfile) {
+      fetchUsers();
+    }
+  }, [currentUserProfile]);
 
   const handleDeleteUser = async (userId: string) => {
     const targetUser = users.find(u => u.id === userId);
@@ -345,38 +301,6 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {/* Debug Panel - Only visible in development */}
-        {process.env.NODE_ENV === 'development' && currentUserProfile && (
-          <Card className="mb-6 border-blue-200 bg-blue-50">
-            <CardHeader>
-              <CardTitle className="text-blue-800">🔍 Debug Information</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <strong>Current User:</strong>
-                  <p>ID: {currentUserProfile.id}</p>
-                  <p>Email: {currentUserProfile.email}</p>
-                  <p>Role: {currentUserProfile.role}</p>
-                </div>
-                <div>
-                  <strong>Users Data:</strong>
-                  <p>Total fetched: {users.length}</p>
-                  <p>After filters: {filteredUsers.length}</p>
-                </div>
-              </div>
-              <Button 
-                onClick={fetchUsers} 
-                variant="outline" 
-                size="sm" 
-                className="mt-2"
-              >
-                🔄 Refrescar & Re-debug
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Filters */}
         <div className="mb-6 flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
@@ -463,7 +387,7 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
               </div>
             ) : filteredUsers.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground mb-4">
                   {users.length === 0 
                     ? currentUserProfile?.role === 'admin' 
                       ? "No has creado ningún empleado aún. Usa el botón 'Nuevo Usuario' para crear empleados."
@@ -473,24 +397,13 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
                 </p>
                 {currentUserProfile?.role === 'admin' && users.length === 0 && (
                   <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
-                    <p className="text-sm text-blue-800 font-semibold">Información de depuración:</p>
+                    <p className="text-sm text-blue-800 font-semibold">Información:</p>
                     <p className="text-sm text-blue-700 mt-2">
                       Como administrador, solo puedes ver los empleados que tú has creado.
                     </p>
                     <p className="text-sm text-blue-700">
-                      Si esperabas ver usuarios, verifica que los hayas creado tú mismo.
+                      Los empleados aparecerán automáticamente en esta lista una vez que los crees.
                     </p>
-                    <p className="text-sm text-blue-700 mt-2">
-                      <strong>Tu ID:</strong> {currentUserProfile.id}
-                    </p>
-                    <Button 
-                      onClick={fetchUsers} 
-                      variant="outline" 
-                      size="sm" 
-                      className="mt-2"
-                    >
-                      🔍 Recargar y depurar
-                    </Button>
                   </div>
                 )}
               </div>
