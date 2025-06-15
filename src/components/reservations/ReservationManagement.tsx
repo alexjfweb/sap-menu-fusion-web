@@ -29,6 +29,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import ReservationDetails from './ReservationDetails';
 import { useToast } from '@/hooks/use-toast';
+import { useRealtimeReservations } from '@/hooks/useRealtimeReservations';
 import { Database } from '@/integrations/supabase/types';
 
 type ReservationStatus = Database['public']['Enums']['reservation_status'];
@@ -42,10 +43,14 @@ const ReservationManagement = ({ onBack }: ReservationManagementProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Hook para sincronización en tiempo real
+  useRealtimeReservations();
+
   // Fetch reservations with table details
   const { data: reservations, isLoading } = useQuery({
     queryKey: ['reservations'],
     queryFn: async () => {
+      console.log('Fetching reservations...');
       const { data, error } = await supabase
         .from('reservations')
         .select(`
@@ -59,9 +64,15 @@ const ReservationManagement = ({ onBack }: ReservationManagementProps) => {
         .order('reservation_date', { ascending: true })
         .order('reservation_time', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching reservations:', error);
+        throw error;
+      }
+      
+      console.log('Reservations fetched:', data?.length);
       return data;
     },
+    refetchInterval: 30000, // Refrescar cada 30 segundos como respaldo
   });
 
   // Update reservation status
@@ -200,7 +211,7 @@ const ReservationManagement = ({ onBack }: ReservationManagementProps) => {
         <CardHeader>
           <CardTitle>Listado de Reservas</CardTitle>
           <CardDescription>
-            Todas las reservas ordenadas por fecha y hora
+            Todas las reservas ordenadas por fecha y hora (actualización en tiempo real)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -253,11 +264,13 @@ const ReservationManagement = ({ onBack }: ReservationManagementProps) => {
                     </TableCell>
                     <TableCell>
                       <div>
-                        <div className="font-medium">Mesa {reservation.tables?.table_number}</div>
-                        <div className="text-sm text-muted-foreground flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {reservation.tables?.location}
-                        </div>
+                        <div className="font-medium">Mesa {reservation.tables?.table_number || 'Sin asignar'}</div>
+                        {reservation.tables?.location && (
+                          <div className="text-sm text-muted-foreground flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {reservation.tables.location}
+                          </div>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
