@@ -140,9 +140,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                       user.email?.split('@')[0] || 
                       'Usuario';
 
-      // Set role based on email - alexjfweb@gmail.com gets superadmin, karen@gmail.com gets admin
-      let role = 'empleado';
-      if (user.email === 'alexjfweb@gmail.com') {
+      // Set role based on email - alexjfweb@gmail.com and alex10@gmail.com get superadmin, karen@gmail.com gets admin
+      let role: 'empleado' | 'admin' | 'superadmin' = 'empleado';
+      if (user.email === 'alexjfweb@gmail.com' || user.email === 'alex10@gmail.com') {
         role = 'superadmin';
       } else if (user.email === 'karen@gmail.com') {
         role = 'admin';
@@ -152,15 +152,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const { data, error } = await supabase
         .from('profiles')
-        .insert([
-          {
-            id: user.id,
-            email: user.email!,
-            full_name: fullName,
-            role: role,
-            is_active: true
-          }
-        ])
+        .insert({
+          id: user.id,
+          email: user.email!,
+          full_name: fullName,
+          role: role,
+          is_active: true
+        })
         .select()
         .single();
 
