@@ -62,21 +62,40 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }
   }, []);
 
-  // Get menu customization using the new public hook
-  const { data: customization, isLoading: customizationLoading, error: customizationError, refetch: refetchCustomization } = usePublicMenuCustomization();
+  // Get menu customization with improved error handling
+  const { 
+    data: customization, 
+    isLoading: customizationLoading, 
+    error: customizationError, 
+    refetch: refetchCustomization,
+    isSuccess: customizationSuccess 
+  } = usePublicMenuCustomization();
   
-  // Asegurar que siempre tengamos colores, combinando personalizados con defaults
+  // Memoizar colores con mejor lógica de fallback
   const colors = React.useMemo(() => {
     const defaults = getDefaultCustomization();
+    
+    // Si tenemos customization, combinar con defaults
     if (customization) {
+      console.log('Applying custom colors:', customization);
       return { ...defaults, ...customization };
     }
+    
+    // Si la query fue exitosa pero no hay customization, usar defaults
+    if (customizationSuccess && !customization) {
+      console.log('No customization found, using defaults');
+      return defaults;
+    }
+    
+    // Si aún está cargando o hay error, usar defaults temporalmente
+    console.log('Using default colors (loading or error state)');
     return defaults;
-  }, [customization]);
+  }, [customization, customizationSuccess]);
 
   console.log('Menu customization status:', {
     customizationLoading,
     customizationError: customizationError?.message,
+    customizationSuccess,
     hasCustomization: !!customization,
     colorsApplied: colors
   });
@@ -314,22 +333,23 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   const isLoading = productsLoading || categoriesLoading;
   const hasError = productsError || categoriesError;
 
-  console.log('PublicMenu state:', {
+  // Forzar refetch de personalización al montar el componente
+  useEffect(() => {
+    console.log('Component mounted, refetching customization...');
+    refetchCustomization();
+  }, [refetchCustomization]);
+
+  console.log('PublicMenu render state:', {
     isLoading,
     hasError,
     productsCount: products?.length || 0,
     categoriesCount: categories?.length || 0,
-    productsError: productsError?.message,
-    categoriesError: categoriesError?.message,
     sessionId,
     customization: !!customization,
-    actualColors: colors
+    actualColors: colors,
+    customizationLoading,
+    customizationSuccess
   });
-
-  // Forzar actualización de personalización cada vez que se carga el componente
-  useEffect(() => {
-    refetchCustomization();
-  }, [refetchCustomization]);
 
   if (isLoading) {
     return (
@@ -455,7 +475,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     );
   }
 
-  console.log('Rendering menu with products:', products.length);
+  console.log('Rendering menu with products:', products.length, 'and colors:', colors);
 
   return (
     <div 

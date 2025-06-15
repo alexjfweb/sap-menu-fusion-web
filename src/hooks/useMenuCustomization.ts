@@ -29,7 +29,7 @@ export const useMenuCustomization = (businessId?: string) => {
   });
 };
 
-// Hook específico para el menú público que obtiene la personalización del primer negocio
+// Hook simplificado para el menú público con mejor manejo de datos
 export const usePublicMenuCustomization = () => {
   return useQuery({
     queryKey: ['public-menu-customization'],
@@ -37,47 +37,53 @@ export const usePublicMenuCustomization = () => {
       console.log('Fetching public menu customization...');
       
       try {
-        // Primero obtenemos la información del negocio disponible públicamente
+        // Primero obtener el business_id desde business_info
         const { data: businessData, error: businessError } = await supabase
           .from('business_info')
           .select('id')
           .limit(1)
-          .single();
+          .maybeSingle();
         
         if (businessError) {
-          console.error('Error fetching business info for customization:', businessError);
+          console.error('Error fetching business info:', businessError);
+          return null;
+        }
+        
+        if (!businessData) {
+          console.log('No business found');
           return null;
         }
         
         console.log('Business ID found:', businessData.id);
         
-        // Luego obtenemos la personalización de ese negocio
+        // Obtener la personalización usando el business_id
         const { data: customizationData, error: customizationError } = await supabase
           .from('menu_customization')
           .select('*')
           .eq('business_id', businessData.id)
-          .single();
+          .maybeSingle();
         
         if (customizationError) {
-          if (customizationError.code === 'PGRST116') {
-            console.log('No custom configuration found, using defaults');
-            return null;
-          } else {
-            console.error('Error fetching menu customization:', customizationError);
-            return null;
-          }
+          console.error('Error fetching menu customization:', customizationError);
+          return null;
+        }
+        
+        if (!customizationData) {
+          console.log('No customization found, using defaults');
+          return null;
         }
         
         console.log('Successfully fetched menu customization:', customizationData);
         return customizationData;
       } catch (error) {
-        console.error('Menu customization fetch error:', error);
+        console.error('Unexpected error in menu customization fetch:', error);
         return null;
       }
     },
-    staleTime: 0, // No cache para obtener siempre los datos más recientes
+    staleTime: 0, // Sin cache para obtener datos frescos
     gcTime: 0, // No mantener en cache
-    retry: 1,
+    retry: 3, // Más reintentos
+    retryDelay: 1000, // Delay entre reintentos
     refetchOnMount: true,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,

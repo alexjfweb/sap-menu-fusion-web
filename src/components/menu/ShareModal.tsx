@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -16,10 +15,16 @@ const ShareModal = ({ isOpen, onClose }: ShareModalProps) => {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
   
-  // Generar la URL del menú público correctamente
+  // Generar la URL del menú público correctamente con logging mejorado
   const baseUrl = window.location.origin;
   const menuUrl = `${baseUrl}/menu`;
   const shareText = "¡Echa un vistazo a este delicioso menú del restaurante!";
+  
+  console.log('ShareModal - Generated URLs:', {
+    baseUrl,
+    menuUrl,
+    currentLocation: window.location.href
+  });
 
   const copyToClipboard = async (text: string) => {
     try {
