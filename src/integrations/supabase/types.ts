@@ -343,6 +343,54 @@ export type Database = {
           },
         ]
       }
+      payment_orders: {
+        Row: {
+          cart_items: Json
+          created_at: string
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string
+          id: string
+          payment_method: string | null
+          payment_status: string | null
+          session_id: string
+          special_instructions: string | null
+          status: string | null
+          total_amount: number | null
+          updated_at: string
+        }
+        Insert: {
+          cart_items: Json
+          created_at?: string
+          customer_email?: string | null
+          customer_name: string
+          customer_phone: string
+          id?: string
+          payment_method?: string | null
+          payment_status?: string | null
+          session_id: string
+          special_instructions?: string | null
+          status?: string | null
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Update: {
+          cart_items?: Json
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string
+          id?: string
+          payment_method?: string | null
+          payment_status?: string | null
+          session_id?: string
+          special_instructions?: string | null
+          status?: string | null
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payment_reservations: {
         Row: {
           created_at: string

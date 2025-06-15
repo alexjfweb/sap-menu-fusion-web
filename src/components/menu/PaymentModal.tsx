@@ -10,6 +10,7 @@ import { CreditCard, Smartphone, QrCode, CheckCircle, Truck } from 'lucide-react
 import { useToast } from '@/hooks/use-toast';
 import { useBusinessInfo } from '@/hooks/useBusinessInfo';
 import { useWhatsAppSender } from '@/hooks/useWhatsAppSender';
+import { useOrderSync } from '@/hooks/useOrderSync';
 import PaymentMethodDisplay from './PaymentMethodDisplay';
 import PaymentConfirmationModal from './PaymentConfirmationModal';
 import SendConfirmationModal from './SendConfirmationModal';
@@ -36,6 +37,7 @@ const PaymentModal = ({ isOpen, onClose, cartItems, totalAmount, sessionId, onPa
   const { toast } = useToast();
   const { data: businessInfo } = useBusinessInfo();
   const { sendOrderToWhatsApp, sending } = useWhatsAppSender();
+  const { syncOrderToDatabase } = useOrderSync();
 
   const handlePayment = async () => {
     if (!customerName || !customerPhone) {
@@ -53,24 +55,58 @@ const PaymentModal = ({ isOpen, onClose, cartItems, totalAmount, sessionId, onPa
   const handleConfirmPayment = async () => {
     setShowConfirmation(false);
     
-    // Enviar por WhatsApp con información del método de pago
-    const result = await sendOrderToWhatsApp(
-      cartItems, 
-      totalAmount, 
-      customerName, 
-      customerPhone, 
-      specialInstructions,
-      paymentMethod
-    );
-    
-    setSendResult(result);
-    setShowSendConfirmation(true);
-    
-    if (result.success) {
-      // Simular éxito del pago después de enviar por WhatsApp
-      setTimeout(() => {
-        onPaymentSuccess();
-      }, 2000);
+    try {
+      // Primero sincronizar el pedido a la base de datos
+      console.log('Syncing order to database before sending WhatsApp...');
+      const syncResult = await syncOrderToDatabase(
+        cartItems,
+        totalAmount,
+        customerName,
+        customerPhone,
+        customerEmail,
+        specialInstructions,
+        paymentMethod,
+        sessionId
+      );
+
+      if (!syncResult.success) {
+        console.error('Failed to sync order:', syncResult.error);
+        setSendResult({
+          success: false,
+          message: 'Error al registrar el pedido en el sistema'
+        });
+        setShowSendConfirmation(true);
+        return;
+      }
+
+      console.log('Order synced successfully, now sending WhatsApp...');
+      
+      // Luego enviar por WhatsApp
+      const whatsappResult = await sendOrderToWhatsApp(
+        cartItems, 
+        totalAmount, 
+        customerName, 
+        customerPhone, 
+        specialInstructions,
+        paymentMethod
+      );
+      
+      setSendResult(whatsappResult);
+      setShowSendConfirmation(true);
+      
+      if (whatsappResult.success) {
+        // Simular éxito del pago después de enviar por WhatsApp
+        setTimeout(() => {
+          onPaymentSuccess();
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('Error in payment confirmation:', error);
+      setSendResult({
+        success: false,
+        message: 'Error al procesar el pedido'
+      });
+      setShowSendConfirmation(true);
     }
   };
 

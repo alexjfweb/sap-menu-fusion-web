@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useRealtimeOrders } from '@/hooks/useRealtimeOrders';
 import { 
   Clock, 
   ChefHat, 
@@ -49,9 +51,13 @@ const OrderManagement = ({ onBack }: OrderManagementProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Habilitar sincronización en tiempo real
+  useRealtimeOrders();
+
   const { data: orders, isLoading } = useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
+      console.log('Fetching orders...');
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -64,7 +70,12 @@ const OrderManagement = ({ onBack }: OrderManagementProps) => {
         `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching orders:', error);
+        throw error;
+      }
+      
+      console.log('Orders fetched:', data?.length || 0);
       return data as Order[];
     },
   });
@@ -174,7 +185,7 @@ const OrderManagement = ({ onBack }: OrderManagementProps) => {
           <div>
             <h2 className="text-3xl font-bold mb-2">Gestión de Pedidos</h2>
             <p className="text-muted-foreground">
-              Administra y supervisa todos los pedidos del restaurante
+              Administra y supervisa todos los pedidos del restaurante - Sincronización en tiempo real activada
             </p>
           </div>
 
@@ -238,7 +249,7 @@ const OrderManagement = ({ onBack }: OrderManagementProps) => {
             <CardHeader>
               <CardTitle>Lista de Pedidos</CardTitle>
               <CardDescription>
-                Gestiona el estado de todos los pedidos
+                Gestiona el estado de todos los pedidos - Los nuevos pedidos aparecerán automáticamente
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -246,7 +257,7 @@ const OrderManagement = ({ onBack }: OrderManagementProps) => {
                 <div className="text-center py-8">
                   <ChefHat className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No hay pedidos</h3>
-                  <p className="text-muted-foreground">Los pedidos aparecerán aquí cuando se realicen.</p>
+                  <p className="text-muted-foreground">Los pedidos aparecerán aquí automáticamente cuando se realicen desde el menú público.</p>
                 </div>
               ) : (
                 <Table>
@@ -291,7 +302,7 @@ const OrderManagement = ({ onBack }: OrderManagementProps) => {
                           {getStatusBadge(order.status as OrderStatus)}
                         </TableCell>
                         <TableCell>
-                          €{Number(order.total_amount || 0).toFixed(2)}
+                          ${Number(order.total_amount || 0).toFixed(2)}
                         </TableCell>
                         <TableCell>
                           {new Date(order.created_at || '').toLocaleDateString('es-ES', {
