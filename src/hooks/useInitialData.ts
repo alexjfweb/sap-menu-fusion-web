@@ -34,68 +34,73 @@ export const useInitialData = () => {
           return;
         }
 
-        // Insertar productos de ejemplo con tipos correctos
+        // Buscar IDs de categorías de forma más segura
+        const entradasCat = categories.find(c => c.name === 'Entradas');
+        const platosCat = categories.find(c => c.name === 'Platos Principales');
+        const bebidasCat = categories.find(c => c.name === 'Bebidas');
+
+        // Solo insertar productos si las categorías existen
         const productsToInsert = [
-          {
+          ...(entradasCat ? [{
             name: 'Ensalada César',
             description: 'Ensalada fresca con lechuga, crutones, parmesano y aderezo césar',
             price: 15.50,
-            category_id: categories.find(c => c.name === 'Entradas')?.id,
+            category_id: entradasCat.id,
             product_type: 'entrada' as const,
             preparation_time: 10,
             is_vegetarian: true,
             is_available: true
-          },
-          {
+          }] : []),
+          ...(platosCat ? [{
             name: 'Pasta Carbonara',
             description: 'Pasta con salsa carbonara, panceta, huevo y parmesano',
             price: 22.90,
-            category_id: categories.find(c => c.name === 'Platos Principales')?.id,
+            category_id: platosCat.id,
             product_type: 'plato' as const,
             preparation_time: 20,
             is_vegetarian: false,
             is_available: true
-          },
-          {
-            name: 'Agua Mineral',
-            description: 'Agua mineral natural 500ml',
-            price: 4.50,
-            category_id: categories.find(c => c.name === 'Bebidas')?.id,
-            product_type: 'bebida' as const,
-            preparation_time: 2,
-            is_vegetarian: true,
-            is_available: true
-          },
-          {
+          }, {
             name: 'Pizza Margherita',
             description: 'Pizza clásica con tomate, mozzarella y albahaca fresca',
             price: 18.00,
-            category_id: categories.find(c => c.name === 'Platos Principales')?.id,
+            category_id: platosCat.id,
             product_type: 'plato' as const,
             preparation_time: 25,
             is_vegetarian: true,
             is_available: true
-          },
-          {
+          }] : []),
+          ...(bebidasCat ? [{
+            name: 'Agua Mineral',
+            description: 'Agua mineral natural 500ml',
+            price: 4.50,
+            category_id: bebidasCat.id,
+            product_type: 'bebida' as const,
+            preparation_time: 2,
+            is_vegetarian: true,
+            is_available: true
+          }, {
             name: 'Coca Cola',
             description: 'Coca Cola 350ml',
             price: 5.00,
-            category_id: categories.find(c => c.name === 'Bebidas')?.id,
+            category_id: bebidasCat.id,
             product_type: 'bebida' as const,
             preparation_time: 1,
             is_vegetarian: true,
             is_available: true
-          }
+          }] : [])
         ];
 
-        const { error } = await supabase
-          .from('products')
-          .insert(productsToInsert);
+        if (productsToInsert.length > 0) {
+          const { error } = await supabase
+            .from('products')
+            .insert(productsToInsert);
 
-        if (error) {
-          console.error('Error insertando productos:', error);
-        } else {
-          console.log('Productos de ejemplo insertados correctamente');
+          if (error) {
+            console.error('Error insertando productos:', error);
+          } else {
+            console.log('Productos de ejemplo insertados correctamente');
+          }
         }
 
         // Insertar información del negocio si no existe
