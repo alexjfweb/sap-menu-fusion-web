@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -39,12 +40,19 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
+      console.log('Fetching users...');
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching users:', error);
+        throw error;
+      }
+      
+      console.log('Users fetched:', data);
       setUsers(data || []);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -80,6 +88,7 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
   };
 
   const handleUserCreated = () => {
+    console.log('User created callback triggered, refreshing user list...');
     // Refresh the users list after creating a new user
     fetchUsers();
   };

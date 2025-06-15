@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -149,6 +150,8 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
         });
       } else {
         // Create new user through Supabase Auth
+        console.log('Creating new user with email:', formData.email);
+        
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
@@ -159,10 +162,20 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
           }
         });
 
-        if (authError) throw authError;
+        if (authError) {
+          console.error('Auth error:', authError);
+          throw authError;
+        }
+
+        console.log('Auth data received:', authData);
 
         if (authData.user) {
+          // Wait a moment for the trigger to create the profile
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
           // Update the profile with additional data
+          console.log('Updating profile for user:', authData.user.id);
+          
           const { error: profileError } = await supabase
             .from('profiles')
             .update({
@@ -175,7 +188,12 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
             })
             .eq('id', authData.user.id);
 
-          if (profileError) throw profileError;
+          if (profileError) {
+            console.error('Profile error:', profileError);
+            throw profileError;
+          }
+
+          console.log('User created successfully');
 
           toast({
             title: "Usuario creado exitosamente",
