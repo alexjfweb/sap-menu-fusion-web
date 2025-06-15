@@ -9,6 +9,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ChefHat, Mail, Lock, User } from 'lucide-react';
 
+// Función para limpiar el estado de autenticación
+const cleanupAuthState = () => {
+  try {
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+        localStorage.removeItem(key);
+      }
+    });
+  } catch (error) {
+    console.log('Error cleaning auth state:', error);
+  }
+};
+
 const AuthForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,29 +34,49 @@ const AuthForm = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
+      // Clean up existing state first
+      cleanupAuthState();
+      
+      // Attempt global sign out first
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (err) {
+        // Continue even if this fails
+        console.log('Sign out before sign in failed:', err);
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
         password,
       });
 
       if (error) {
+        console.error('Sign in error:', error);
         toast({
           variant: 'destructive',
           title: 'Error de autenticación',
-          description: error.message,
+          description: error.message === 'Invalid login credentials' 
+            ? 'Credenciales inválidas. Verifica tu email y contraseña.'
+            : error.message,
         });
-      } else {
+      } else if (data.user) {
+        console.log('Sign in successful:', data.user.email);
         toast({
           title: 'Bienvenido',
           description: 'Has iniciado sesión correctamente.',
         });
+        
+        // Force page reload for clean state
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 1000);
       }
     } catch (error) {
-      console.error('Error signing in:', error);
+      console.error('Unexpected error signing in:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Ocurrió un error inesperado.',
+        description: 'Ocurrió un error inesperado. Inténtalo de nuevo.',
       });
     } finally {
       setLoading(false);
@@ -55,10 +88,16 @@ const AuthForm = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
+      // Clean up existing state first
+      cleanupAuthState();
+
+      const redirectUrl = `${window.location.origin}/dashboard`;
+
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
         password,
         options: {
+          emailRedirectTo: redirectUrl,
           data: {
             full_name: fullName,
           },
@@ -66,23 +105,34 @@ const AuthForm = () => {
       });
 
       if (error) {
+        console.error('Sign up error:', error);
         toast({
           variant: 'destructive',
           title: 'Error de registro',
-          description: error.message,
+          description: error.message === 'User already registered' 
+            ? 'Este email ya está registrado. Intenta iniciar sesión.'
+            : error.message,
         });
-      } else {
+      } else if (data.user) {
+        console.log('Sign up successful:', data.user.email);
         toast({
           title: 'Registro exitoso',
-          description: 'Tu cuenta ha sido creada. Revisa tu email para confirmar.',
+          description: 'Tu cuenta ha sido creada exitosamente.',
         });
+        
+        // If user is immediately confirmed, redirect to dashboard
+        if (data.session) {
+          setTimeout(() => {
+            window.location.href = '/dashboard';
+          }, 1000);
+        }
       }
     } catch (error) {
-      console.error('Error signing up:', error);
+      console.error('Unexpected error signing up:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Ocurrió un error inesperado.',
+        description: 'Ocurrió un error inesperado. Inténtalo de nuevo.',
       });
     } finally {
       setLoading(false);
@@ -122,6 +172,7 @@ const AuthForm = () => {
                       onChange={(e) => setEmail(e.target.value)}
                       className="pl-10"
                       required
+                      autoComplete="email"
                     />
                   </div>
                 </div>
@@ -137,12 +188,20 @@ const AuthForm = () => {
                       onChange={(e) => setPassword(e.target.value)}
                       className="pl-10"
                       required
+                      autoComplete="current-password"
                     />
                   </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
                 </Button>
+                
+                {/* Cuentas de prueba */}
+                <div className="mt-4 p-3 bg-muted rounded-md text-sm">
+                  <p className="font-semibold mb-1">Cuenta de prueba (Admin):</p>
+                  <p>Email: karen@gmail.com</p>
+                  <p>Contraseña: 123456</p>
+                </div>
               </form>
             </TabsContent>
             
@@ -160,6 +219,7 @@ const AuthForm = () => {
                       onChange={(e) => setFullName(e.target.value)}
                       className="pl-10"
                       required
+                      autoComplete="name"
                     />
                   </div>
                 </div>
@@ -175,6 +235,7 @@ const AuthForm = () => {
                       onChange={(e) => setEmail(e.target.value)}
                       className="pl-10"
                       required
+                      autoComplete="email"
                     />
                   </div>
                 </div>
@@ -191,6 +252,7 @@ const AuthForm = () => {
                       className="pl-10"
                       required
                       minLength={6}
+                      autoComplete="new-password"
                     />
                   </div>
                 </div>

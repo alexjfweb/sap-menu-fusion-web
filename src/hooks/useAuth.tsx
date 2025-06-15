@@ -18,6 +18,27 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Función para limpiar el estado de autenticación
+const cleanupAuthState = () => {
+  try {
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+        localStorage.removeItem(key);
+      }
+    });
+    
+    if (typeof sessionStorage !== 'undefined') {
+      Object.keys(sessionStorage).forEach((key) => {
+        if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+          sessionStorage.removeItem(key);
+        }
+      });
+    }
+  } catch (error) {
+    console.log('Error cleaning auth state:', error);
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -25,32 +46,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session check:', session?.user?.email || 'No session');
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchOrCreateProfile(session.user);
-      } else {
-        setLoading(false);
-      }
-    });
-
-    // Listen for auth changes
+    // Set up auth state listener FIRST
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log('Auth state change event:', _event, session?.user?.email || 'No session');
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state change event:', event, session?.user?.email || 'No session');
+      
+      // Update state synchronously
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchOrCreateProfile(session.user);
-      } else {
+      
+      if (event === 'SIGNED_IN' && session?.user) {
+        // Defer profile fetching to prevent deadlocks
+        setTimeout(() => {
+          fetchOrCreateProfile(session.user);
+        }, 0);
+      } else if (event === 'SIGNED_OUT' || !session) {
         setProfile(null);
         setLoading(false);
       }
     });
+
+    // THEN check for existing session
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          setLoading(false);
+          return;
+        }
+
+        console.log('Initial session check:', session?.user?.email || 'No session');
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          await fetchOrCreateProfile(session.user);
+        } else {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
 
     return () => subscription.unsubscribe();
   }, []);
@@ -63,20 +106,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching profile:', error);
-        
-        // If profile doesn't exist (PGRST116), create it automatically
-        if (error.code === 'PGRST116') {
-          console.log('Profile not found, creating new profile for user:', user.email);
-          await createProfile(user);
-        } else {
-          console.error('Database error:', error.message);
-          setProfile(null);
-          setLoading(false);
-        }
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      if (!data) {
+        console.log('Profile not found, creating new profile for user:', user.email);
+        await createProfile(user);
       } else {
         console.log('Profile fetched successfully:', data);
         setProfile(data);
@@ -136,12 +177,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     try {
       console.log('Signing out user');
-      await supabase.auth.signOut();
+      
+      // Clean up auth state first
+      cleanupAuthState();
+      
+      // Sign out from Supabase
+      await supabase.auth.signOut({ scope: 'global' });
+      
+      // Reset state
       setSession(null);
       setUser(null);
       setProfile(null);
+      
+      // Force page reload for clean state
+      window.location.href = '/auth';
     } catch (error) {
       console.error('Error signing out:', error);
+      // Force reload anyway
+      window.location.href = '/auth';
     }
   };
 
