@@ -5,7 +5,7 @@ import EmpleadoDashboard from './dashboards/EmpleadoDashboard';
 import AdminDashboard from './dashboards/AdminDashboard';
 import SuperAdminDashboard from './dashboards/SuperAdminDashboard';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, User, AlertCircle } from 'lucide-react';
+import { RefreshCw, User, AlertCircle, LogOut } from 'lucide-react';
 
 const Dashboard = () => {
   const { profile, loading, user, signOut } = useAuth();
@@ -26,10 +26,10 @@ const Dashboard = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
-          <AlertCircle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Creando perfil de usuario</h2>
+          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Error de acceso al panel</h2>
           <p className="text-muted-foreground mb-6">
-            Tu sesión está activa pero necesitamos crear tu perfil. Esto puede tomar unos momentos.
+            No se pudo crear o acceder a tu perfil de usuario. Esto puede deberse a un problema de permisos.
           </p>
           <div className="space-y-3">
             <Button 
@@ -44,15 +44,16 @@ const Dashboard = () => {
               onClick={signOut}
               className="w-full"
             >
-              Cerrar sesión
+              <LogOut className="h-4 w-4 mr-2" />
+              Cerrar sesión e intentar de nuevo
             </Button>
           </div>
           <div className="mt-4 p-3 bg-muted rounded-md text-sm text-left">
             <p className="font-semibold mb-1">Información de depuración:</p>
             <p>Usuario: {user.email}</p>
             <p>ID: {user.id}</p>
-            <p className="text-yellow-600 mt-2">
-              Si este problema persiste, contacta al administrador del sistema.
+            <p className="text-red-600 mt-2">
+              Si eres administrador y este problema persiste, verifica los permisos de la base de datos.
             </p>
           </div>
         </div>

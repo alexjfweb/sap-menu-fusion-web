@@ -63,15 +63,16 @@ export const useAuth = () => {
         } else {
           console.error('Database error:', error.message);
           setProfile(null);
+          setLoading(false);
         }
       } else {
         console.log('Profile fetched successfully:', data);
         setProfile(data);
+        setLoading(false);
       }
     } catch (error) {
       console.error('Unexpected error fetching profile:', error);
       setProfile(null);
-    } finally {
       setLoading(false);
     }
   };
@@ -86,6 +87,11 @@ export const useAuth = () => {
                       user.email?.split('@')[0] || 
                       'Usuario';
 
+      // For karen@gmail.com specifically, set as admin
+      const role = user.email === 'karen@gmail.com' ? 'admin' : 'empleado';
+      
+      console.log('Assigning role:', role, 'to user:', user.email);
+
       const { data, error } = await supabase
         .from('profiles')
         .insert([
@@ -93,7 +99,7 @@ export const useAuth = () => {
             id: user.id,
             email: user.email!,
             full_name: fullName,
-            role: 'empleado', // Default role
+            role: role,
             is_active: true
           }
         ])
@@ -110,6 +116,8 @@ export const useAuth = () => {
     } catch (error) {
       console.error('Unexpected error creating profile:', error);
       setProfile(null);
+    } finally {
+      setLoading(false);
     }
   };
 
