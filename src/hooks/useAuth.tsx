@@ -15,6 +15,7 @@ export const useAuth = () => {
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session?.user?.email || 'No session');
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -28,6 +29,7 @@ export const useAuth = () => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('Auth state change event:', _event, session?.user?.email || 'No session');
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -43,6 +45,8 @@ export const useAuth = () => {
 
   const fetchProfile = async (userId: string) => {
     try {
+      console.log('Fetching profile for user:', userId);
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -51,11 +55,19 @@ export const useAuth = () => {
 
       if (error) {
         console.error('Error fetching profile:', error);
+        // If profile doesn't exist, this might be a new user
+        if (error.code === 'PGRST116') {
+          console.log('Profile not found, user might need profile creation');
+          setProfile(null);
+        } else {
+          console.error('Database error:', error.message);
+        }
       } else {
+        console.log('Profile fetched successfully:', data);
         setProfile(data);
       }
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error('Unexpected error fetching profile:', error);
     } finally {
       setLoading(false);
     }
@@ -63,6 +75,7 @@ export const useAuth = () => {
 
   const signOut = async () => {
     try {
+      console.log('Signing out user');
       await supabase.auth.signOut();
       setSession(null);
       setUser(null);
