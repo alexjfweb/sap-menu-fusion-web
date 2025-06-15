@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,6 +20,7 @@ import { Tables } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import UserForm from './UserForm';
+import DeleteUserModal from './DeleteUserModal';
 
 type Profile = Tables<'profiles'>;
 
@@ -38,6 +38,13 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
   const [showUserForm, setShowUserForm] = useState(false);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
   const [recentlyCreatedUser, setRecentlyCreatedUser] = useState<string | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    user: Profile | null;
+  }>({
+    isOpen: false,
+    user: null
+  });
 
   // Función para verificar si el usuario actual puede ver cuentas Super Admin
   const canViewSuperAdmins = () => {
@@ -188,22 +195,54 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
     
     if (!targetUser || !canManageUser(targetUser)) {
       console.error('No tienes permisos para eliminar este usuario');
+      toast({
+        title: "Error",
+        description: "No tienes permisos para eliminar este usuario",
+        variant: "destructive"
+      });
       return;
     }
 
-    if (!confirm('¿Estás seguro de que quieres eliminar este usuario?')) return;
+    // Abrir modal de confirmación
+    setDeleteModal({
+      isOpen: true,
+      user: targetUser
+    });
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!deleteModal.user) return;
 
     try {
       const { error } = await supabase
         .from('profiles')
         .update({ is_active: false })
-        .eq('id', userId);
+        .eq('id', deleteModal.user.id);
 
       if (error) throw error;
+
+      toast({
+        title: "✅ Empleado eliminado",
+        description: `${deleteModal.user.full_name || deleteModal.user.email} ha sido eliminado exitosamente`,
+      });
+
       fetchUsers();
     } catch (error) {
       console.error('Error deleting user:', error);
+      toast({
+        title: "Error",
+        description: "Error al eliminar el empleado",
+        variant: "destructive"
+      });
+      throw error;
     }
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModal({
+      isOpen: false,
+      user: null
+    });
   };
 
   const handleEditUser = (user: Profile) => {
@@ -481,6 +520,14 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
           </CardContent>
         </Card>
       </main>
+
+      {/* Modal de confirmación para eliminar usuario */}
+      <DeleteUserModal
+        isOpen={deleteModal.isOpen}
+        onClose={closeDeleteModal}
+        onConfirm={confirmDeleteUser}
+        user={deleteModal.user}
+      />
     </div>
   );
 };
