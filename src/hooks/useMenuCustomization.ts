@@ -29,6 +29,49 @@ export const useMenuCustomization = (businessId?: string) => {
   });
 };
 
+// Hook específico para el menú público que obtiene la personalización del primer negocio
+export const usePublicMenuCustomization = () => {
+  return useQuery({
+    queryKey: ['public-menu-customization'],
+    queryFn: async () => {
+      console.log('Fetching public menu customization...');
+      
+      try {
+        // Primero obtenemos la información del negocio
+        const { data: businessData, error: businessError } = await supabase
+          .from('business_info')
+          .select('id')
+          .single();
+        
+        if (businessError) {
+          console.error('Error fetching business info for customization:', businessError);
+          return null;
+        }
+        
+        // Luego obtenemos la personalización de ese negocio
+        const { data: customizationData, error: customizationError } = await supabase
+          .from('menu_customization')
+          .select('*')
+          .eq('business_id', businessData.id)
+          .single();
+        
+        if (customizationError && customizationError.code !== 'PGRST116') {
+          console.error('Error fetching menu customization:', customizationError);
+          return null;
+        }
+        
+        console.log('Successfully fetched menu customization:', customizationData);
+        return customizationData;
+      } catch (error) {
+        console.error('Menu customization fetch error:', error);
+        return null;
+      }
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 2,
+  });
+};
+
 export const getDefaultCustomization = (): Partial<MenuCustomization> => ({
   menu_bg_color: '#ffffff',
   header_bg_color: '#f8f9fa',

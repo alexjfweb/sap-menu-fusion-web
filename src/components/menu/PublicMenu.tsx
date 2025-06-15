@@ -13,7 +13,7 @@ import ShoppingCartModal from './ShoppingCartModal';
 import ShareModal from './ShareModal';
 import ReservationModal from './ReservationModal';
 import BusinessInfoDisplay from './BusinessInfoDisplay';
-import { useMenuCustomization, getDefaultCustomization } from '@/hooks/useMenuCustomization';
+import { usePublicMenuCustomization, getDefaultCustomization } from '@/hooks/useMenuCustomization';
 import { Tables } from '@/integrations/supabase/types';
 
 type Product = Tables<'products'>;
@@ -96,9 +96,11 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     staleTime: 10 * 60 * 1000,
   });
 
-  // Get menu customization
-  const { data: customization } = useMenuCustomization(businessInfo?.id);
+  // Get menu customization using the new public hook
+  const { data: customization } = usePublicMenuCustomization();
   const colors = customization || getDefaultCustomization();
+
+  console.log('Using customization colors:', colors);
 
   // Fetch products
   const { 
