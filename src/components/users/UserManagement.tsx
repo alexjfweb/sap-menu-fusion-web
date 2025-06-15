@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -53,16 +54,16 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
       return false;
     }
     
-    // Admin puede gestionar empleados
+    // Admin puede gestionar empleados que haya creado
     if (currentUserProfile.role === 'admin' && targetUser.role === 'empleado') {
-      return true;
+      return targetUser.created_by === currentUserProfile.id;
     }
     
     // Los usuarios pueden gestionar su propio perfil
     return currentUserProfile.id === targetUser.id;
   };
 
-  // Función para filtrar usuarios según el rol del usuario actual
+  // Función para filtrar usuarios según el rol del usuario actual y relación de creador
   const filterUsersByPermissions = (userList: Profile[]) => {
     if (!currentUserProfile) {
       console.log('No current user profile found');
@@ -80,6 +81,7 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
         email: user.email,
         role: user.role,
         id: user.id,
+        created_by: user.created_by,
         is_active: user.is_active
       });
       
@@ -95,10 +97,20 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
         return false;
       }
       
-      // Admin puede ver empleados y su propio perfil
+      // Admin puede ver:
+      // 1. Su propio perfil
+      // 2. Solo los empleados que ha creado (created_by = admin.id)
       if (currentUserProfile.role === 'admin') {
-        const canSee = user.role === 'empleado' || user.id === currentUserProfile.id;
-        console.log(`Admin ${currentUserProfile.email} can see user ${user.email}:`, canSee);
+        const isOwnProfile = user.id === currentUserProfile.id;
+        const isCreatedEmployee = user.role === 'empleado' && user.created_by === currentUserProfile.id;
+        
+        const canSee = isOwnProfile || isCreatedEmployee;
+        console.log(`Admin ${currentUserProfile.email} can see user ${user.email}:`, canSee, {
+          isOwnProfile,
+          isCreatedEmployee,
+          userCreatedBy: user.created_by,
+          adminId: currentUserProfile.id
+        });
         return canSee;
       }
       
@@ -108,7 +120,11 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
       return isOwnProfile;
     });
     
-    console.log('Filtered users result:', filtered.map(u => ({ email: u.email, role: u.role })));
+    console.log('Filtered users result:', filtered.map(u => ({ 
+      email: u.email, 
+      role: u.role, 
+      created_by: u.created_by 
+    })));
     return filtered;
   };
 
@@ -139,20 +155,11 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
         console.log(`User ${index + 1}:`, {
           email: user.email,
           role: user.role,
+          created_by: user.created_by,
           is_active: user.is_active,
           created_at: user.created_at
         });
       });
-      
-      // Buscar específicamente al usuario José
-      const joseUser = data?.find(u => u.email === 'jose@gmail.com');
-      if (joseUser) {
-        console.log('=== JOSÉ FOUND IN DATABASE ===');
-        console.log('José user details:', joseUser);
-      } else {
-        console.log('=== JOSÉ NOT FOUND IN DATABASE ===');
-        console.log('Available emails:', data?.map(u => u.email));
-      }
       
       // Aplicar filtro de permisos
       const filteredUsers = filterUsersByPermissions(data || []);
@@ -302,7 +309,9 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
           <Card>
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-primary">{getVisibleUserCount()}</div>
-              <p className="text-sm text-muted-foreground">Usuarios Visibles</p>
+              <p className="text-sm text-muted-foreground">
+                {currentUserProfile?.role === 'admin' ? 'Mis Usuarios' : 'Usuarios Visibles'}
+              </p>
             </CardContent>
           </Card>
           {canViewSuperAdmins() && (
@@ -332,11 +341,17 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
           <CardHeader>
             <CardTitle>Lista de Usuarios</CardTitle>
             <CardDescription>
-              Gestiona los usuarios del sistema según tus permisos
-              {!canViewSuperAdmins() && (
-                <span className="block text-sm text-muted-foreground mt-1">
-                  Nota: Las cuentas Super Admin están ocultas según tu nivel de acceso
+              {currentUserProfile?.role === 'admin' ? (
+                <span>
+                  Gestiona solo los usuarios que has creado
+                  <span className="block text-sm text-muted-foreground mt-1">
+                    Como administrador, solo puedes ver y gestionar los empleados que tú has creado
+                  </span>
                 </span>
+              ) : currentUserProfile?.role === 'superadmin' ? (
+                'Gestiona todos los usuarios del sistema'
+              ) : (
+                'Gestiona tu perfil de usuario'
               )}
             </CardDescription>
           </CardHeader>
@@ -349,18 +364,20 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
               <div className="text-center py-8">
                 <p className="text-muted-foreground">
                   {users.length === 0 
-                    ? "No se encontraron usuarios. Verifica que existan usuarios activos en el sistema."
+                    ? currentUserProfile?.role === 'admin' 
+                      ? "No has creado ningún empleado aún. Usa el botón 'Nuevo Usuario' para crear empleados."
+                      : "No se encontraron usuarios. Verifica que existan usuarios activos en el sistema."
                     : "No se encontraron usuarios que coincidan con los filtros aplicados."
                   }
                 </p>
                 {currentUserProfile?.role === 'admin' && users.length === 0 && (
-                  <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                    <p className="text-sm text-yellow-800 font-semibold">Información de depuración:</p>
-                    <p className="text-sm text-yellow-700 mt-2">
-                      Como administrador, deberías poder ver empleados y tu propio perfil.
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                    <p className="text-sm text-blue-800 font-semibold">Información:</p>
+                    <p className="text-sm text-blue-700 mt-2">
+                      Como administrador, solo puedes ver los empleados que tú has creado.
                     </p>
-                    <p className="text-sm text-yellow-700">
-                      Revisa la consola del navegador (F12) para ver logs detallados de la consulta.
+                    <p className="text-sm text-blue-700">
+                      Si esperabas ver otros usuarios, verifica que los hayas creado tú mismo.
                     </p>
                     <Button 
                       onClick={fetchUsers} 
@@ -396,6 +413,11 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
                           <Calendar className="h-4 w-4" />
                           <span>Registrado: {new Date(user.created_at || '').toLocaleDateString()}</span>
                         </div>
+                        {currentUserProfile?.role === 'admin' && user.role === 'empleado' && user.created_by === currentUserProfile.id && (
+                          <div className="text-xs text-green-600 font-medium mt-1">
+                            Creado por ti
+                          </div>
+                        )}
                       </div>
                     </div>
                     

@@ -467,6 +467,7 @@ export type Database = {
           address: string | null
           avatar_url: string | null
           created_at: string | null
+          created_by: string | null
           email: string
           full_name: string | null
           id: string
@@ -481,6 +482,7 @@ export type Database = {
           address?: string | null
           avatar_url?: string | null
           created_at?: string | null
+          created_by?: string | null
           email: string
           full_name?: string | null
           id: string
@@ -495,6 +497,7 @@ export type Database = {
           address?: string | null
           avatar_url?: string | null
           created_at?: string | null
+          created_by?: string | null
           email?: string
           full_name?: string | null
           id?: string
@@ -505,7 +508,15 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"] | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reservations: {
         Row: {

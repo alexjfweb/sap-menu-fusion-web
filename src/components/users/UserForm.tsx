@@ -4,9 +4,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, User } from 'lucide-react';
+import { 
+  ArrowLeft,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Shield,
+  Save,
+  X
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
+import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 
 type Profile = Tables<'profiles'>;
@@ -15,149 +25,143 @@ interface UserFormProps {
   user?: Profile | null;
   onClose: () => void;
   onBack: () => void;
-  onUserCreated?: () => void;
-}
-
-interface UserFormData {
-  email: string;
-  full_name: string;
-  role: 'superadmin' | 'admin' | 'empleado';
-  is_active: boolean;
-  password: string;
-  phone_landline: string;
-  phone_mobile: string;
-  address: string;
-}
-
-interface ValidationErrors {
-  email?: string;
-  password?: string;
-  phone_landline?: string;
-  phone_mobile?: string;
+  onUserCreated: () => void;
 }
 
 const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
+  const { profile: currentUserProfile } = useAuth();
   const { toast } = useToast();
-  
-  const [formData, setFormData] = useState<UserFormData>({
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
     email: '',
     full_name: '',
-    role: 'empleado',
-    is_active: true,
-    password: '',
-    phone_landline: '',
     phone_mobile: '',
+    phone_landline: '',
     address: '',
+    role: 'empleado' as 'empleado' | 'admin' | 'superadmin',
+    password: ''
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
 
   const isEditing = !!user;
+  const isCreating = !isEditing;
 
   useEffect(() => {
     if (user) {
       setFormData({
-        email: user.email,
+        email: user.email || '',
         full_name: user.full_name || '',
-        role: user.role as 'superadmin' | 'admin' | 'empleado',
-        is_active: user.is_active || true,
-        password: '', // Never pre-fill password
-        phone_landline: user.phone_landline || '',
         phone_mobile: user.phone_mobile || '',
+        phone_landline: user.phone_landline || '',
         address: user.address || '',
+        role: user.role || 'empleado',
+        password: ''
       });
     }
   }, [user]);
 
-  const validateForm = (): boolean => {
-    const errors: ValidationErrors = {};
-
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      errors.email = 'Por favor ingresa un email válido';
+  const canAssignRole = (role: string) => {
+    if (!currentUserProfile) return false;
+    
+    // Super Admin puede asignar cualquier rol
+    if (currentUserProfile.role === 'superadmin') {
+      return true;
     }
-
-    // Password validation (only for new users)
-    if (!isEditing && formData.password.length < 6) {
-      errors.password = 'La contraseña debe tener al menos 6 caracteres';
+    
+    // Admin solo puede asignar rol de empleado
+    if (currentUserProfile.role === 'admin') {
+      return role === 'empleado';
     }
-
-    // Phone landline validation (optional but must be valid if provided)
-    if (formData.phone_landline && !/^\d{7,10}$/.test(formData.phone_landline.replace(/\s/g, ''))) {
-      errors.phone_landline = 'El teléfono fijo debe tener entre 7 y 10 dígitos';
-    }
-
-    // Phone mobile validation (optional but must be valid if provided)
-    if (formData.phone_mobile && !/^\d{10}$/.test(formData.phone_mobile.replace(/\s/g, ''))) {
-      errors.phone_mobile = 'El teléfono móvil debe tener 10 dígitos';
-    }
-
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
+    
+    // Empleado no puede asignar roles
+    return false;
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
+  const getAvailableRoles = () => {
+    if (!currentUserProfile) return [];
+    
+    switch (currentUserProfile.role) {
+      case 'superadmin':
+        return [
+          { value: 'empleado', label: 'Empleado' },
+          { value: 'admin', label: 'Administrador' },
+          { value: 'superadmin', label: 'Super Administrador' }
+        ];
+      case 'admin':
+        return [
+          { value: 'empleado', label: 'Empleado' }
+        ];
+      default:
+        return [];
+    }
+  };
+
+  const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+      [field]: value
     }));
-
-    // Clear validation error when user starts typing
-    if (validationErrors[name as keyof ValidationErrors]) {
-      setValidationErrors(prev => ({
-        ...prev,
-        [name]: undefined
-      }));
-    }
   };
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
+  const validateForm = () => {
+    if (!formData.email.trim()) {
+      toast({
+        title: "Error",
+        description: "El email es requerido",
+        variant: "destructive"
+      });
+      return false;
     }
 
+    if (!formData.full_name.trim()) {
+      toast({
+        title: "Error",
+        description: "El nombre completo es requerido",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    if (isCreating && !formData.password.trim()) {
+      toast({
+        title: "Error",
+        description: "La contraseña es requerida para nuevos usuarios",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    if (isCreating && formData.password.length < 6) {
+      toast({
+        title: "Error",
+        description: "La contraseña debe tener al menos 6 caracteres",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
+    if (!currentUserProfile) return;
+
     setLoading(true);
-    setError(null);
 
     try {
-      if (isEditing) {
-        // Update existing user
-        const updateData: any = {
-          full_name: formData.full_name || null,
-          role: formData.role,
-          is_active: formData.is_active,
-          phone_landline: formData.phone_landline || null,
-          phone_mobile: formData.phone_mobile || null,
-          address: formData.address || null,
-          updated_at: new Date().toISOString(),
-        };
-
-        const { error } = await supabase
-          .from('profiles')
-          .update(updateData)
-          .eq('id', user.id);
-
-        if (error) throw error;
-
-        toast({
-          title: "Usuario actualizado",
-          description: "La información del usuario se ha actualizado exitosamente.",
-        });
-      } else {
-        // Create new user through Supabase Auth
-        console.log('Creating new user with email:', formData.email);
+      if (isCreating) {
+        // Crear nuevo usuario
+        console.log('Creating new user with data:', formData);
         
+        // Primero crear el usuario en auth
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
           options: {
             data: {
-              full_name: formData.full_name,
+              full_name: formData.full_name
             }
           }
         });
@@ -167,57 +171,84 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
           throw authError;
         }
 
-        console.log('Auth data received:', authData);
-
-        if (authData.user) {
-          // Wait a moment for the trigger to create the profile
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Update the profile with additional data
-          console.log('Updating profile for user:', authData.user.id);
-          
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .update({
-              full_name: formData.full_name || null,
-              role: formData.role,
-              is_active: formData.is_active,
-              phone_landline: formData.phone_landline || null,
-              phone_mobile: formData.phone_mobile || null,
-              address: formData.address || null,
-            })
-            .eq('id', authData.user.id);
-
-          if (profileError) {
-            console.error('Profile error:', profileError);
-            throw profileError;
-          }
-
-          console.log('User created successfully');
-
-          toast({
-            title: "Usuario creado exitosamente",
-            description: `El empleado ${formData.full_name || formData.email} ha sido registrado correctamente.`,
-          });
-
-          // Call the callback to refresh the user list
-          if (onUserCreated) {
-            onUserCreated();
-          }
+        if (!authData.user) {
+          throw new Error('No se pudo crear el usuario');
         }
+
+        console.log('Auth user created:', authData.user.id);
+
+        // Crear o actualizar el perfil con la relación de creador
+        const profileData = {
+          id: authData.user.id,
+          email: formData.email,
+          full_name: formData.full_name,
+          phone_mobile: formData.phone_mobile || null,
+          phone_landline: formData.phone_landline || null,
+          address: formData.address || null,
+          role: formData.role,
+          created_by: currentUserProfile.id, // Asignar el creador
+          is_active: true
+        };
+
+        console.log('Creating profile with data:', profileData);
+
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert(profileData);
+
+        if (profileError) {
+          console.error('Profile error:', profileError);
+          throw profileError;
+        }
+
+        toast({
+          title: "Usuario creado",
+          description: `Usuario ${formData.full_name} creado exitosamente`,
+        });
+
+        console.log('User created successfully');
+        onUserCreated();
+        onClose();
+
+      } else {
+        // Editar usuario existente
+        console.log('Updating existing user:', user?.id);
+        
+        const updateData = {
+          full_name: formData.full_name,
+          phone_mobile: formData.phone_mobile || null,
+          phone_landline: formData.phone_landline || null,
+          address: formData.address || null,
+          role: formData.role,
+          updated_at: new Date().toISOString()
+        };
+
+        const { error } = await supabase
+          .from('profiles')
+          .update(updateData)
+          .eq('id', user!.id);
+
+        if (error) {
+          console.error('Update error:', error);
+          throw error;
+        }
+
+        toast({
+          title: "Usuario actualizado",
+          description: `Usuario ${formData.full_name} actualizado exitosamente`,
+        });
+
+        console.log('User updated successfully');
+        onUserCreated();
+        onClose();
       }
 
-      // Close form and return to user management
-      onClose();
-    } catch (error) {
-      console.error('Error saving user:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error al guardar usuario';
-      setError(errorMessage);
-      
+    } catch (error: any) {
+      console.error('Error in handleSubmit:', error);
       toast({
         title: "Error",
-        description: errorMessage,
-        variant: "destructive",
+        description: error.message || "Error al procesar el usuario",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
@@ -226,13 +257,12 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm" onClick={onBack}>
+            <Button variant="ghost" size="sm" onClick={onClose}>
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Volver al Panel
+              Volver a Usuarios
             </Button>
             <div className="flex items-center space-x-2">
               <User className="h-8 w-8 text-primary" />
@@ -244,187 +274,160 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto">
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {isEditing ? 'Editar Usuario' : 'Crear Nuevo Usuario'}
-              </CardTitle>
-              <CardDescription>
-                {isEditing 
-                  ? 'Modifica la información y rol del usuario'
-                  : 'Completa la información para crear un nuevo usuario'
-                }
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {error && (
-                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-red-800 text-sm">{error}</p>
+        <Card className="max-w-2xl mx-auto">
+          <CardHeader>
+            <CardTitle>
+              {isEditing ? `Editar: ${user?.full_name || user?.email}` : 'Crear Nuevo Usuario'}
+            </CardTitle>
+            <CardDescription>
+              {isEditing 
+                ? 'Modifica la información del usuario'
+                : currentUserProfile?.role === 'admin' 
+                  ? 'Los usuarios que crees serán asignados a tu cuenta'
+                  : 'Completa la información del nuevo usuario'
+              }
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email *</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                      className="pl-10"
+                      disabled={isEditing} // No permitir cambiar email en edición
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="full_name">Nombre Completo *</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                    <Input
+                      id="full_name"
+                      value={formData.full_name}
+                      onChange={(e) => handleInputChange('full_name', e.target.value)}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {isCreating && (
+                <div className="space-y-2">
+                  <Label htmlFor="password">Contraseña *</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => handleInputChange('password', e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                    required
+                  />
                 </div>
               )}
 
-              <form onSubmit={onSubmit} className="space-y-6">
-                {/* Email */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    disabled={isEditing}
-                    required
-                    className={validationErrors.email ? 'border-red-500' : ''}
-                  />
-                  {validationErrors.email && (
-                    <p className="text-red-500 text-sm">{validationErrors.email}</p>
-                  )}
-                </div>
-
-                {/* Password - Only for new users */}
-                {!isEditing && (
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Contraseña *</Label>
-                    <Input
-                      id="password"
-                      name="password"
-                      type="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="Mínimo 6 caracteres"
-                      className={validationErrors.password ? 'border-red-500' : ''}
-                    />
-                    {validationErrors.password && (
-                      <p className="text-red-500 text-sm">{validationErrors.password}</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Full Name */}
-                <div className="space-y-2">
-                  <Label htmlFor="full_name">Nombre Completo</Label>
-                  <Input
-                    id="full_name"
-                    name="full_name"
-                    value={formData.full_name}
-                    onChange={handleInputChange}
-                    placeholder="Ingresa el nombre completo"
-                  />
-                </div>
-
-                {/* Role */}
-                <div className="space-y-2">
-                  <Label htmlFor="role">Rol *</Label>
-                  <select
-                    id="role"
-                    name="role"
-                    value={formData.role}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-input rounded-md bg-background"
-                    required
-                  >
-                    <option value="empleado">Empleado</option>
-                    <option value="admin">Administrador</option>
-                    <option value="superadmin">Super Administrador</option>
-                  </select>
-                </div>
-
-                {/* Contact Information */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Información de Contacto</h3>
-                  
-                  {/* Phone Landline */}
-                  <div className="space-y-2">
-                    <Label htmlFor="phone_landline">Teléfono Fijo</Label>
-                    <Input
-                      id="phone_landline"
-                      name="phone_landline"
-                      type="tel"
-                      value={formData.phone_landline}
-                      onChange={handleInputChange}
-                      placeholder="ej: 6012345678"
-                      className={validationErrors.phone_landline ? 'border-red-500' : ''}
-                    />
-                    {validationErrors.phone_landline && (
-                      <p className="text-red-500 text-sm">{validationErrors.phone_landline}</p>
-                    )}
-                  </div>
-
-                  {/* Phone Mobile */}
-                  <div className="space-y-2">
-                    <Label htmlFor="phone_mobile">Teléfono Móvil</Label>
+                  <Label htmlFor="phone_mobile">Teléfono Móvil</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                     <Input
                       id="phone_mobile"
-                      name="phone_mobile"
-                      type="tel"
                       value={formData.phone_mobile}
-                      onChange={handleInputChange}
-                      placeholder="ej: 3001234567"
-                      className={validationErrors.phone_mobile ? 'border-red-500' : ''}
+                      onChange={(e) => handleInputChange('phone_mobile', e.target.value)}
+                      className="pl-10"
                     />
-                    {validationErrors.phone_mobile && (
-                      <p className="text-red-500 text-sm">{validationErrors.phone_mobile}</p>
-                    )}
                   </div>
+                </div>
 
-                  {/* Address */}
-                  <div className="space-y-2">
-                    <Label htmlFor="address">Dirección</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="phone_landline">Teléfono Fijo</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                     <Input
-                      id="address"
-                      name="address"
-                      value={formData.address}
-                      onChange={handleInputChange}
-                      placeholder="Ingresa la dirección completa"
+                      id="phone_landline"
+                      value={formData.phone_landline}
+                      onChange={(e) => handleInputChange('phone_landline', e.target.value)}
+                      className="pl-10"
                     />
                   </div>
                 </div>
+              </div>
 
-                {/* Active Status */}
-                <div className="flex items-center space-x-2">
-                  <input
-                    id="is_active"
-                    name="is_active"
-                    type="checkbox"
-                    checked={formData.is_active}
-                    onChange={handleInputChange}
-                    className="rounded border-input"
+              <div className="space-y-2">
+                <Label htmlFor="address">Dirección</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    id="address"
+                    value={formData.address}
+                    onChange={(e) => handleInputChange('address', e.target.value)}
+                    className="pl-10"
                   />
-                  <Label htmlFor="is_active">Usuario activo</Label>
                 </div>
+              </div>
 
-                {/* Form Actions */}
-                <div className="flex space-x-4 pt-6">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={onClose}
-                    className="flex-1"
+              <div className="space-y-2">
+                <Label htmlFor="role">Rol *</Label>
+                <div className="relative">
+                  <Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <select
+                    id="role"
+                    value={formData.role}
+                    onChange={(e) => handleInputChange('role', e.target.value)}
+                    className="w-full pl-10 pr-3 py-2 border border-input rounded-md bg-background"
+                    required
                   >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={loading}
-                    className="flex-1"
-                  >
-                    {loading ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    ) : (
-                      <Save className="h-4 w-4 mr-2" />
-                    )}
-                    {isEditing ? 'Actualizar' : 'Crear'} Usuario
-                  </Button>
+                    {getAvailableRoles().map((roleOption) => (
+                      <option 
+                        key={roleOption.value} 
+                        value={roleOption.value}
+                        disabled={!canAssignRole(roleOption.value)}
+                      >
+                        {roleOption.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
+              </div>
+
+              {currentUserProfile?.role === 'admin' && isCreating && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-sm text-blue-800">
+                    <strong>Información:</strong> Este usuario será asignado a tu cuenta como administrador. 
+                    Solo tú podrás verlo y gestionarlo en el sistema.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-4 pt-6">
+                <Button type="button" variant="outline" onClick={onClose}>
+                  <X className="h-4 w-4 mr-2" />
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={loading}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {loading 
+                    ? (isEditing ? 'Actualizando...' : 'Creando...') 
+                    : (isEditing ? 'Actualizar Usuario' : 'Crear Usuario')
+                  }
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       </main>
     </div>
   );
