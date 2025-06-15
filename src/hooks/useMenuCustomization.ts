@@ -29,50 +29,52 @@ export const useMenuCustomization = (businessId?: string) => {
   });
 };
 
-// Hook for public access - bypassing RLS by using anon key directly
+// Hook for public access - now properly fetches the actual customization
 export const usePublicMenuCustomization = () => {
   return useQuery({
-    queryKey: ['public-menu-customization-bypass'],
+    queryKey: ['public-menu-customization'],
     queryFn: async () => {
-      console.log('🔧 [BYPASS] Attempting direct access to menu customization...');
+      console.log('🔧 [PUBLIC CUSTOMIZATION] Fetching menu customization...');
       
       try {
-        // Direct approach: get any available customization record
-        const response = await fetch(
-          'https://hlbbaaewjebasisxgnrt.supabase.co/rest/v1/menu_customization?select=*&limit=1',
-          {
-            method: 'GET',
-            headers: {
-              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhsYmJhYWV3amViYXNpc3hnbnJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk1MDMwODYsImV4cCI6MjA2NTA3OTA4Nn0.0PfH9-e4VHi0yWYUzMr_fhONY2-eYBMeWWX2joIVo9Y',
-              'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhsYmJhYWV3amViYXNpc3hnbnJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk1MDMwODYsImV4cCI6MjA2NTA3OTA4Nn0.0PfH9-e4VHi0yWYUzMr_fhONY2-eYBMeWWX2joIVo9Y',
-              'Content-Type': 'application/json',
-              'Prefer': 'return=representation'
-            }
-          }
-        );
+        // First get business info to get the business_id
+        const { data: businessInfo, error: businessError } = await supabase
+          .from('business_info')
+          .select('id')
+          .single();
 
-        console.log('🔧 [BYPASS] Response status:', response.status);
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log('✅ [BYPASS] Data fetched successfully:', data);
-          return data && data.length > 0 ? data[0] : null;
-        } else {
-          console.error('❌ [BYPASS] HTTP Error:', response.status, response.statusText);
+        if (businessError) {
+          console.warn('⚠️ [PUBLIC CUSTOMIZATION] No business info found, using defaults');
           return null;
         }
+
+        console.log('✅ [PUBLIC CUSTOMIZATION] Business ID found:', businessInfo.id);
+
+        // Now get the customization for this business
+        const { data: customization, error: customizationError } = await supabase
+          .from('menu_customization')
+          .select('*')
+          .eq('business_id', businessInfo.id)
+          .single();
+
+        if (customizationError && customizationError.code !== 'PGRST116') {
+          console.warn('⚠️ [PUBLIC CUSTOMIZATION] Error fetching customization:', customizationError);
+          return null;
+        }
+
+        console.log('✅ [PUBLIC CUSTOMIZATION] Customization fetched:', customization);
+        return customization;
         
       } catch (error) {
-        console.error('💥 [BYPASS] Error fetching customization:', error);
+        console.error('💥 [PUBLIC CUSTOMIZATION] Error:', error);
         return null;
       }
     },
-    staleTime: 0,
-    gcTime: 0,
+    staleTime: 0, // Always fetch fresh data
+    gcTime: 0, // Don't cache
     refetchOnMount: true,
-    refetchOnWindowFocus: false,
-    retry: 3,
-    retryDelay: 1000,
+    refetchOnWindowFocus: true,
+    retry: 1,
   });
 };
 

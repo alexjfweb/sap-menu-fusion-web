@@ -62,7 +62,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }
   }, []);
 
-  // Fetch customization with better error handling
+  // Fetch customization with immediate application
   const { 
     data: customization, 
     isLoading: customizationLoading,
@@ -70,27 +70,25 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     refetch: refetchCustomization
   } = usePublicMenuCustomization();
   
-  // Apply colors immediately when customization is available
+  // Apply colors with immediate effect when customization changes
   const colors = React.useMemo(() => {
     const defaults = getDefaultCustomization();
     
-    console.log('🎨 [COLORS] Current state:', {
-      isLoading: customizationLoading,
+    console.log('🎨 [COLORS] Applying customization:', {
       hasCustomization: !!customization,
       customization,
-      error: customizationError
+      isLoading: customizationLoading
     });
     
-    // Apply customization immediately if available
-    if (customization && typeof customization === 'object') {
-      console.log('✅ [COLORS] Applying customization:', customization);
-      return { ...defaults, ...customization };
+    if (customization) {
+      const appliedColors = { ...defaults, ...customization };
+      console.log('✅ [COLORS] Final colors applied:', appliedColors);
+      return appliedColors;
     }
     
-    // Use defaults while loading or on error
-    console.log('⚪ [COLORS] Using defaults');
+    console.log('⚪ [COLORS] Using defaults (no customization found)');
     return defaults;
-  }, [customization, customizationLoading, customizationError]);
+  }, [customization, customizationLoading]);
 
   // Fetch business info
   const { 
@@ -326,18 +324,8 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   const isLoading = productsLoading || categoriesLoading;
   const hasError = productsError || categoriesError;
 
-  // LOG FINAL para debugging
-  console.log('🎯 [RENDER] State final:', {
-    isLoading,
-    hasError,
-    customizationLoading,
-    customization,
-    finalColors: {
-      menu_bg_color: colors.menu_bg_color,
-      header_bg_color: colors.header_bg_color,
-      button_bg_color: colors.button_bg_color
-    }
-  });
+  // Force re-render when colors change
+  console.log('🎯 [RENDER] Current colors:', colors);
 
   // Only show loading for main data, not customization
   if (isLoading) {
@@ -464,13 +452,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     );
   }
 
-  console.log('🎨 [FINAL RENDER] Colors being applied:', {
-    menu_bg_color: colors.menu_bg_color,
-    header_bg_color: colors.header_bg_color,
-    button_bg_color: colors.button_bg_color,
-    customizationLoading,
-    hasCustomization: !!customization
-  });
+  console.log('🎨 [FINAL RENDER] Colors being applied:', colors);
 
   return (
     <div 
