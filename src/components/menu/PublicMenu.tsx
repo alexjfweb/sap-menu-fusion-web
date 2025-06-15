@@ -62,7 +62,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }
   }, []);
 
-  // Fetch customization with immediate application
+  // Fetch customization with aggressive refetching
   const { 
     data: customization, 
     isLoading: customizationLoading,
@@ -74,21 +74,36 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   const colors = React.useMemo(() => {
     const defaults = getDefaultCustomization();
     
-    console.log('🎨 [COLORS] Applying customization:', {
-      hasCustomization: !!customization,
-      customization,
-      isLoading: customizationLoading
-    });
+    console.log('🎨 [COLORS] Current customization data:', customization);
+    console.log('🎨 [COLORS] Is loading:', customizationLoading);
     
     if (customization) {
       const appliedColors = { ...defaults, ...customization };
-      console.log('✅ [COLORS] Final colors applied:', appliedColors);
+      console.log('✅ [COLORS] Custom colors applied:', appliedColors);
       return appliedColors;
     }
     
     console.log('⚪ [COLORS] Using defaults (no customization found)');
     return defaults;
   }, [customization, customizationLoading]);
+
+  // Force refresh of customization data
+  const handleRefreshCustomization = () => {
+    console.log('🔄 [REFRESH] Forcing customization refresh...');
+    refetchCustomization();
+  };
+
+  // Add automatic refresh every 10 seconds when customization is not available
+  useEffect(() => {
+    if (!customization && !customizationLoading) {
+      const interval = setInterval(() => {
+        console.log('🔄 [AUTO-REFRESH] Refreshing customization...');
+        refetchCustomization();
+      }, 10000);
+
+      return () => clearInterval(interval);
+    }
+  }, [customization, customizationLoading, refetchCustomization]);
 
   // Fetch business info
   const { 
@@ -324,10 +339,10 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   const isLoading = productsLoading || categoriesLoading;
   const hasError = productsError || categoriesError;
 
-  // Force re-render when colors change
-  console.log('🎯 [RENDER] Current colors:', colors);
+  console.log('🎯 [RENDER] Current colors being applied:', colors);
+  console.log('🎯 [RENDER] Has customization:', !!customization);
 
-  // Only show loading for main data, not customization
+  // Show loading
   if (isLoading) {
     return (
       <div 
@@ -345,6 +360,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     );
   }
 
+  // Show error state
   if (hasError) {
     console.error('Menu loading error:', { productsError, categoriesError });
     
@@ -368,6 +384,14 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
               >
                 Menú del Restaurante
               </h1>
+              <Button 
+                onClick={handleRefreshCustomization}
+                variant="outline"
+                size="sm"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Actualizar Colores
+              </Button>
             </div>
           </div>
         </header>
@@ -392,6 +416,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     );
   }
 
+  // Show no products state
   if (!products || products.length === 0) {
     console.warn('No products found');
     
@@ -428,6 +453,14 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
                   Menú del Restaurante
                 </h1>
               </div>
+              <Button 
+                onClick={handleRefreshCustomization}
+                variant="outline"
+                size="sm"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Actualizar Colores
+              </Button>
             </div>
           </div>
         </header>
@@ -451,8 +484,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
       </div>
     );
   }
-
-  console.log('🎨 [FINAL RENDER] Colors being applied:', colors);
 
   return (
     <div 
@@ -488,10 +519,35 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
                 >
                   Menú del Restaurante
                 </h1>
+                {!customization && (
+                  <Badge 
+                    variant="outline" 
+                    className="text-xs"
+                    style={{ 
+                      borderColor: colors.product_card_border_color,
+                      color: colors.text_color
+                    }}
+                  >
+                    Usando colores por defecto
+                  </Badge>
+                )}
               </div>
             </div>
             
             <div className="flex items-center space-x-2">
+              <Button 
+                onClick={handleRefreshCustomization}
+                variant="outline"
+                size="sm"
+                style={{ 
+                  borderColor: colors.button_bg_color,
+                  color: colors.button_bg_color
+                }}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Actualizar Colores
+              </Button>
+              
               <Button 
                 variant="outline" 
                 onClick={() => setShowShare(true)}

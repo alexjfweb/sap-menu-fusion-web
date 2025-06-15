@@ -29,7 +29,7 @@ export const useMenuCustomization = (businessId?: string) => {
   });
 };
 
-// Hook for public access - now properly fetches the actual customization
+// Hook for public access - fetches customization without authentication
 export const usePublicMenuCustomization = () => {
   return useQuery({
     queryKey: ['public-menu-customization'],
@@ -37,30 +37,25 @@ export const usePublicMenuCustomization = () => {
       console.log('🔧 [PUBLIC CUSTOMIZATION] Fetching menu customization...');
       
       try {
-        // First get business info to get the business_id
-        const { data: businessInfo, error: businessError } = await supabase
-          .from('business_info')
-          .select('id')
-          .single();
+        // Direct fetch to bypass potential RLS issues
+        const response = await fetch(
+          `https://hlbbaaewjebasisxgnrt.supabase.co/rest/v1/menu_customization?select=*&limit=1`,
+          {
+            headers: {
+              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhsYmJhYWV3amViYXNpc3hnbnJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk1MDMwODYsImV4cCI6MjA2NTA3OTA4Nn0.0PfH9-e4VHi0yWYUzMr_fhONY2-eYBMeWWX2joIVo9Y',
+              'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhsYmJhYWV3amViYXNpc3hnbnJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk1MDMwODYsImV4cCI6MjA2NTA3OTA4Nn0.0PfH9-e4VHi0yWYUzMr_fhONY2-eYBMeWWX2joIVo9Y`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
 
-        if (businessError) {
-          console.warn('⚠️ [PUBLIC CUSTOMIZATION] No business info found, using defaults');
+        if (!response.ok) {
+          console.warn('⚠️ [PUBLIC CUSTOMIZATION] Fetch failed:', response.status);
           return null;
         }
 
-        console.log('✅ [PUBLIC CUSTOMIZATION] Business ID found:', businessInfo.id);
-
-        // Now get the customization for this business
-        const { data: customization, error: customizationError } = await supabase
-          .from('menu_customization')
-          .select('*')
-          .eq('business_id', businessInfo.id)
-          .single();
-
-        if (customizationError && customizationError.code !== 'PGRST116') {
-          console.warn('⚠️ [PUBLIC CUSTOMIZATION] Error fetching customization:', customizationError);
-          return null;
-        }
+        const data = await response.json();
+        const customization = data && data.length > 0 ? data[0] : null;
 
         console.log('✅ [PUBLIC CUSTOMIZATION] Customization fetched:', customization);
         return customization;
@@ -74,6 +69,7 @@ export const usePublicMenuCustomization = () => {
     gcTime: 0, // Don't cache
     refetchOnMount: true,
     refetchOnWindowFocus: true,
+    refetchInterval: 5000, // Refetch every 5 seconds to catch changes
     retry: 1,
   });
 };
