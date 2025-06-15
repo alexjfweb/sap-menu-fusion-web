@@ -29,61 +29,69 @@ export const useMenuCustomization = (businessId?: string) => {
   });
 };
 
-// Hook optimizado para acceso público con políticas RLS corregidas
+// Hook DEFINITIVO para acceso público - diseñado para funcionar en incógnito y otros navegadores
 export const usePublicMenuCustomization = () => {
   return useQuery({
-    queryKey: ['public-menu-customization'],
+    queryKey: ['public-menu-customization-v2'],
     queryFn: async () => {
-      console.log('🔧 [PUBLIC] Fetching menu customization...');
+      console.log('🔧 [PÚBLICO V2] Iniciando obtención de personalización...');
       
       try {
-        // PASO 1: Obtener business_id del primer negocio
-        console.log('📍 [PUBLIC] Getting business ID...');
-        const { data: businessData, error: businessError } = await supabase
-          .from('business_info')
-          .select('id')
-          .limit(1)
-          .single();
+        // ESTRATEGIA AGRESIVA: Intentar obtener directamente sin depender del business_id
+        console.log('📍 [PÚBLICO V2] Obteniendo personalización directamente...');
         
-        if (businessError) {
-          console.error('❌ [PUBLIC] Business query error:', businessError);
-          return null;
-        }
-        
-        if (!businessData) {
-          console.warn('⚠️ [PUBLIC] No business found');
-          return null;
-        }
-        
-        const businessId = businessData.id;
-        console.log('✅ [PUBLIC] Business ID:', businessId);
-        
-        // PASO 2: Obtener personalización con acceso público
-        console.log('🎨 [PUBLIC] Getting customization for business:', businessId);
         const { data: customizationData, error: customizationError } = await supabase
           .from('menu_customization')
           .select('*')
-          .eq('business_id', businessId)
+          .limit(1)
           .single();
         
         if (customizationError) {
-          console.error('❌ [PUBLIC] Customization query error:', customizationError);
-          // Si hay error, retornar null para usar valores por defecto
-          return null;
+          console.error('❌ [PÚBLICO V2] Error al obtener personalización:', customizationError);
+          
+          // FALLBACK: Si falla, intentar obtener el business_id primero
+          console.log('🔄 [PÚBLICO V2] Intentando fallback con business_id...');
+          
+          const { data: businessData, error: businessError } = await supabase
+            .from('business_info')
+            .select('id')
+            .limit(1)
+            .single();
+          
+          if (businessError || !businessData) {
+            console.error('❌ [PÚBLICO V2] Error obteniendo business_id:', businessError);
+            return null;
+          }
+          
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('menu_customization')
+            .select('*')
+            .eq('business_id', businessData.id)
+            .single();
+          
+          if (fallbackError) {
+            console.error('❌ [PÚBLICO V2] Error en fallback:', fallbackError);
+            return null;
+          }
+          
+          console.log('✅ [PÚBLICO V2] Personalización obtenida via fallback:', fallbackData);
+          return fallbackData;
         }
         
-        console.log('🎨 [PUBLIC] Customization data:', customizationData);
+        console.log('✅ [PÚBLICO V2] Personalización obtenida directamente:', customizationData);
         return customizationData;
         
       } catch (error) {
-        console.error('💥 [PUBLIC] Unexpected error:', error);
+        console.error('💥 [PÚBLICO V2] Error inesperado:', error);
         return null;
       }
     },
-    staleTime: 1 * 60 * 1000, // 1 minuto
-    gcTime: 5 * 60 * 1000, // 5 minutos
-    retry: 2,
-    retryDelay: 1000,
+    staleTime: 0, // Sin cache
+    gcTime: 0, // Sin garbage collection
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 };
 

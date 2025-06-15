@@ -62,7 +62,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }
   }, []);
 
-  // SOLUCIÓN DEFINITIVA: Obtener personalización con manejo robusto
+  // OBTENCIÓN DEFINITIVA DE PERSONALIZACIÓN
   const { 
     data: customization, 
     isLoading: customizationLoading,
@@ -71,11 +71,11 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     refetch: refetchCustomization
   } = usePublicMenuCustomization();
   
-  // APLICACIÓN DEFINITIVA DE COLORES: Solo usar personalización cuando esté 100% confirmada
+  // APLICACIÓN ESTRICTA DE COLORES: Solo usar personalización cuando esté confirmada
   const colors = React.useMemo(() => {
     const defaults = getDefaultCustomization();
     
-    console.log('🎨 [DEFINITIVO] Estado de personalización:', {
+    console.log('🎨 [FINAL] Estado de personalización:', {
       isLoading: customizationLoading,
       isSuccess: customizationSuccess,
       hasCustomization: !!customization,
@@ -83,13 +83,13 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
       error: customizationError?.message
     });
     
-    // CONDICIÓN ESTRICTA: Solo aplicar si tenemos éxito Y datos válidos
-    if (customizationSuccess && customization && typeof customization === 'object') {
-      console.log('✅ [DEFINITIVO] Aplicando colores personalizados:', customization);
+    // CONDICIÓN MUY ESTRICTA: Solo aplicar si tenemos éxito Y datos válidos Y no estamos cargando
+    if (!customizationLoading && customizationSuccess && customization && typeof customization === 'object') {
+      console.log('✅ [FINAL] Aplicando colores personalizados:', customization);
       return { ...defaults, ...customization };
     }
     
-    console.log('⚪ [DEFINITIVO] Usando colores por defecto');
+    console.log('⚪ [FINAL] Usando colores por defecto (loading:', customizationLoading, ')');
     return defaults;
   }, [customization, customizationLoading, customizationSuccess, customizationError]);
 
@@ -327,8 +327,8 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   const isLoading = productsLoading || categoriesLoading;
   const hasError = productsError || categoriesError;
 
-  // DEBUG DEFINITIVO: Log del estado final de colores
-  console.log('🎯 [DEFINITIVO] Estado final del menú:', {
+  // DEBUG FINAL: Log del estado completo
+  console.log('🎯 [FINAL] Estado completo del menú:', {
     isLoading,
     hasError,
     productsCount: products?.length || 0,
@@ -348,8 +348,8 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }
   });
 
-  // Mostrar loading solo si los datos principales están cargando
-  if (isLoading) {
+  // Mostrar loading si los datos principales O la personalización están cargando
+  if (isLoading || customizationLoading) {
     return (
       <div 
         className="min-h-screen flex items-center justify-center"
@@ -360,7 +360,9 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
             className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4"
             style={{ borderColor: colors.button_bg_color }}
           ></div>
-          <p style={{ color: colors.text_color }}>Cargando menú...</p>
+          <p style={{ color: colors.text_color }}>
+            {customizationLoading ? 'Cargando personalización...' : 'Cargando menú...'}
+          </p>
         </div>
       </div>
     );
@@ -473,7 +475,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     );
   }
 
-  console.log('🎨 [DEFINITIVO] Renderizando menú con colores finales:', colors);
+  console.log('🎨 [FINAL] Renderizando menú con colores aplicados:', colors);
 
   return (
     <div 
