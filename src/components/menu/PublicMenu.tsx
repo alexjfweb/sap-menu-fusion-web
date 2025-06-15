@@ -62,7 +62,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }
   }, []);
 
-  // OBTENCIÓN DEFINITIVA DE PERSONALIZACIÓN
+  // OBTENCIÓN DEFINITIVA DE PERSONALIZACIÓN - VERSION SIMPLIFICADA
   const { 
     data: customization, 
     isLoading: customizationLoading,
@@ -71,27 +71,32 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     refetch: refetchCustomization
   } = usePublicMenuCustomization();
   
-  // APLICACIÓN ESTRICTA DE COLORES: Solo usar personalización cuando esté confirmada
+  // APLICACIÓN INMEDIATA DE COLORES: Aplicar tan pronto como tengamos datos
   const colors = React.useMemo(() => {
     const defaults = getDefaultCustomization();
     
-    console.log('🎨 [FINAL] Estado de personalización:', {
+    console.log('🎨 [COLORES] Estado actual:', {
       isLoading: customizationLoading,
       isSuccess: customizationSuccess,
       hasCustomization: !!customization,
-      customizationData: customization,
-      error: customizationError?.message
+      customization
     });
     
-    // CONDICIÓN MUY ESTRICTA: Solo aplicar si tenemos éxito Y datos válidos Y no estamos cargando
-    if (!customizationLoading && customizationSuccess && customization && typeof customization === 'object') {
-      console.log('✅ [FINAL] Aplicando colores personalizados:', customization);
+    // Si tenemos datos de personalización, aplicarlos inmediatamente
+    if (customization && typeof customization === 'object') {
+      console.log('✅ [COLORES] Aplicando personalización:', customization);
       return { ...defaults, ...customization };
     }
     
-    console.log('⚪ [FINAL] Usando colores por defecto (loading:', customizationLoading, ')');
+    // Si estamos cargando, mostrar defaults pero log que estamos esperando
+    if (customizationLoading) {
+      console.log('⏳ [COLORES] Cargando... usando defaults temporalmente');
+    } else {
+      console.log('⚪ [COLORES] Sin personalización, usando defaults');
+    }
+    
     return defaults;
-  }, [customization, customizationLoading, customizationSuccess, customizationError]);
+  }, [customization, customizationLoading, customizationSuccess]);
 
   // Fetch business info
   const { 
@@ -327,29 +332,21 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   const isLoading = productsLoading || categoriesLoading;
   const hasError = productsError || categoriesError;
 
-  // DEBUG FINAL: Log del estado completo
-  console.log('🎯 [FINAL] Estado completo del menú:', {
+  // LOG FINAL para debugging
+  console.log('🎯 [RENDER] Estado final:', {
     isLoading,
     hasError,
-    productsCount: products?.length || 0,
-    categoriesCount: categories?.length || 0,
-    sessionId,
-    customizationState: {
-      loading: customizationLoading,
-      success: customizationSuccess,
-      hasData: !!customization,
-      error: customizationError?.message
-    },
+    customizationLoading,
+    customization,
     finalColors: {
       menu_bg_color: colors.menu_bg_color,
       header_bg_color: colors.header_bg_color,
-      button_bg_color: colors.button_bg_color,
-      text_color: colors.text_color
+      button_bg_color: colors.button_bg_color
     }
   });
 
-  // Mostrar loading si los datos principales O la personalización están cargando
-  if (isLoading || customizationLoading) {
+  // Solo mostrar loading para datos principales, NO para personalización
+  if (isLoading) {
     return (
       <div 
         className="min-h-screen flex items-center justify-center"
@@ -360,9 +357,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
             className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4"
             style={{ borderColor: colors.button_bg_color }}
           ></div>
-          <p style={{ color: colors.text_color }}>
-            {customizationLoading ? 'Cargando personalización...' : 'Cargando menú...'}
-          </p>
+          <p style={{ color: colors.text_color }}>Cargando menú...</p>
         </div>
       </div>
     );
@@ -475,7 +470,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     );
   }
 
-  console.log('🎨 [FINAL] Renderizando menú con colores aplicados:', colors);
+  console.log('🎨 [FINAL RENDER] Renderizando con colores:', colors);
 
   return (
     <div 

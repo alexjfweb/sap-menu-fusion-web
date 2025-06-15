@@ -29,69 +29,40 @@ export const useMenuCustomization = (businessId?: string) => {
   });
 };
 
-// Hook DEFINITIVO para acceso público - diseñado para funcionar en incógnito y otros navegadores
+// Hook simplificado y directo para acceso público
 export const usePublicMenuCustomization = () => {
   return useQuery({
-    queryKey: ['public-menu-customization-v2'],
+    queryKey: ['public-menu-customization-direct'],
     queryFn: async () => {
-      console.log('🔧 [PÚBLICO V2] Iniciando obtención de personalización...');
+      console.log('🔧 [DIRECTO] Obteniendo personalización sin filtros...');
       
       try {
-        // ESTRATEGIA AGRESIVA: Intentar obtener directamente sin depender del business_id
-        console.log('📍 [PÚBLICO V2] Obteniendo personalización directamente...');
-        
-        const { data: customizationData, error: customizationError } = await supabase
+        // Estrategia directa: obtener cualquier registro de personalización
+        const { data, error } = await supabase
           .from('menu_customization')
           .select('*')
-          .limit(1)
-          .single();
+          .limit(1);
         
-        if (customizationError) {
-          console.error('❌ [PÚBLICO V2] Error al obtener personalización:', customizationError);
-          
-          // FALLBACK: Si falla, intentar obtener el business_id primero
-          console.log('🔄 [PÚBLICO V2] Intentando fallback con business_id...');
-          
-          const { data: businessData, error: businessError } = await supabase
-            .from('business_info')
-            .select('id')
-            .limit(1)
-            .single();
-          
-          if (businessError || !businessData) {
-            console.error('❌ [PÚBLICO V2] Error obteniendo business_id:', businessError);
-            return null;
-          }
-          
-          const { data: fallbackData, error: fallbackError } = await supabase
-            .from('menu_customization')
-            .select('*')
-            .eq('business_id', businessData.id)
-            .single();
-          
-          if (fallbackError) {
-            console.error('❌ [PÚBLICO V2] Error en fallback:', fallbackError);
-            return null;
-          }
-          
-          console.log('✅ [PÚBLICO V2] Personalización obtenida via fallback:', fallbackData);
-          return fallbackData;
+        if (error) {
+          console.error('❌ [DIRECTO] Error:', error);
+          return null;
         }
         
-        console.log('✅ [PÚBLICO V2] Personalización obtenida directamente:', customizationData);
-        return customizationData;
+        console.log('✅ [DIRECTO] Datos obtenidos:', data);
+        
+        // Retornar el primer registro encontrado o null
+        return data && data.length > 0 ? data[0] : null;
         
       } catch (error) {
-        console.error('💥 [PÚBLICO V2] Error inesperado:', error);
+        console.error('💥 [DIRECTO] Error inesperado:', error);
         return null;
       }
     },
-    staleTime: 0, // Sin cache
-    gcTime: 0, // Sin garbage collection
+    staleTime: 0,
+    gcTime: 0,
     refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 };
 
