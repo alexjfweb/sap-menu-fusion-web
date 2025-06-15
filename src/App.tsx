@@ -9,6 +9,7 @@ import DataInitializer from "@/components/DataInitializer";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./components/Dashboard";
+import PublicMenu from "./components/menu/PublicMenu";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/menu" element={<PublicMenu />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
