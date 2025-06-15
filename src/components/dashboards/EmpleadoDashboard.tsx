@@ -1,12 +1,26 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { ChefHat, ClipboardList, Calendar, LogOut } from 'lucide-react';
+import OrderManagement from '@/components/orders/OrderManagement';
 
 const EmpleadoDashboard = () => {
   const { profile, signOut } = useAuth();
+  const [currentView, setCurrentView] = useState<'dashboard' | 'orders' | 'reservations' | 'menu'>('dashboard');
+
+  const handleViewOrders = () => {
+    setCurrentView('orders');
+  };
+
+  const handleBackToDashboard = () => {
+    setCurrentView('dashboard');
+  };
+
+  if (currentView === 'orders') {
+    return <OrderManagement onBack={handleBackToDashboard} />;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -47,11 +61,11 @@ const EmpleadoDashboard = () => {
                 <span>Pedidos</span>
               </CardTitle>
               <CardDescription>
-                Gestiona los pedidos de los clientes
+                Gestiona los pedidos de los clientes en tiempo real
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full">
+              <Button className="w-full" onClick={handleViewOrders}>
                 Ver Pedidos
               </Button>
             </CardContent>
