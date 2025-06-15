@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { 
   ChefHat, 
-  Users, 
   Package, 
   Calendar, 
   BarChart3, 
@@ -15,15 +14,17 @@ import {
   DollarSign,
   TrendingUp,
   Clock,
-  Building
+  Palette,
+  Building,
+  Globe
 } from 'lucide-react';
 import OrderManagement from '../orders/OrderManagement';
 import ProductManagement from '../products/ProductManagement';
 import ReservationManagement from '../reservations/ReservationManagement';
 import ReportsManagement from '../reports/ReportsManagement';
-import UserManagement from '../users/UserManagement';
-import GlobalSettings from '../settings/GlobalSettings';
 import BusinessInfoManagement from '../business/BusinessInfoManagement';
+import MenuCustomization from '../menu/MenuCustomization';
+import PublicMenu from '../menu/PublicMenu';
 
 const AdminDashboard = () => {
   const { profile, signOut } = useAuth();
@@ -50,16 +51,16 @@ const AdminDashboard = () => {
     return <ReportsManagement onBack={handleBackToDashboard} />;
   }
 
-  if (activeSection === 'users') {
-    return <UserManagement onBack={handleBackToDashboard} />;
-  }
-
-  if (activeSection === 'settings') {
-    return <GlobalSettings onBack={handleBackToDashboard} />;
-  }
-
   if (activeSection === 'business-info') {
     return <BusinessInfoManagement onBack={handleBackToDashboard} />;
+  }
+
+  if (activeSection === 'menu-customization') {
+    return <MenuCustomization onBack={handleBackToDashboard} />;
+  }
+
+  if (activeSection === 'public-menu') {
+    return <PublicMenu onBack={handleBackToDashboard} />;
   }
 
   return (
@@ -69,7 +70,7 @@ const AdminDashboard = () => {
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-2">
             <ChefHat className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl font-bold">SAP Menu - Panel Administrador</h1>
+            <h1 className="text-2xl font-bold">SAP Menu - Panel Administrativo</h1>
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-muted-foreground">
@@ -86,9 +87,9 @@ const AdminDashboard = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">Panel de Administrador</h2>
+          <h2 className="text-3xl font-bold mb-2">Panel de Control</h2>
           <p className="text-muted-foreground">
-            Gestiona tu restaurante de manera eficiente
+            Gestiona tu restaurante desde aquí
           </p>
         </div>
 
@@ -120,7 +121,7 @@ const AdminDashboard = () => {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-blue-600">8</div>
+                  <div className="text-2xl font-bold text-blue-600">12</div>
                   <p className="text-sm text-muted-foreground">Reservas Hoy</p>
                 </div>
                 <Calendar className="h-8 w-8 text-blue-600 opacity-50" />
@@ -142,27 +143,6 @@ const AdminDashboard = () => {
 
         {/* Management Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Información del Negocio */}
-          <Card className="hover:shadow-lg transition-shadow duration-300">
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Building className="h-5 w-5 text-primary" />
-                <span>Información del Negocio</span>
-              </CardTitle>
-              <CardDescription>
-                Gestiona la información de tu restaurante
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button 
-                className="w-full"
-                onClick={() => setActiveSection('business-info')}
-              >
-                Editar Información
-              </Button>
-            </CardContent>
-          </Card>
-
           {/* Gestión de Pedidos */}
           <Card className="hover:shadow-lg transition-shadow duration-300">
             <CardHeader>
@@ -171,7 +151,7 @@ const AdminDashboard = () => {
                 <span>Gestión de Pedidos</span>
               </CardTitle>
               <CardDescription>
-                Administra los pedidos del restaurante
+                Administra pedidos entrantes y su estado
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -192,7 +172,7 @@ const AdminDashboard = () => {
                 <span>Gestión de Productos</span>
               </CardTitle>
               <CardDescription>
-                Administra el menú y productos
+                Añade, edita y organiza tu menú
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -205,6 +185,27 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
 
+          {/* Personalización del Menú - NUEVA SECCIÓN */}
+          <Card className="hover:shadow-lg transition-shadow duration-300 border-primary/20">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Palette className="h-5 w-5 text-primary" />
+                <span>Personalización del Menú</span>
+              </CardTitle>
+              <CardDescription>
+                Personaliza colores y diseño de tu menú público
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('menu-customization')}
+              >
+                Personalizar Menú
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Gestión de Reservas */}
           <Card className="hover:shadow-lg transition-shadow duration-300">
             <CardHeader>
@@ -213,7 +214,7 @@ const AdminDashboard = () => {
                 <span>Gestión de Reservas</span>
               </CardTitle>
               <CardDescription>
-                Administra las reservas de mesas
+                Administra reservas de mesas
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -226,15 +227,57 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Sistema de Reportes */}
+          {/* Información del Negocio */}
+          <Card className="hover:shadow-lg transition-shadow duration-300">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Building className="h-5 w-5 text-primary" />
+                <span>Información del Negocio</span>
+              </CardTitle>
+              <CardDescription>
+                Configura datos de tu restaurante
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('business-info')}
+              >
+                Configurar Negocio
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Ver Menú Público */}
+          <Card className="hover:shadow-lg transition-shadow duration-300">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Globe className="h-5 w-5 text-primary" />
+                <span>Ver Menú Público</span>
+              </CardTitle>
+              <CardDescription>
+                Previsualiza cómo ven tu menú los clientes
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('public-menu')}
+              >
+                Ver Menú Público
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Reportes y Analíticas */}
           <Card className="hover:shadow-lg transition-shadow duration-300">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <BarChart3 className="h-5 w-5 text-primary" />
-                <span>Sistema de Reportes</span>
+                <span>Reportes y Analíticas</span>
               </CardTitle>
               <CardDescription>
-                Analiza el rendimiento del negocio
+                Visualiza estadísticas de ventas
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -243,48 +286,6 @@ const AdminDashboard = () => {
                 onClick={() => setActiveSection('reports')}
               >
                 Ver Reportes
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Gestión de Usuarios */}
-          <Card className="hover:shadow-lg transition-shadow duration-300">
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Users className="h-5 w-5 text-primary" />
-                <span>Gestión de Usuarios</span>
-              </CardTitle>
-              <CardDescription>
-                Administra usuarios y permisos
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button 
-                className="w-full"
-                onClick={() => setActiveSection('users')}
-              >
-                Gestionar Usuarios
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Configuración */}
-          <Card className="hover:shadow-lg transition-shadow duration-300">
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Settings className="h-5 w-5 text-primary" />
-                <span>Configuración</span>
-              </CardTitle>
-              <CardDescription>
-                Configuraciones del restaurante
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button 
-                className="w-full"
-                onClick={() => setActiveSection('settings')}
-              >
-                Configurar Sistema
               </Button>
             </CardContent>
           </Card>

@@ -238,6 +238,80 @@ export type Database = {
           },
         ]
       }
+      menu_customization: {
+        Row: {
+          business_id: string | null
+          button_bg_color: string | null
+          button_text_color: string | null
+          contact_button_bg_color: string | null
+          contact_button_text_color: string | null
+          created_at: string
+          header_bg_color: string | null
+          header_text_color: string | null
+          id: string
+          menu_bg_color: string | null
+          product_card_bg_color: string | null
+          product_card_border_color: string | null
+          product_description_color: string | null
+          product_name_color: string | null
+          product_price_color: string | null
+          shadow_color: string | null
+          social_links_color: string | null
+          text_color: string | null
+          updated_at: string
+        }
+        Insert: {
+          business_id?: string | null
+          button_bg_color?: string | null
+          button_text_color?: string | null
+          contact_button_bg_color?: string | null
+          contact_button_text_color?: string | null
+          created_at?: string
+          header_bg_color?: string | null
+          header_text_color?: string | null
+          id?: string
+          menu_bg_color?: string | null
+          product_card_bg_color?: string | null
+          product_card_border_color?: string | null
+          product_description_color?: string | null
+          product_name_color?: string | null
+          product_price_color?: string | null
+          shadow_color?: string | null
+          social_links_color?: string | null
+          text_color?: string | null
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string | null
+          button_bg_color?: string | null
+          button_text_color?: string | null
+          contact_button_bg_color?: string | null
+          contact_button_text_color?: string | null
+          created_at?: string
+          header_bg_color?: string | null
+          header_text_color?: string | null
+          id?: string
+          menu_bg_color?: string | null
+          product_card_bg_color?: string | null
+          product_card_border_color?: string | null
+          product_description_color?: string | null
+          product_name_color?: string | null
+          product_price_color?: string | null
+          shadow_color?: string | null
+          social_links_color?: string | null
+          text_color?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_customization_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: true
+            referencedRelation: "business_info"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           created_at: string | null

@@ -13,6 +13,7 @@ import ShoppingCartModal from './ShoppingCartModal';
 import ShareModal from './ShareModal';
 import ReservationModal from './ReservationModal';
 import BusinessInfoDisplay from './BusinessInfoDisplay';
+import { useMenuCustomization, getDefaultCustomization } from '@/hooks/useMenuCustomization';
 import { Tables } from '@/integrations/supabase/types';
 
 type Product = Tables<'products'>;
@@ -36,7 +37,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     try {
       let storedSessionId = '';
       
-      // Try to get from localStorage, but handle gracefully if not available (incognito mode)
       try {
         storedSessionId = localStorage.getItem('cart_session_id') || '';
       } catch (error) {
@@ -56,7 +56,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
       setSessionId(storedSessionId);
     } catch (error) {
       console.error('Error setting up session:', error);
-      // Fallback session ID
       const fallbackId = 'fallback_' + Date.now();
       console.log('Using fallback session ID:', fallbackId);
       setSessionId(fallbackId);
@@ -97,6 +96,11 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     staleTime: 10 * 60 * 1000,
   });
 
+  // Get menu customization
+  const { data: customization } = useMenuCustomization(businessInfo?.id);
+  const colors = customization || getDefaultCustomization();
+
+  // Fetch products
   const { 
     data: products, 
     isLoading: productsLoading, 
@@ -108,7 +112,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
       console.log('Fetching products from Supabase...');
       
       try {
-        // Test basic connection first
         const { data: testData, error: testError } = await supabase
           .from('products')
           .select('count')
@@ -121,7 +124,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
           throw new Error(`Connection failed: ${testError.message}`);
         }
 
-        // Fetch products with categories
         const { data, error } = await supabase
           .from('products')
           .select(`
@@ -153,6 +155,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Fetch categories
   const { 
     data: categories, 
     isLoading: categoriesLoading, 
@@ -310,7 +313,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   const isLoading = productsLoading || categoriesLoading;
   const hasError = productsError || categoriesError;
 
-  // Debug information
   console.log('PublicMenu state:', {
     isLoading,
     hasError,
@@ -318,15 +320,22 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     categoriesCount: categories?.length || 0,
     productsError: productsError?.message,
     categoriesError: categoriesError?.message,
-    sessionId
+    sessionId,
+    customization: !!customization
   });
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div 
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: colors.menu_bg_color }}
+      >
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Cargando menú...</p>
+          <div 
+            className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4"
+            style={{ borderColor: colors.button_bg_color }}
+          ></div>
+          <p style={{ color: colors.text_color }}>Cargando menú...</p>
         </div>
       </div>
     );
@@ -336,11 +345,25 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     console.error('Menu loading error:', { productsError, categoriesError });
     
     return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+      <div 
+        className="min-h-screen"
+        style={{ backgroundColor: colors.menu_bg_color }}
+      >
+        <header 
+          className="border-b backdrop-blur sticky top-0 z-50"
+          style={{ 
+            backgroundColor: colors.header_bg_color,
+            borderColor: colors.product_card_border_color
+          }}
+        >
           <div className="container mx-auto px-4 py-4">
             <div className="flex justify-between items-center">
-              <h1 className="text-2xl font-bold">Menú del Restaurante</h1>
+              <h1 
+                className="text-2xl font-bold"
+                style={{ color: colors.header_text_color }}
+              >
+                Menú del Restaurante
+              </h1>
             </div>
           </div>
         </header>
@@ -365,23 +388,41 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     );
   }
 
-  // If no products found, show empty state
   if (!products || products.length === 0) {
     console.warn('No products found');
     
     return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+      <div 
+        className="min-h-screen"
+        style={{ backgroundColor: colors.menu_bg_color }}
+      >
+        <header 
+          className="border-b backdrop-blur sticky top-0 z-50"
+          style={{ 
+            backgroundColor: colors.header_bg_color,
+            borderColor: colors.product_card_border_color
+          }}
+        >
           <div className="container mx-auto px-4 py-4">
             <div className="flex justify-between items-center">
               <div className="flex items-center space-x-4">
                 {onBack && (
-                  <Button variant="ghost" size="sm" onClick={onBack}>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={onBack}
+                    style={{ color: colors.header_text_color }}
+                  >
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Volver al Panel
                   </Button>
                 )}
-                <h1 className="text-2xl font-bold">Menú del Restaurante</h1>
+                <h1 
+                  className="text-2xl font-bold"
+                  style={{ color: colors.header_text_color }}
+                >
+                  Menú del Restaurante
+                </h1>
               </div>
             </div>
           </div>
@@ -410,38 +451,74 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   console.log('Rendering menu with products:', products.length);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div 
+      className="min-h-screen"
+      style={{ backgroundColor: colors.menu_bg_color }}
+    >
       {/* Header */}
-      <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+      <header 
+        className="border-b backdrop-blur sticky top-0 z-50"
+        style={{ 
+          backgroundColor: colors.header_bg_color,
+          borderColor: colors.product_card_border_color
+        }}
+      >
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
               {onBack && (
-                <Button variant="ghost" size="sm" onClick={onBack}>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={onBack}
+                  style={{ color: colors.header_text_color }}
+                >
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Volver al Panel
                 </Button>
               )}
               <div className="flex items-center space-x-2">
-                <h1 className="text-2xl font-bold">Menú del Restaurante</h1>
+                <h1 
+                  className="text-2xl font-bold"
+                  style={{ color: colors.header_text_color }}
+                >
+                  Menú del Restaurante
+                </h1>
               </div>
             </div>
             
             <div className="flex items-center space-x-2">
-              <Button variant="outline" onClick={() => setShowShare(true)}>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowShare(true)}
+                style={{ 
+                  borderColor: colors.button_bg_color,
+                  color: colors.button_bg_color
+                }}
+              >
                 <Share2 className="h-4 w-4 mr-2" />
                 Compartir
               </Button>
               
-              <Button variant="outline" onClick={() => setShowReservation(true)}>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowReservation(true)}
+                style={{ 
+                  borderColor: colors.button_bg_color,
+                  color: colors.button_bg_color
+                }}
+              >
                 <Calendar className="h-4 w-4 mr-2" />
                 Reservar
               </Button>
               
               <Button 
-                variant="default" 
                 onClick={() => setShowCart(true)}
                 className="relative"
+                style={{ 
+                  backgroundColor: colors.button_bg_color,
+                  color: colors.button_text_color
+                }}
               >
                 <ShoppingCart className="h-4 w-4 mr-2" />
                 Carrito ({getTotalItems()})
@@ -469,18 +546,34 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
             categories={categories || []}
             selectedCategory={selectedCategory}
             onCategoryChange={setSelectedCategory}
+            customization={colors}
           />
 
           {/* Products Grid */}
           {filteredProducts && filteredProducts.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredProducts.map((product) => (
-                <Card key={product.id} className="group hover:shadow-lg transition-shadow">
+                <Card 
+                  key={product.id} 
+                  className="group hover:shadow-lg transition-shadow"
+                  style={{ 
+                    backgroundColor: colors.product_card_bg_color,
+                    borderColor: colors.product_card_border_color
+                  }}
+                >
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <CardTitle className="text-lg">{product.name}</CardTitle>
-                        <CardDescription className="mt-1">
+                        <CardTitle 
+                          className="text-lg"
+                          style={{ color: colors.product_name_color }}
+                        >
+                          {product.name}
+                        </CardTitle>
+                        <CardDescription 
+                          className="mt-1"
+                          style={{ color: colors.product_description_color }}
+                        >
                           {(product as any).categories?.name}
                         </CardDescription>
                       </div>
@@ -503,30 +596,73 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
                     <ExpandableDescription 
                       description={product.description || ''} 
                       maxLength={80}
+                      textColor={colors.product_description_color}
                     />
                     
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-2xl font-bold text-primary">
+                      <span 
+                        className="text-2xl font-bold"
+                        style={{ color: colors.product_price_color }}
+                      >
                         {formatPrice(Number(product.price))}
                       </span>
-                      <Badge variant="default">Disponible</Badge>
+                      <Badge 
+                        variant="default"
+                        style={{ 
+                          backgroundColor: colors.button_bg_color,
+                          color: colors.button_text_color
+                        }}
+                      >
+                        Disponible
+                      </Badge>
                     </div>
 
                     <div className="flex flex-wrap gap-1 mb-3">
                       {product.is_vegetarian && (
-                        <Badge variant="outline" className="text-xs">Vegetariano</Badge>
+                        <Badge 
+                          variant="outline" 
+                          className="text-xs"
+                          style={{ 
+                            borderColor: colors.product_card_border_color,
+                            color: colors.text_color
+                          }}
+                        >
+                          Vegetariano
+                        </Badge>
                       )}
                       {product.is_vegan && (
-                        <Badge variant="outline" className="text-xs">Vegano</Badge>
+                        <Badge 
+                          variant="outline" 
+                          className="text-xs"
+                          style={{ 
+                            borderColor: colors.product_card_border_color,
+                            color: colors.text_color
+                          }}
+                        >
+                          Vegano
+                        </Badge>
                       )}
                       {product.is_gluten_free && (
-                        <Badge variant="outline" className="text-xs">Sin Gluten</Badge>
+                        <Badge 
+                          variant="outline" 
+                          className="text-xs"
+                          style={{ 
+                            borderColor: colors.product_card_border_color,
+                            color: colors.text_color
+                          }}
+                        >
+                          Sin Gluten
+                        </Badge>
                       )}
                     </div>
                     
                     <Button 
                       onClick={() => addToCart(product)}
                       className="w-full"
+                      style={{ 
+                        backgroundColor: colors.button_bg_color,
+                        color: colors.button_text_color
+                      }}
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       Agregar al Carrito
