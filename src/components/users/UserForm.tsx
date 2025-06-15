@@ -11,7 +11,11 @@ import {
   MapPin,
   Shield,
   Save,
-  X
+  X,
+  Lock,
+  RefreshCw,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
@@ -41,6 +45,21 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
     password: ''
   });
 
+  // Password change form state
+  const [changePassword, setChangePassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showPasswords, setShowPasswords] = useState({
+    newPassword: false,
+    confirmPassword: false
+  });
+  const [passwordStrength, setPasswordStrength] = useState({
+    score: 0,
+    feedback: ''
+  });
+
   const isEditing = !!user;
   const isCreating = !isEditing;
 
@@ -57,6 +76,77 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
       });
     }
   }, [user]);
+
+  // Password strength validation
+  const checkPasswordStrength = (password: string) => {
+    let score = 0;
+    let feedback = [];
+
+    if (password.length >= 8) score += 1;
+    else feedback.push('Al menos 8 caracteres');
+
+    if (/[A-Z]/.test(password)) score += 1;
+    else feedback.push('Una mayúscula');
+
+    if (/[a-z]/.test(password)) score += 1;
+    else feedback.push('Una minúscula');
+
+    if (/[0-9]/.test(password)) score += 1;
+    else feedback.push('Un número');
+
+    if (/[^A-Za-z0-9]/.test(password)) score += 1;
+    else feedback.push('Un carácter especial');
+
+    let strengthText = '';
+    if (score === 0) strengthText = 'Muy débil';
+    else if (score <= 2) strengthText = 'Débil';
+    else if (score <= 3) strengthText = 'Regular';
+    else if (score <= 4) strengthText = 'Fuerte';
+    else strengthText = 'Muy fuerte';
+
+    return {
+      score,
+      feedback: feedback.length > 0 ? `Falta: ${feedback.join(', ')}` : strengthText
+    };
+  };
+
+  // Generate secure password
+  const generateSecurePassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let password = '';
+    
+    // Ensure at least one of each required type
+    password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)]; // Uppercase
+    password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)]; // Lowercase
+    password += '0123456789'[Math.floor(Math.random() * 10)]; // Number
+    password += '!@#$%^&*'[Math.floor(Math.random() * 8)]; // Special char
+    
+    // Fill the rest randomly
+    for (let i = 4; i < 12; i++) {
+      password += chars[Math.floor(Math.random() * chars.length)];
+    }
+    
+    // Shuffle the password
+    const shuffled = password.split('').sort(() => Math.random() - 0.5).join('');
+    
+    setPasswordData({
+      newPassword: shuffled,
+      confirmPassword: shuffled
+    });
+    
+    setPasswordStrength(checkPasswordStrength(shuffled));
+  };
+
+  const handlePasswordChange = (field: 'newPassword' | 'confirmPassword', value: string) => {
+    setPasswordData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+
+    if (field === 'newPassword') {
+      setPasswordStrength(checkPasswordStrength(value));
+    }
+  };
 
   const canAssignRole = (role: string) => {
     if (!currentUserProfile) return false;
@@ -136,6 +226,36 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
         variant: "destructive"
       });
       return false;
+    }
+
+    // Validaciones para cambio de contraseña en edición
+    if (isEditing && changePassword) {
+      if (!passwordData.newPassword.trim()) {
+        toast({
+          title: "Error",
+          description: "La nueva contraseña es requerida",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+        toast({
+          title: "Error",
+          description: "Las contraseñas no coinciden",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      if (passwordStrength.score < 3) {
+        toast({
+          title: "Error",
+          description: "La contraseña debe ser más segura",
+          variant: "destructive"
+        });
+        return false;
+      }
     }
 
     return true;
@@ -252,6 +372,19 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
           throw error;
         }
 
+        // Cambiar contraseña si está marcado
+        if (changePassword && passwordData.newPassword) {
+          console.log('Updating user password...');
+          
+          // Necesitamos usar Admin API para cambiar contraseña de otro usuario
+          // Por ahora mostramos un mensaje de que se debe implementar
+          toast({
+            title: "Información",
+            description: "La funcionalidad de cambio de contraseña se implementará próximamente",
+            variant: "default"
+          });
+        }
+
         toast({
           title: "Usuario actualizado",
           description: `Usuario ${formData.full_name} actualizado exitosamente`,
@@ -272,6 +405,18 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getPasswordStrengthColor = () => {
+    if (passwordStrength.score <= 2) return 'text-red-600';
+    if (passwordStrength.score <= 3) return 'text-yellow-600';
+    return 'text-green-600';
+  };
+
+  const getPasswordStrengthBarColor = () => {
+    if (passwordStrength.score <= 2) return 'bg-red-500';
+    if (passwordStrength.score <= 3) return 'bg-yellow-500';
+    return 'bg-green-500';
   };
 
   return (
@@ -355,6 +500,112 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
                     placeholder="Mínimo 6 caracteres"
                     required
                   />
+                </div>
+              )}
+
+              {/* Password Change Section for Editing */}
+              {isEditing && (
+                <div className="space-y-4 p-4 border border-border rounded-lg bg-muted/20">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="changePassword"
+                      checked={changePassword}
+                      onChange={(e) => setChangePassword(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <Label htmlFor="changePassword" className="font-medium">
+                      Cambiar contraseña
+                    </Label>
+                  </div>
+
+                  {changePassword && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="newPassword">Nueva Contraseña *</Label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                          <Input
+                            id="newPassword"
+                            type={showPasswords.newPassword ? "text" : "password"}
+                            value={passwordData.newPassword}
+                            onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
+                            className="pl-10 pr-10"
+                            placeholder="Mínimo 8 caracteres"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPasswords(prev => ({ ...prev, newPassword: !prev.newPassword }))}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
+                          >
+                            {showPasswords.newPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                        
+                        {/* Password Strength Indicator */}
+                        {passwordData.newPassword && (
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-sm">
+                              <span className={getPasswordStrengthColor()}>
+                                {passwordStrength.feedback}
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className={`h-2 rounded-full transition-all ${getPasswordStrengthBarColor()}`}
+                                style={{ width: `${(passwordStrength.score / 5) * 100}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="confirmPassword">Confirmar Contraseña *</Label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                          <Input
+                            id="confirmPassword"
+                            type={showPasswords.confirmPassword ? "text" : "password"}
+                            value={passwordData.confirmPassword}
+                            onChange={(e) => handlePasswordChange('confirmPassword', e.target.value)}
+                            className="pl-10 pr-10"
+                            placeholder="Repite la contraseña"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPasswords(prev => ({ ...prev, confirmPassword: !prev.confirmPassword }))}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
+                          >
+                            {showPasswords.confirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                        
+                        {/* Password Match Indicator */}
+                        {passwordData.confirmPassword && (
+                          <div className="text-sm">
+                            {passwordData.newPassword === passwordData.confirmPassword ? (
+                              <span className="text-green-600">✓ Las contraseñas coinciden</span>
+                            ) : (
+                              <span className="text-red-600">✗ Las contraseñas no coinciden</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={generateSecurePassword}
+                        className="w-full"
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Generar contraseña segura
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
 
