@@ -119,13 +119,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('Profile not found, creating new profile for user:', user.email);
         await createProfile(user);
       } else {
-        console.log('Profile fetched successfully:', data);
-        setProfile(data);
-        setLoading(false);
+        console.log('Profile found:', data);
+        // Check if we need to update the role for special emails
+        await updateRoleIfNeeded(user, data);
       }
     } catch (error) {
       console.error('Unexpected error fetching profile:', error);
       setProfile(null);
+      setLoading(false);
+    }
+  };
+
+  const updateRoleIfNeeded = async (user: User, existingProfile: Profile) => {
+    try {
+      // Determine the correct role based on email
+      let expectedRole: 'empleado' | 'admin' | 'superadmin' = 'empleado';
+      if (user.email === 'alexjfweb@gmail.com' || user.email === 'alex10@gmail.com') {
+        expectedRole = 'superadmin';
+      } else if (user.email === 'karen@gmail.com') {
+        expectedRole = 'admin';
+      }
+
+      // If the role needs to be updated
+      if (existingProfile.role !== expectedRole) {
+        console.log(`Updating role for ${user.email} from ${existingProfile.role} to ${expectedRole}`);
+        
+        const { data, error } = await supabase
+          .from('profiles')
+          .update({ role: expectedRole })
+          .eq('id', user.id)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error updating profile role:', error);
+          setProfile(existingProfile);
+        } else {
+          console.log('Role updated successfully:', data);
+          setProfile(data);
+        }
+      } else {
+        console.log('Role is already correct:', existingProfile.role);
+        setProfile(existingProfile);
+      }
+    } catch (error) {
+      console.error('Error updating role:', error);
+      setProfile(existingProfile);
+    } finally {
       setLoading(false);
     }
   };
