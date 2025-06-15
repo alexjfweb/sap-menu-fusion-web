@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -152,7 +151,11 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
 
     try {
       if (isCreating) {
-        console.log('Creating new user with standard signup method');
+        console.log('Creating new user - storing current session');
+        
+        // Guardar la sesión actual del administrador
+        const { data: currentSession } = await supabase.auth.getSession();
+        console.log('Current admin session saved');
         
         // Crear usuario usando el método estándar de signup
         const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -204,12 +207,19 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
           throw profileError;
         }
 
+        // IMPORTANTE: Restaurar la sesión del administrador inmediatamente
+        if (currentSession?.session) {
+          console.log('Restoring admin session...');
+          await supabase.auth.setSession(currentSession.session);
+          console.log('Admin session restored successfully');
+        }
+
         toast({
           title: "✅ Usuario creado exitosamente",
           description: `El empleado ${formData.full_name} ha sido agregado a tu equipo`,
         });
 
-        console.log('User created successfully');
+        console.log('User created successfully - admin session maintained');
         
         // Actualizar la lista de usuarios
         onUserCreated();
