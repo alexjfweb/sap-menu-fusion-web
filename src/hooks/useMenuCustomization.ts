@@ -77,10 +77,12 @@ export const usePublicMenuCustomization = () => {
         return null;
       }
     },
-    staleTime: 1 * 60 * 1000, // 1 minuto para que se actualice más rápido
+    staleTime: 0, // No cache - siempre fetch fresh data
+    cacheTime: 0, // No mantener en cache
     retry: 1,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 };
 

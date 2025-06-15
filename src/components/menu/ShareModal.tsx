@@ -16,8 +16,8 @@ const ShareModal = ({ isOpen, onClose }: ShareModalProps) => {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
   
+  // Usar la URL actual en lugar de hardcodear /menu
   const currentUrl = window.location.href;
-  const menuUrl = `${window.location.origin}/menu`;
   const shareText = "¡Echa un vistazo a este delicioso menú del restaurante!";
 
   const copyToClipboard = async (text: string) => {
@@ -40,7 +40,7 @@ const ShareModal = ({ isOpen, onClose }: ShareModalProps) => {
 
   const shareOnSocial = (platform: string) => {
     const encodedText = encodeURIComponent(shareText);
-    const encodedUrl = encodeURIComponent(menuUrl);
+    const encodedUrl = encodeURIComponent(currentUrl);
     
     let shareUrl = '';
     
@@ -56,7 +56,7 @@ const ShareModal = ({ isOpen, onClose }: ShareModalProps) => {
         break;
       case 'instagram':
         // Instagram doesn't support direct URL sharing, so we copy the link
-        copyToClipboard(menuUrl);
+        copyToClipboard(currentUrl);
         toast({
           title: "Enlace copiado",
           description: "Pega el enlace en tu historia o publicación de Instagram",
@@ -85,13 +85,13 @@ const ShareModal = ({ isOpen, onClose }: ShareModalProps) => {
             <Label>Enlace del menú</Label>
             <div className="flex space-x-2">
               <Input 
-                value={menuUrl} 
+                value={currentUrl} 
                 readOnly 
                 className="flex-1"
               />
               <Button 
                 variant="outline" 
-                onClick={() => copyToClipboard(menuUrl)}
+                onClick={() => copyToClipboard(currentUrl)}
                 className="px-3"
               >
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
