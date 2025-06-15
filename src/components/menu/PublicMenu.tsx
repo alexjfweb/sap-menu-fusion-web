@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,43 +63,44 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }
   }, []);
 
-  // Get menu customization with improved error handling
+  // Get menu customization
   const { 
     data: customization, 
     isLoading: customizationLoading, 
     error: customizationError, 
     refetch: refetchCustomization,
-    isSuccess: customizationSuccess 
+    isSuccess: customizationSuccess,
+    isFetched: customizationFetched
   } = usePublicMenuCustomization();
   
-  // Memoizar colores con mejor lógica de fallback
+  // Aplicar colores con lógica mejorada
   const colors = React.useMemo(() => {
     const defaults = getDefaultCustomization();
     
-    // Si tenemos customization, combinar con defaults
-    if (customization) {
-      console.log('Applying custom colors:', customization);
+    console.log('🎨 Color application logic:', {
+      customizationLoading,
+      customizationFetched, 
+      customizationSuccess,
+      hasCustomization: !!customization,
+      customizationData: customization
+    });
+    
+    // Solo aplicar customización si tenemos datos válidos
+    if (customizationFetched && customization) {
+      console.log('✅ Applying custom colors:', customization);
       return { ...defaults, ...customization };
     }
     
-    // Si la query fue exitosa pero no hay customization, usar defaults
-    if (customizationSuccess && !customization) {
-      console.log('No customization found, using defaults');
+    // Si ya terminó de buscar y no hay customización, usar defaults
+    if (customizationFetched && !customization) {
+      console.log('⚠️ No customization found, using defaults');
       return defaults;
     }
     
-    // Si aún está cargando o hay error, usar defaults temporalmente
-    console.log('Using default colors (loading or error state)');
+    // Mientras está cargando, usar defaults temporalmente
+    console.log('⏳ Still loading, using temporary defaults');
     return defaults;
-  }, [customization, customizationSuccess]);
-
-  console.log('Menu customization status:', {
-    customizationLoading,
-    customizationError: customizationError?.message,
-    customizationSuccess,
-    hasCustomization: !!customization,
-    colorsApplied: colors
-  });
+  }, [customization, customizationLoading, customizationFetched, customizationSuccess]);
 
   // Fetch business info
   const { 
@@ -328,29 +330,30 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     console.log('Retrying to fetch data...');
     refetchProducts();
     refetchCategories();
+    refetchCustomization();
   };
 
   const isLoading = productsLoading || categoriesLoading;
   const hasError = productsError || categoriesError;
 
-  // Forzar refetch de personalización al montar el componente
-  useEffect(() => {
-    console.log('Component mounted, refetching customization...');
-    refetchCustomization();
-  }, [refetchCustomization]);
-
-  console.log('PublicMenu render state:', {
+  // Debugging log para ver el estado actual
+  console.log('🐛 PublicMenu render state:', {
     isLoading,
     hasError,
     productsCount: products?.length || 0,
     categoriesCount: categories?.length || 0,
     sessionId,
-    customization: !!customization,
-    actualColors: colors,
-    customizationLoading,
-    customizationSuccess
+    customizationState: {
+      loading: customizationLoading,
+      fetched: customizationFetched,
+      success: customizationSuccess,
+      hasData: !!customization,
+      error: customizationError?.message
+    },
+    appliedColors: colors
   });
 
+  // Mostrar loading solo si los datos principales están cargando
   if (isLoading) {
     return (
       <div 
@@ -475,7 +478,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     );
   }
 
-  console.log('Rendering menu with products:', products.length, 'and colors:', colors);
+  console.log('🎨 Rendering menu with custom colors:', colors);
 
   return (
     <div 
