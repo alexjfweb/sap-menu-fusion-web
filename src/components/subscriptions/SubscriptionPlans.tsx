@@ -126,6 +126,115 @@ const SubscriptionPlans = () => {
     },
   });
 
+  const createDefaultPlans = useMutation({
+    mutationFn: async () => {
+      const defaultPlans = [
+        {
+          name: 'Plan Gratuito',
+          description: 'Perfecto para restaurantes pequeños que empiezan',
+          price: 0,
+          currency: 'USD',
+          billing_interval: 'monthly',
+          features: [
+            '5 mesas máximo',
+            '1 usuario',
+            '5 reservas por día',
+            'Soporte por email',
+            'Menú básico',
+            'Sin personalización'
+          ],
+          is_active: true,
+          is_featured: false,
+          trial_days: 7
+        },
+        {
+          name: 'Plan Básico',
+          description: 'Para restaurantes en crecimiento',
+          price: 29.99,
+          currency: 'USD',
+          billing_interval: 'monthly',
+          features: [
+            '50 mesas máximo',
+            '3 usuarios',
+            '20 reservas por día',
+            'Soporte prioritario',
+            'Menú personalizable',
+            'Integración WhatsApp',
+            'Reportes básicos'
+          ],
+          is_active: true,
+          is_featured: false,
+          trial_days: 14
+        },
+        {
+          name: 'Plan Estándar',
+          description: 'La opción más popular para restaurantes establecidos',
+          price: 59.99,
+          currency: 'USD',
+          billing_interval: 'monthly',
+          features: [
+            '200 mesas máximo',
+            '10 usuarios',
+            '100 reservas por día',
+            'Soporte 24/7',
+            'Menú completamente personalizable',
+            'Integración redes sociales',
+            'Reportes avanzados',
+            'Sistema de inventario',
+            'Múltiples ubicaciones'
+          ],
+          is_active: true,
+          is_featured: true,
+          trial_days: 30
+        },
+        {
+          name: 'Plan Premium',
+          description: 'Solución empresarial completa',
+          price: 99.99,
+          currency: 'USD',
+          billing_interval: 'monthly',
+          features: [
+            'Mesas ilimitadas',
+            'Usuarios ilimitados',
+            'Reservas ilimitadas',
+            'Soporte 24/7 dedicado',
+            'White-label completo',
+            'API personalizada',
+            'Análisis avanzados',
+            'Gestión multi-restaurante',
+            'Integraciones empresariales',
+            'Consultoría incluida'
+          ],
+          is_active: true,
+          is_featured: false,
+          trial_days: 30
+        }
+      ];
+
+      for (const plan of defaultPlans) {
+        const { error } = await supabase
+          .from('subscription_plans')
+          .insert(plan);
+        
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscription-plans'] });
+      toast({
+        title: 'Planes creados',
+        description: 'Los planes por defecto han sido creados exitosamente.',
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No se pudieron crear los planes por defecto.',
+      });
+    },
+  });
+
   const handleSort = (field: 'name' | 'price' | 'created_at') => {
     if (sortBy === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -136,6 +245,7 @@ const SubscriptionPlans = () => {
   };
 
   const formatPrice = (price: number, currency: string) => {
+    if (price === 0) return 'Gratis';
     return new Intl.NumberFormat('es-ES', {
       style: 'currency',
       currency: currency.toUpperCase(),
@@ -165,10 +275,21 @@ const SubscriptionPlans = () => {
             Gestiona los planes disponibles para tus usuarios
           </p>
         </div>
-        <Button onClick={() => setIsFormOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nuevo Plan
-        </Button>
+        <div className="flex space-x-2">
+          {(!plans || plans.length === 0) && (
+            <Button 
+              variant="outline" 
+              onClick={() => createDefaultPlans.mutate()}
+              disabled={createDefaultPlans.isPending}
+            >
+              {createDefaultPlans.isPending ? 'Creando...' : 'Crear Planes por Defecto'}
+            </Button>
+          )}
+          <Button onClick={() => setIsFormOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo Plan
+          </Button>
+        </div>
       </div>
 
       {/* Controles de ordenamiento */}
@@ -255,7 +376,7 @@ const SubscriptionPlans = () => {
                   {formatPrice(plan.price, plan.currency)}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  / {formatInterval(plan.billing_interval)}
+                  {plan.price > 0 && `/ ${formatInterval(plan.billing_interval)}`}
                 </div>
                 {plan.trial_days && plan.trial_days > 0 && (
                   <div className="text-sm text-green-600">

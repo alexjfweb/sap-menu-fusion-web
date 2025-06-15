@@ -10,12 +10,12 @@ const plans = [
     id: 'free',
     name: 'Plan Gratuito',
     price: 'Gratis',
-    duration: '7 días',
+    duration: '',
     color: 'gray',
     icon: Users,
     popular: false,
     features: [
-      '5 platos máximo',
+      '5 mesas máximo',
       '1 usuario',
       '5 reservas por día',
       'Soporte por email',
@@ -23,7 +23,7 @@ const plans = [
       'Sin personalización'
     ],
     limits: {
-      platos: 5,
+      mesas: 5,
       usuarios: 1,
       reservas: 5,
       soporte: 'Email'
@@ -38,7 +38,7 @@ const plans = [
     icon: Zap,
     popular: false,
     features: [
-      '50 platos máximo',
+      '50 mesas máximo',
       '3 usuarios',
       '20 reservas por día',
       'Soporte prioritario',
@@ -47,7 +47,7 @@ const plans = [
       'Reportes básicos'
     ],
     limits: {
-      platos: 50,
+      mesas: 50,
       usuarios: 3,
       reservas: 20,
       soporte: 'Prioritario'
@@ -62,7 +62,7 @@ const plans = [
     icon: Star,
     popular: true,
     features: [
-      '200 platos máximo',
+      '200 mesas máximo',
       '10 usuarios',
       '100 reservas por día',
       'Soporte 24/7',
@@ -73,7 +73,7 @@ const plans = [
       'Múltiples ubicaciones'
     ],
     limits: {
-      platos: 200,
+      mesas: 200,
       usuarios: 10,
       reservas: 100,
       soporte: '24/7'
@@ -88,7 +88,7 @@ const plans = [
     icon: Crown,
     popular: false,
     features: [
-      'Platos ilimitados',
+      'Mesas ilimitadas',
       'Usuarios ilimitados',
       'Reservas ilimitadas',
       'Soporte 24/7 dedicado',
@@ -100,7 +100,7 @@ const plans = [
       'Consultoría incluida'
     ],
     limits: {
-      platos: 'Ilimitado',
+      mesas: 'Ilimitado',
       usuarios: 'Ilimitado',
       reservas: 'Ilimitado',
       soporte: '24/7 Dedicado'
@@ -194,7 +194,7 @@ const PricingPlans = () => {
                   <div className="pt-4 border-t border-border">
                     <h4 className="font-semibold text-sm text-foreground mb-2">Límites:</h4>
                     <div className="space-y-1 text-xs text-muted-foreground">
-                      <div>📍 Platos: {plan.limits.platos}</div>
+                      <div>📍 Mesas: {plan.limits.mesas}</div>
                       <div>👥 Usuarios: {plan.limits.usuarios}</div>
                       <div>📅 Reservas/día: {plan.limits.reservas}</div>
                       <div>🔧 Soporte: {plan.limits.soporte}</div>
