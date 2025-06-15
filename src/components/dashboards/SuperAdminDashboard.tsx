@@ -5,21 +5,33 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { 
   ChefHat, 
-  Shield, 
-  Building, 
   Users, 
-  Database, 
-  Settings, 
-  BarChart3,
-  Cog,
-  LogOut 
+  Package, 
+  Calendar, 
+  BarChart3, 
+  Settings,
+  LogOut,
+  ShoppingCart,
+  DollarSign,
+  TrendingUp,
+  Clock,
+  Building,
+  CreditCard,
+  Database
 } from 'lucide-react';
-import CompanyManagement from '../companies/CompanyManagement';
+import OrderManagement from '../orders/OrderManagement';
+import ProductManagement from '../products/ProductManagement';
+import ReservationManagement from '../reservations/ReservationManagement';
+import ReportsManagement from '../reports/ReportsManagement';
 import UserManagement from '../users/UserManagement';
-import DatabaseManagement from '../database/DatabaseManagement';
 import GlobalSettings from '../settings/GlobalSettings';
+import BusinessInfoManagement from '../business/BusinessInfoManagement';
+import CompanyManagement from '../companies/CompanyManagement';
 import GlobalAnalytics from '../analytics/GlobalAnalytics';
+import DatabaseManagement from '../database/DatabaseManagement';
 import MaintenanceTools from '../maintenance/MaintenanceTools';
+import SubscriptionManagement from '../subscriptions/SubscriptionManagement';
+import DatabaseTestPanel from '../DatabaseTestPanel';
 
 const SuperAdminDashboard = () => {
   const { profile, signOut } = useAuth();
@@ -30,28 +42,52 @@ const SuperAdminDashboard = () => {
   };
 
   // Si hay una sección activa, mostrar ese componente
-  if (activeSection === 'companies') {
-    return <CompanyManagement onBack={handleBackToDashboard} />;
+  if (activeSection === 'orders') {
+    return <OrderManagement onBack={handleBackToDashboard} />;
+  }
+
+  if (activeSection === 'products') {
+    return <ProductManagement onBack={handleBackToDashboard} />;
+  }
+
+  if (activeSection === 'reservations') {
+    return <ReservationManagement onBack={handleBackToDashboard} />;
+  }
+
+  if (activeSection === 'reports') {
+    return <ReportsManagement onBack={handleBackToDashboard} />;
   }
 
   if (activeSection === 'users') {
     return <UserManagement onBack={handleBackToDashboard} />;
   }
 
-  if (activeSection === 'database') {
-    return <DatabaseManagement onBack={handleBackToDashboard} />;
-  }
-
   if (activeSection === 'settings') {
     return <GlobalSettings onBack={handleBackToDashboard} />;
+  }
+
+  if (activeSection === 'business-info') {
+    return <BusinessInfoManagement onBack={handleBackToDashboard} />;
+  }
+
+  if (activeSection === 'companies') {
+    return <CompanyManagement onBack={handleBackToDashboard} />;
   }
 
   if (activeSection === 'analytics') {
     return <GlobalAnalytics onBack={handleBackToDashboard} />;
   }
 
+  if (activeSection === 'database') {
+    return <DatabaseManagement onBack={handleBackToDashboard} />;
+  }
+
   if (activeSection === 'maintenance') {
     return <MaintenanceTools onBack={handleBackToDashboard} />;
+  }
+
+  if (activeSection === 'subscriptions') {
+    return <SubscriptionManagement onBack={handleBackToDashboard} />;
   }
 
   return (
@@ -60,12 +96,12 @@ const SuperAdminDashboard = () => {
       <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-2">
-            <Shield className="h-8 w-8 text-primary" />
+            <ChefHat className="h-8 w-8 text-primary" />
             <h1 className="text-2xl font-bold">SAP Menu - Panel Super Administrador</h1>
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-muted-foreground">
-              SuperAdmin: {profile?.full_name || profile?.email}
+              Super Admin: {profile?.full_name || profile?.email}
             </span>
             <Button variant="outline" size="sm" onClick={signOut}>
               <LogOut className="h-4 w-4 mr-2" />
@@ -80,20 +116,90 @@ const SuperAdminDashboard = () => {
         <div className="mb-8">
           <h2 className="text-3xl font-bold mb-2">Panel de Super Administrador</h2>
           <p className="text-muted-foreground">
-            Control total del sistema SAP Menu
+            Control total sobre la plataforma SAP Menu
           </p>
         </div>
 
+        {/* Quick Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-primary">156</div>
+                  <p className="text-sm text-muted-foreground">Usuarios Totales</p>
+                </div>
+                <Users className="h-8 w-8 text-primary opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-green-600">€45,247</div>
+                  <p className="text-sm text-muted-foreground">Ingresos del Mes</p>
+                </div>
+                <DollarSign className="h-8 w-8 text-green-600 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-blue-600">23</div>
+                  <p className="text-sm text-muted-foreground">Restaurantes Activos</p>
+                </div>
+                <Building className="h-8 w-8 text-blue-600 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-orange-600">98.2%</div>
+                  <p className="text-sm text-muted-foreground">Tiempo de Actividad</p>
+                </div>
+                <TrendingUp className="h-8 w-8 text-orange-600 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Management Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Empresas */}
+          {/* Gestión de Suscripciones - NUEVA SECCIÓN */}
+          <Card className="hover:shadow-lg transition-shadow duration-300 border-primary/20">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <CreditCard className="h-5 w-5 text-primary" />
+                <span>Gestión de Suscripciones</span>
+              </CardTitle>
+              <CardDescription>
+                Administra planes, métodos de pago y transacciones
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('subscriptions')}
+              >
+                Gestionar Suscripciones
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Gestión de Empresas */}
           <Card className="hover:shadow-lg transition-shadow duration-300">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Building className="h-5 w-5 text-primary" />
-                <span>Empresas</span>
+                <span>Gestión de Empresas</span>
               </CardTitle>
               <CardDescription>
-                Gestiona todos los restaurantes registrados
+                Administra empresas y restaurantes registrados
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -106,36 +212,36 @@ const SuperAdminDashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Usuarios y Roles */}
+          {/* Analíticas Globales */}
           <Card className="hover:shadow-lg transition-shadow duration-300">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                <Users className="h-5 w-5 text-primary" />
-                <span>Usuarios y Roles</span>
+                <BarChart3 className="h-5 w-5 text-primary" />
+                <span>Analíticas Globales</span>
               </CardTitle>
               <CardDescription>
-                Administra usuarios y permisos del sistema
+                Métricas y estadísticas de toda la plataforma
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Button 
                 className="w-full"
-                onClick={() => setActiveSection('users')}
+                onClick={() => setActiveSection('analytics')}
               >
-                Gestionar Usuarios
+                Ver Analíticas
               </Button>
             </CardContent>
           </Card>
 
-          {/* Base de Datos */}
+          {/* Gestión de Base de Datos */}
           <Card className="hover:shadow-lg transition-shadow duration-300">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Database className="h-5 w-5 text-primary" />
-                <span>Base de Datos</span>
+                <span>Gestión de Base de Datos</span>
               </CardTitle>
               <CardDescription>
-                Monitoreo y gestión de la base de datos
+                Administra la base de datos y migraciones
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -148,57 +254,36 @@ const SuperAdminDashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Configuración Global */}
+          {/* Gestión de Usuarios Globales */}
+          <Card className="hover:shadow-lg transition-shadow duration-300">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Users className="h-5 w-5 text-primary" />
+                <span>Gestión de Usuarios</span>
+              </CardTitle>
+              <CardDescription>
+                Administra todos los usuarios de la plataforma
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('users')}
+              >
+                Gestionar Usuarios
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Herramientas de Mantenimiento */}
           <Card className="hover:shadow-lg transition-shadow duration-300">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Settings className="h-5 w-5 text-primary" />
-                <span>Configuración Global</span>
+                <span>Herramientas de Mantenimiento</span>
               </CardTitle>
               <CardDescription>
-                Configuraciones del sistema completo
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button 
-                className="w-full"
-                onClick={() => setActiveSection('settings')}
-              >
-                Configurar Sistema
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Analytics Globales */}
-          <Card className="hover:shadow-lg transition-shadow duration-300">
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <BarChart3 className="h-5 w-5 text-primary" />
-                <span>Analytics Globales</span>
-              </CardTitle>
-              <CardDescription>
-                Métricas y reportes de toda la plataforma
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button 
-                className="w-full"
-                onClick={() => setActiveSection('analytics')}
-              >
-                Ver Analytics
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Mantenimiento */}
-          <Card className="hover:shadow-lg transition-shadow duration-300">
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Cog className="h-5 w-5 text-primary" />
-                <span>Mantenimiento</span>
-              </CardTitle>
-              <CardDescription>
-                Herramientas de mantenimiento del sistema
+                Mantenimiento y configuración del sistema
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -212,35 +297,9 @@ const SuperAdminDashboard = () => {
           </Card>
         </div>
 
-        {/* System Overview */}
+        {/* Panel de Pruebas de Base de Datos */}
         <div className="mt-8">
-          <h3 className="text-xl font-semibold mb-4">Resumen del Sistema</h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold text-primary">15</div>
-                <p className="text-sm text-muted-foreground">Restaurantes Activos</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold text-green-600">142</div>
-                <p className="text-sm text-muted-foreground">Usuarios Totales</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold text-blue-600">1,247</div>
-                <p className="text-sm text-muted-foreground">Pedidos Hoy</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold text-orange-600">99.8%</div>
-                <p className="text-sm text-muted-foreground">Uptime Sistema</p>
-              </CardContent>
-            </Card>
-          </div>
+          <DatabaseTestPanel />
         </div>
       </main>
     </div>
