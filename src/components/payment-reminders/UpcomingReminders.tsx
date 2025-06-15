@@ -34,14 +34,14 @@ const UpcomingReminders = () => {
       // Obtener suscripciones que vencen en los próximos 30 días
       const thirtyDaysFromNow = addDays(new Date(), 30).toISOString();
       
-      const { data, error } = await supabase
+      const { data: subscriptions, error } = await supabase
         .from('user_subscriptions')
         .select(`
           id,
           ends_at,
           status,
-          subscription_plans(name),
-          profiles(full_name, email)
+          user_id,
+          plan_id
         `)
         .eq('status', 'active')
         .lte('ends_at', thirtyDaysFromNow)
@@ -50,17 +50,36 @@ const UpcomingReminders = () => {
 
       if (error) throw error;
 
-      const subscriptionsWithDays = data?.map(sub => ({
-        id: sub.id,
-        ends_at: sub.ends_at,
-        status: sub.status,
-        plan_name: sub.subscription_plans?.name || 'Plan desconocido',
-        user_name: sub.profiles?.full_name || 'Sin nombre',
-        user_email: sub.profiles?.email || 'Sin email',
-        days_until_expiry: differenceInDays(new Date(sub.ends_at), new Date())
-      })) || [];
+      // Obtener datos adicionales de cada suscripción
+      const enrichedSubscriptions = await Promise.all(
+        (subscriptions || []).map(async (sub) => {
+          // Obtener datos del perfil de usuario
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('full_name, email')
+            .eq('id', sub.user_id)
+            .single();
 
-      setUpcomingSubscriptions(subscriptionsWithDays);
+          // Obtener datos del plan
+          const { data: planData } = await supabase
+            .from('subscription_plans')
+            .select('name')
+            .eq('id', sub.plan_id)
+            .single();
+
+          return {
+            id: sub.id,
+            ends_at: sub.ends_at,
+            status: sub.status,
+            plan_name: planData?.name || 'Plan desconocido',
+            user_name: profileData?.full_name || 'Sin nombre',
+            user_email: profileData?.email || 'Sin email',
+            days_until_expiry: differenceInDays(new Date(sub.ends_at), new Date())
+          };
+        })
+      );
+
+      setUpcomingSubscriptions(enrichedSubscriptions);
     } catch (error) {
       console.error('Error fetching upcoming subscriptions:', error);
       toast({

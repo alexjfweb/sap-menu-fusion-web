@@ -1,13 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit, Trash2, Calendar, Mail, MessageSquare, Smartphone, Bell } from 'lucide-react';
+import { Plus, Edit, Trash2, Mail, MessageSquare, Bell } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import ReminderConfigForm from './ReminderConfigForm';
@@ -42,7 +38,15 @@ const ReminderConfigurations = () => {
         .order('days_before', { ascending: true });
 
       if (error) throw error;
-      setConfigs(data || []);
+      
+      // Asegurar que los tipos coincidan con la interfaz
+      const typedData = data?.map(item => ({
+        ...item,
+        reminder_type: item.reminder_type as 'before' | 'on_due' | 'after',
+        delivery_method: item.delivery_method as 'email' | 'sms' | 'whatsapp' | 'push'
+      })) || [];
+      
+      setConfigs(typedData);
     } catch (error) {
       console.error('Error fetching configurations:', error);
       toast({

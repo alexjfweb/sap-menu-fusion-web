@@ -31,8 +31,8 @@ const ReminderConfigForm = ({ config, onSubmit, onCancel }: ReminderConfigFormPr
   const [formData, setFormData] = useState({
     name: '',
     days_before: 1,
-    reminder_type: 'before' as const,
-    delivery_method: 'email' as const,
+    reminder_type: 'before' as 'before' | 'on_due' | 'after',
+    delivery_method: 'email' as 'email' | 'sms' | 'whatsapp' | 'push',
     is_active: true,
     max_retries: 3,
     retry_interval_hours: 24,

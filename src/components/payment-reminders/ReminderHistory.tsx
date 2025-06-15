@@ -19,14 +19,8 @@ interface ReminderHistoryItem {
   status: string;
   error_message: string | null;
   retry_count: number;
-  user_subscription?: {
-    user_subscriptions: {
-      profiles: {
-        full_name: string;
-        email: string;
-      };
-    };
-  };
+  user_name?: string;
+  user_email?: string;
 }
 
 const ReminderHistory = () => {
@@ -43,19 +37,40 @@ const ReminderHistory = () => {
 
   const fetchHistory = async () => {
     try {
-      const { data, error } = await supabase
+      // Primero obtenemos el historial básico
+      const { data: historyData, error } = await supabase
         .from('payment_reminder_history')
-        .select(`
-          *,
-          user_subscriptions(
-            profiles(full_name, email)
-          )
-        `)
+        .select('*')
         .order('sent_at', { ascending: false })
         .limit(100);
 
       if (error) throw error;
-      setHistory(data || []);
+
+      // Luego obtenemos los datos de usuario para cada entrada
+      const enrichedHistory = await Promise.all(
+        (historyData || []).map(async (item) => {
+          if (item.user_id) {
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('full_name, email')
+              .eq('id', item.user_id)
+              .single();
+
+            return {
+              ...item,
+              user_name: profileData?.full_name || 'Sin nombre',
+              user_email: profileData?.email || 'Sin email'
+            };
+          }
+          return {
+            ...item,
+            user_name: 'Sin nombre',
+            user_email: 'Sin email'
+          };
+        })
+      );
+
+      setHistory(enrichedHistory);
     } catch (error) {
       console.error('Error fetching history:', error);
       toast({
@@ -104,8 +119,8 @@ const ReminderHistory = () => {
 
   const filteredHistory = history.filter(item => {
     const matchesSearch = searchTerm === '' || 
-      item.user_subscription?.profiles?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.user_subscription?.profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.user_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.user_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.message_content.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
@@ -215,10 +230,10 @@ const ReminderHistory = () => {
                     <TableCell>
                       <div>
                         <div className="font-medium">
-                          {item.user_subscription?.profiles?.full_name || 'Sin nombre'}
+                          {item.user_name}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {item.user_subscription?.profiles?.email || 'Sin email'}
+                          {item.user_email}
                         </div>
                       </div>
                     </TableCell>
