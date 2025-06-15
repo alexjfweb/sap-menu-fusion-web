@@ -154,7 +154,7 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
       console.log('🚀 === STARTING USER FETCH ===');
       console.log('👤 Current user profile:', currentUserProfile?.email, currentUserProfile?.role);
       
-      // Asegurar que se incluyan TODOS los campos necesarios en la consulta
+      // Asegurar que se incluyan TODOS los campos necesarios en la consulta, incluyendo password_hash
       const { data, error } = await supabase
         .from('profiles')
         .select(`
@@ -169,7 +169,8 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
           phone_mobile,
           phone_landline,
           address,
-          avatar_url
+          avatar_url,
+          password_hash
         `)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
