@@ -78,7 +78,13 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
         return false;
       }
       
-      return true;
+      // Admin puede ver empleados y su propio perfil
+      if (currentUserProfile.role === 'admin') {
+        return user.role === 'empleado' || user.id === currentUserProfile.id;
+      }
+      
+      // Empleado solo puede ver su propio perfil
+      return user.id === currentUserProfile.id;
     });
   };
 
@@ -89,11 +95,12 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      console.log('Fetching users...');
+      console.log('Fetching users for current user profile:', currentUserProfile);
       
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
+        .eq('is_active', true)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -101,10 +108,11 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
         throw error;
       }
       
-      console.log('Users fetched:', data);
+      console.log('Raw users fetched from database:', data);
       
       // Aplicar filtro de permisos
       const filteredUsers = filterUsersByPermissions(data || []);
+      console.log('Filtered users according to permissions:', filteredUsers);
       setUsers(filteredUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -172,14 +180,13 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
     const matchesSearch = user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = selectedRole === 'all' || user.role === selectedRole;
-    return matchesSearch && matchesRole && user.is_active;
+    return matchesSearch && matchesRole;
   });
 
   // Calcular estadísticas considerando los permisos del usuario
   const getVisibleUserCount = (role?: string) => {
-    const visibleUsers = filterUsersByPermissions(users.filter(u => u.is_active));
-    if (!role) return visibleUsers.length;
-    return visibleUsers.filter(u => u.role === role).length;
+    if (!role) return users.length;
+    return users.filter(u => u.role === role).length;
   };
 
   if (showUserForm) {
@@ -295,7 +302,17 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
               </div>
             ) : filteredUsers.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-muted-foreground">No se encontraron usuarios</p>
+                <p className="text-muted-foreground">
+                  {users.length === 0 
+                    ? "No se encontraron usuarios. Verifica que existan usuarios activos en el sistema."
+                    : "No se encontraron usuarios que coincidan con los filtros aplicados."
+                  }
+                </p>
+                {currentUserProfile?.role === 'admin' && users.length === 0 && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Como administrador, deberías poder ver empleados y tu propio perfil.
+                  </p>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
