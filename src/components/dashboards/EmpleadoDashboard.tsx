@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { ChefHat, ClipboardList, Calendar, LogOut } from 'lucide-react';
 import OrderManagement from '@/components/orders/OrderManagement';
+import ReservationManagement from '@/components/reservations/ReservationManagement';
 
 const EmpleadoDashboard = () => {
   const { profile, signOut } = useAuth();
@@ -14,12 +15,20 @@ const EmpleadoDashboard = () => {
     setCurrentView('orders');
   };
 
+  const handleViewReservations = () => {
+    setCurrentView('reservations');
+  };
+
   const handleBackToDashboard = () => {
     setCurrentView('dashboard');
   };
 
   if (currentView === 'orders') {
     return <OrderManagement onBack={handleBackToDashboard} />;
+  }
+
+  if (currentView === 'reservations') {
+    return <ReservationManagement onBack={handleBackToDashboard} />;
   }
 
   return (
@@ -83,7 +92,7 @@ const EmpleadoDashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full">
+              <Button className="w-full" onClick={handleViewReservations}>
                 Ver Reservas
               </Button>
             </CardContent>
