@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -78,6 +77,10 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
   const handleCloseForm = () => {
     setShowUserForm(false);
     setEditingUser(null);
+  };
+
+  const handleUserCreated = () => {
+    // Refresh the users list after creating a new user
     fetchUsers();
   };
 
@@ -105,6 +108,7 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
         user={editingUser}
         onClose={handleCloseForm}
         onBack={onBack}
+        onUserCreated={handleUserCreated}
       />
     );
   }

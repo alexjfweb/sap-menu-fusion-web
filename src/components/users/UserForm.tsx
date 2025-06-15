@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { ArrowLeft, Save, User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
+import { useToast } from '@/hooks/use-toast';
 
 type Profile = Tables<'profiles'>;
 
@@ -14,6 +14,7 @@ interface UserFormProps {
   user?: Profile | null;
   onClose: () => void;
   onBack: () => void;
+  onUserCreated?: () => void;
 }
 
 interface UserFormData {
@@ -34,7 +35,9 @@ interface ValidationErrors {
   phone_mobile?: string;
 }
 
-const UserForm = ({ user, onClose, onBack }: UserFormProps) => {
+const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
+  const { toast } = useToast();
+  
   const [formData, setFormData] = useState<UserFormData>({
     email: '',
     full_name: '',
@@ -139,6 +142,11 @@ const UserForm = ({ user, onClose, onBack }: UserFormProps) => {
           .eq('id', user.id);
 
         if (error) throw error;
+
+        toast({
+          title: "Usuario actualizado",
+          description: "La información del usuario se ha actualizado exitosamente.",
+        });
       } else {
         // Create new user through Supabase Auth
         const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -168,13 +176,31 @@ const UserForm = ({ user, onClose, onBack }: UserFormProps) => {
             .eq('id', authData.user.id);
 
           if (profileError) throw profileError;
+
+          toast({
+            title: "Usuario creado exitosamente",
+            description: `El empleado ${formData.full_name || formData.email} ha sido registrado correctamente.`,
+          });
+
+          // Call the callback to refresh the user list
+          if (onUserCreated) {
+            onUserCreated();
+          }
         }
       }
 
+      // Close form and return to user management
       onClose();
     } catch (error) {
       console.error('Error saving user:', error);
-      setError(error instanceof Error ? error.message : 'Error al guardar usuario');
+      const errorMessage = error instanceof Error ? error.message : 'Error al guardar usuario';
+      setError(errorMessage);
+      
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
