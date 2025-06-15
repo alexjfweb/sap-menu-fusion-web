@@ -87,12 +87,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     return defaults;
   }, [customization, customizationLoading]);
 
-  // Force refresh of customization data
-  const handleRefreshCustomization = () => {
-    console.log('🔄 [REFRESH] Forcing customization refresh...');
-    refetchCustomization();
-  };
-
   // Add automatic refresh every 10 seconds when customization is not available
   useEffect(() => {
     if (!customization && !customizationLoading) {
@@ -384,14 +378,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
               >
                 Menú del Restaurante
               </h1>
-              <Button 
-                onClick={handleRefreshCustomization}
-                variant="outline"
-                size="sm"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Actualizar Colores
-              </Button>
             </div>
           </div>
         </header>
@@ -453,14 +439,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
                   Menú del Restaurante
                 </h1>
               </div>
-              <Button 
-                onClick={handleRefreshCustomization}
-                variant="outline"
-                size="sm"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Actualizar Colores
-              </Button>
             </div>
           </div>
         </header>
@@ -535,19 +513,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
             </div>
             
             <div className="flex items-center space-x-2">
-              <Button 
-                onClick={handleRefreshCustomization}
-                variant="outline"
-                size="sm"
-                style={{ 
-                  borderColor: colors.button_bg_color,
-                  color: colors.button_bg_color
-                }}
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Actualizar Colores
-              </Button>
-              
               <Button 
                 variant="outline" 
                 onClick={() => setShowShare(true)}
