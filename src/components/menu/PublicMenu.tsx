@@ -63,6 +63,22 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }
   }, []);
 
+  // Get menu customization using the new public hook
+  const { data: customization, isLoading: customizationLoading, error: customizationError } = usePublicMenuCustomization();
+  
+  // Asegurar que siempre tengamos colores, ya sea personalizados o por defecto
+  const colors = customization ? {
+    ...getDefaultCustomization(),
+    ...customization
+  } : getDefaultCustomization();
+
+  console.log('Menu customization status:', {
+    customizationLoading,
+    customizationError: customizationError?.message,
+    hasCustomization: !!customization,
+    colors: colors
+  });
+
   // Fetch business info
   const { 
     data: businessInfo, 
@@ -97,76 +113,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     staleTime: 10 * 60 * 1000,
   });
 
-  // Get menu customization using the new public hook
-  const { data: customization, isLoading: customizationLoading } = usePublicMenuCustomization();
-  
-  // Asegurar que siempre tengamos colores, ya sea personalizados o por defecto
-  const colors = customization ? {
-    ...getDefaultCustomization(),
-    ...customization
-  } : getDefaultCustomization();
-
-  console.log('Menu customization status:', {
-    customizationLoading,
-    hasCustomization: !!customization,
-    colors: colors
-  });
-
-  // Fetch products
-  const { 
-    data: products, 
-    isLoading: productsLoading, 
-    error: productsError,
-    refetch: refetchProducts 
-  } = useQuery({
-    queryKey: ['public-products'],
-    queryFn: async () => {
-      console.log('Fetching products from Supabase...');
-      
-      try {
-        const { data: testData, error: testError } = await supabase
-          .from('products')
-          .select('count')
-          .limit(1);
-        
-        console.log('Connection test result:', { testData, testError });
-        
-        if (testError) {
-          console.error('Connection test failed:', testError);
-          throw new Error(`Connection failed: ${testError.message}`);
-        }
-
-        const { data, error } = await supabase
-          .from('products')
-          .select(`
-            *,
-            categories (
-              id,
-              name
-            )
-          `)
-          .eq('is_available', true)
-          .order('name');
-        
-        console.log('Products query result:', { data, error });
-        
-        if (error) {
-          console.error('Error fetching products:', error);
-          throw new Error(`Failed to fetch products: ${error.message}`);
-        }
-        
-        console.log(`Successfully fetched ${data?.length || 0} products`);
-        return data || [];
-      } catch (error) {
-        console.error('Products fetch error:', error);
-        throw error;
-      }
-    },
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    staleTime: 5 * 60 * 1000,
-  });
-
   // Fetch categories
   const { 
     data: categories, 
@@ -199,8 +145,49 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         throw error;
       }
     },
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    retry: 2,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch products
+  const { 
+    data: products, 
+    isLoading: productsLoading, 
+    error: productsError,
+    refetch: refetchProducts 
+  } = useQuery({
+    queryKey: ['public-products'],
+    queryFn: async () => {
+      console.log('Fetching products from Supabase...');
+      
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select(`
+            *,
+            categories (
+              id,
+              name
+            )
+          `)
+          .eq('is_available', true)
+          .order('name');
+        
+        console.log('Products query result:', { data, error });
+        
+        if (error) {
+          console.error('Error fetching products:', error);
+          throw new Error(`Failed to fetch products: ${error.message}`);
+        }
+        
+        console.log(`Successfully fetched ${data?.length || 0} products`);
+        return data || [];
+      } catch (error) {
+        console.error('Products fetch error:', error);
+        throw error;
+      }
+    },
+    retry: 2,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -322,7 +309,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     refetchCategories();
   };
 
-  const isLoading = productsLoading || categoriesLoading || customizationLoading;
+  const isLoading = productsLoading || categoriesLoading;
   const hasError = productsError || categoriesError;
 
   console.log('PublicMenu state:', {
