@@ -29,79 +29,61 @@ export const useMenuCustomization = (businessId?: string) => {
   });
 };
 
-// SOLUCIÓN DEFINITIVA: Hook completamente reescrito con estrategia robusta
+// Hook optimizado para acceso público con políticas RLS corregidas
 export const usePublicMenuCustomization = () => {
   return useQuery({
-    queryKey: ['public-menu-customization-definitive'],
+    queryKey: ['public-menu-customization'],
     queryFn: async () => {
-      console.log('🔧 [DEFINITIVO] Iniciando obtención de personalización...');
+      console.log('🔧 [PUBLIC] Fetching menu customization...');
       
       try {
-        // PASO 1: Obtener business_id con manejo de errores específico
-        console.log('📍 [DEFINITIVO] Obteniendo business_id...');
-        const businessQuery = await supabase
+        // PASO 1: Obtener business_id del primer negocio
+        console.log('📍 [PUBLIC] Getting business ID...');
+        const { data: businessData, error: businessError } = await supabase
           .from('business_info')
           .select('id')
-          .limit(1);
+          .limit(1)
+          .single();
         
-        console.log('📍 [DEFINITIVO] Resultado business query:', businessQuery);
-        
-        if (businessQuery.error) {
-          console.error('❌ [DEFINITIVO] Error obteniendo business:', businessQuery.error);
-          throw new Error(`Business query failed: ${businessQuery.error.message}`);
-        }
-        
-        if (!businessQuery.data || businessQuery.data.length === 0) {
-          console.warn('⚠️ [DEFINITIVO] No se encontró información de negocio');
+        if (businessError) {
+          console.error('❌ [PUBLIC] Business query error:', businessError);
           return null;
         }
         
-        const businessId = businessQuery.data[0].id;
-        console.log('✅ [DEFINITIVO] Business ID obtenido:', businessId);
+        if (!businessData) {
+          console.warn('⚠️ [PUBLIC] No business found');
+          return null;
+        }
         
-        // PASO 2: Obtener personalización con query específico
-        console.log('🎨 [DEFINITIVO] Obteniendo personalización para business:', businessId);
-        const customizationQuery = await supabase
+        const businessId = businessData.id;
+        console.log('✅ [PUBLIC] Business ID:', businessId);
+        
+        // PASO 2: Obtener personalización con acceso público
+        console.log('🎨 [PUBLIC] Getting customization for business:', businessId);
+        const { data: customizationData, error: customizationError } = await supabase
           .from('menu_customization')
           .select('*')
-          .eq('business_id', businessId);
+          .eq('business_id', businessId)
+          .single();
         
-        console.log('🎨 [DEFINITIVO] Resultado customization query:', customizationQuery);
-        
-        if (customizationQuery.error) {
-          console.error('❌ [DEFINITIVO] Error obteniendo personalización:', customizationQuery.error);
-          throw new Error(`Customization query failed: ${customizationQuery.error.message}`);
-        }
-        
-        if (!customizationQuery.data || customizationQuery.data.length === 0) {
-          console.warn('⚠️ [DEFINITIVO] No se encontró personalización, retornando null');
+        if (customizationError) {
+          console.error('❌ [PUBLIC] Customization query error:', customizationError);
+          // Si hay error, retornar null para usar valores por defecto
           return null;
         }
         
-        const customization = customizationQuery.data[0];
-        console.log('🎨 [DEFINITIVO] Personalización obtenida exitosamente:', customization);
-        
-        // VALIDACIÓN ADICIONAL: Verificar que los datos son válidos
-        if (!customization.menu_bg_color || !customization.button_bg_color) {
-          console.warn('⚠️ [DEFINITIVO] Personalización incompleta, usando datos parciales');
-        }
-        
-        return customization;
+        console.log('🎨 [PUBLIC] Customization data:', customizationData);
+        return customizationData;
         
       } catch (error) {
-        console.error('💥 [DEFINITIVO] Error inesperado:', error);
-        // En caso de error, retornar null para usar valores por defecto
+        console.error('💥 [PUBLIC] Unexpected error:', error);
         return null;
       }
     },
-    // Configuración agresiva para asegurar obtención de datos
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    staleTime: 1 * 60 * 1000, // 1 minuto
+    gcTime: 5 * 60 * 1000, // 5 minutos
+    retry: 2,
+    retryDelay: 1000,
   });
 };
 
