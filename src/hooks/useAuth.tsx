@@ -140,8 +140,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                       user.email?.split('@')[0] || 
                       'Usuario';
 
-      // For karen@gmail.com specifically, set as admin
-      const role = user.email === 'karen@gmail.com' ? 'admin' : 'empleado';
+      // Set role based on email - alexjfweb@gmail.com gets superadmin, karen@gmail.com gets admin
+      let role = 'empleado';
+      if (user.email === 'alexjfweb@gmail.com') {
+        role = 'superadmin';
+      } else if (user.email === 'karen@gmail.com') {
+        role = 'admin';
+      }
       
       console.log('Assigning role:', role, 'to user:', user.email);
 
