@@ -9,7 +9,9 @@ import { useToast } from '@/hooks/use-toast';
 const QuickAccessMenu = () => {
   const { toast } = useToast();
   
-  const menuUrl = `${window.location.origin}/menu`;
+  // Generar la URL del menú público correctamente
+  const baseUrl = window.location.origin;
+  const menuUrl = `${baseUrl}/menu`;
   
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(menuUrl);
