@@ -55,19 +55,21 @@ export const useUserRoles = () => {
         if (profile.role !== expectedRole) {
           console.log(`Actualizando rol de ${profile.email}: ${profile.role} → ${expectedRole}`);
           
-          // Crear la promesa de actualización ejecutándola inmediatamente
-          const updatePromise = supabase
-            .from('profiles')
-            .update({ role: expectedRole })
-            .eq('id', profile.id)
-            .then(({ error }) => {
-              if (error) {
-                console.error(`Error actualizando rol para ${profile.email}:`, error);
-                throw error;
-              }
-              console.log(`✅ Rol actualizado para ${profile.email}: ${expectedRole}`);
-              return { email: profile.email, role: expectedRole };
-            });
+          // Crear una función async autoejecutable que devuelve Promise<any>
+          const updatePromise = (async (): Promise<any> => {
+            const { error } = await supabase
+              .from('profiles')
+              .update({ role: expectedRole })
+              .eq('id', profile.id);
+
+            if (error) {
+              console.error(`Error actualizando rol para ${profile.email}:`, error);
+              throw error;
+            }
+            
+            console.log(`✅ Rol actualizado para ${profile.email}: ${expectedRole}`);
+            return { email: profile.email, role: expectedRole };
+          })();
 
           updatePromises.push(updatePromise);
         } else {
