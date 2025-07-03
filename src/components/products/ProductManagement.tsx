@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,6 +37,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
   const { data: products, isLoading: productsLoading, refetch: refetchProducts } = useQuery({
     queryKey: ['products'],
     queryFn: async () => {
+      console.log('🔍 Obteniendo productos...');
       const { data, error } = await supabase
         .from('products')
         .select(`
@@ -50,10 +50,11 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
         .order('name');
       
       if (error) {
-        console.error('Error fetching products:', error);
+        console.error('❌ Error obteniendo productos:', error);
         throw error;
       }
       
+      console.log('✅ Productos obtenidos:', data?.length || 0, 'productos');
       return data;
     },
   });
@@ -61,16 +62,18 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
   const { data: categories } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
+      console.log('🔍 Obteniendo categorías...');
       const { data, error } = await supabase
         .from('categories')
         .select('*')
         .order('sort_order');
       
       if (error) {
-        console.error('Error fetching categories:', error);
+        console.error('❌ Error obteniendo categorías:', error);
         throw error;
       }
       
+      console.log('✅ Categorías obtenidas:', data?.length || 0, 'categorías');
       return data;
     },
   });
@@ -90,6 +93,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     } else {
       newSelected.delete(productId);
     }
+    console.log('📋 Productos seleccionados:', Array.from(newSelected));
     setSelectedProducts(newSelected);
   };
 
@@ -108,18 +112,25 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
       categoryProducts.forEach(id => newSelected.add(id));
     }
     
+    console.log('📋 Selección masiva - productos seleccionados:', Array.from(newSelected));
     setSelectedProducts(newSelected);
   };
 
   const toggleProductAvailability = async (product: Product) => {
     try {
+      console.log(`🔄 Cambiando disponibilidad de "${product.name}": ${product.is_available} → ${!product.is_available}`);
+      
       const { error } = await supabase
         .from('products')
         .update({ is_available: !product.is_available })
         .eq('id', product.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error actualizando disponibilidad:', error);
+        throw error;
+      }
 
+      console.log(`✅ Disponibilidad actualizada para "${product.name}"`);
       toast({
         title: "Producto actualizado",
         description: `${product.name} ${!product.is_available ? 'activado' : 'desactivado'} correctamente`,
@@ -127,7 +138,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
 
       refetchProducts();
     } catch (error) {
-      console.error('Error updating product:', error);
+      console.error('❌ Error updating product:', error);
       toast({
         title: "Error",
         description: "No se pudo actualizar el producto",
@@ -137,6 +148,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
   };
 
   const handleDeleteProduct = (product: Product) => {
+    console.log('🗑️ Preparando eliminación de producto:', product.name, product.id);
     setProductToDelete(product);
     setShowDeleteModal(true);
   };
@@ -146,13 +158,19 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
 
     setIsDeleting(true);
     try {
+      console.log('🗑️ Eliminando producto:', productToDelete.name, productToDelete.id);
+      
       const { error } = await supabase
         .from('products')
         .delete()
         .eq('id', productToDelete.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error eliminando producto:', error);
+        throw error;
+      }
 
+      console.log('✅ Producto eliminado correctamente:', productToDelete.name);
       toast({
         title: "Producto eliminado",
         description: `${productToDelete.name} eliminado correctamente`,
@@ -162,7 +180,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
       setShowDeleteModal(false);
       setProductToDelete(null);
     } catch (error) {
-      console.error('Error deleting product:', error);
+      console.error('❌ Error deleting product:', error);
       toast({
         title: "Error",
         description: "No se pudo eliminar el producto",
@@ -174,16 +192,43 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
   };
 
   const handleBulkDelete = async () => {
-    if (selectedProducts.size === 0) return;
+    if (selectedProducts.size === 0) {
+      console.warn('⚠️ No hay productos seleccionados para eliminar');
+      return;
+    }
+
+    const selectedIds = Array.from(selectedProducts);
+    console.log('🗑️ Iniciando eliminación masiva de productos:', selectedIds);
+    console.log('🗑️ Total de productos a eliminar:', selectedIds.length);
 
     setIsDeleting(true);
     try {
-      const { error } = await supabase
+      // Log detallado de la operación
+      console.log('🔍 Verificando productos seleccionados antes de eliminar:');
+      selectedIds.forEach((id, index) => {
+        const product = products?.find(p => p.id === id);
+        console.log(`  ${index + 1}. ID: ${id}, Nombre: ${product?.name || 'No encontrado'}`);
+      });
+
+      const { data, error } = await supabase
         .from('products')
         .delete()
-        .in('id', Array.from(selectedProducts));
+        .in('id', selectedIds)
+        .select('id, name');
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error en eliminación masiva:', error);
+        console.error('❌ Detalles del error:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw error;
+      }
+
+      console.log('✅ Eliminación masiva exitosa. Productos eliminados:', data);
+      console.log('✅ Cantidad eliminada:', data?.length || 0);
 
       toast({
         title: "Productos eliminados",
@@ -194,7 +239,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
       refetchProducts();
       setShowBulkModal(false);
     } catch (error) {
-      console.error('Error deleting products:', error);
+      console.error('❌ Error deleting products:', error);
       toast({
         title: "Error",
         description: "No se pudieron eliminar los productos",
@@ -208,14 +253,21 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
   const handleBulkActivate = async () => {
     if (selectedProducts.size === 0) return;
 
+    const selectedIds = Array.from(selectedProducts);
+    console.log('🔄 Activando productos masivamente:', selectedIds);
+
     try {
       const { error } = await supabase
         .from('products')
         .update({ is_available: true })
-        .in('id', Array.from(selectedProducts));
+        .in('id', selectedIds);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error activando productos:', error);
+        throw error;
+      }
 
+      console.log('✅ Productos activados correctamente');
       toast({
         title: "Productos activados",
         description: `${selectedProducts.size} productos activados correctamente`,
@@ -225,7 +277,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
       refetchProducts();
       setShowBulkModal(false);
     } catch (error) {
-      console.error('Error activating products:', error);
+      console.error('❌ Error activating products:', error);
       toast({
         title: "Error",
         description: "No se pudieron activar los productos",
@@ -237,14 +289,21 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
   const handleBulkDeactivate = async () => {
     if (selectedProducts.size === 0) return;
 
+    const selectedIds = Array.from(selectedProducts);
+    console.log('🔄 Desactivando productos masivamente:', selectedIds);
+
     try {
       const { error } = await supabase
         .from('products')
         .update({ is_available: false })
-        .in('id', Array.from(selectedProducts));
+        .in('id', selectedIds);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error desactivando productos:', error);
+        throw error;
+      }
 
+      console.log('✅ Productos desactivados correctamente');
       toast({
         title: "Productos desactivados",
         description: `${selectedProducts.size} productos desactivados correctamente`,
@@ -254,7 +313,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
       refetchProducts();
       setShowBulkModal(false);
     } catch (error) {
-      console.error('Error deactivating products:', error);
+      console.error('❌ Error deactivating products:', error);
       toast({
         title: "Error",
         description: "No se pudieron desactivar los productos",
@@ -264,16 +323,19 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
   };
 
   const handleEditProduct = (product: Product) => {
+    console.log('✏️ Editando producto:', product.name, product.id);
     setEditingProduct(product);
     setShowForm(true);
   };
 
   const handleCloseForm = () => {
+    console.log('❌ Cerrando formulario de producto');
     setShowForm(false);
     setEditingProduct(null);
   };
 
   const handleSaveProduct = () => {
+    console.log('💾 Producto guardado, refrescando lista...');
     handleCloseForm();
     refetchProducts();
   };
