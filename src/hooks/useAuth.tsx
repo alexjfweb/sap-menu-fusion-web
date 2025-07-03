@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
@@ -151,7 +150,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Determine the correct role based on email
       let expectedRole: 'empleado' | 'admin' | 'superadmin' = 'empleado';
-      if (user.email === 'alexjfweb@gmail.com' || user.email === 'alex10@gmail.com') {
+      if (user.email === 'superadmin@gmail.com') {
         expectedRole = 'superadmin';
       } else if (user.email === 'karen@gmail.com') {
         expectedRole = 'admin';
@@ -179,7 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('✅ Role is already correct:', existingProfile.role);
         
         // Log información adicional para usuarios especiales
-        if (user.email === 'alexjfweb@gmail.com' || user.email === 'alex10@gmail.com') {
+        if (user.email === 'superadmin@gmail.com') {
           console.log('👑 Usuario especial - Estado del perfil:', {
             email: existingProfile.email,
             role: existingProfile.role,
@@ -210,9 +209,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                       user.email?.split('@')[0] || 
                       'Usuario';
 
-      // Set role based on email - alexjfweb@gmail.com and alex10@gmail.com get superadmin, karen@gmail.com gets admin
+      // Set role based on email - superadmin@gmail.com gets superadmin, karen@gmail.com gets admin
       let role: 'empleado' | 'admin' | 'superadmin' = 'empleado';
-      if (user.email === 'alexjfweb@gmail.com' || user.email === 'alex10@gmail.com') {
+      if (user.email === 'superadmin@gmail.com') {
         role = 'superadmin';
       } else if (user.email === 'karen@gmail.com') {
         role = 'admin';

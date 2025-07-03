@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,9 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { ChefHat, Mail, Lock, User, Settings } from 'lucide-react';
+import { ChefHat, Mail, Lock, User } from 'lucide-react';
 import { useSuperAdminAuth } from '@/hooks/useSuperAdminAuth';
-import SuperAdminPanel from './SuperAdminPanel';
 
 // Función para limpiar el estado de autenticación
 const cleanupAuthState = () => {
@@ -29,7 +29,6 @@ const AuthForm = () => {
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [resetPasswordMode, setResetPasswordMode] = useState(false);
-  const [showSuperAdminPanel, setShowSuperAdminPanel] = useState(false);
   const { toast } = useToast();
   const { checkUserExists } = useSuperAdminAuth();
 
@@ -64,7 +63,7 @@ const AuthForm = () => {
         });
         
         // Mensaje específico para usuarios super admin
-        if ((email === 'alexjfweb@gmail.com' || email === 'alex10@gmail.com') && error.message === 'Invalid login credentials') {
+        if (email === 'superadmin@gmail.com' && error.message === 'Invalid login credentials') {
           // Verificar si el usuario existe
           const userStatus = await checkUserExists(email);
           
@@ -167,7 +166,7 @@ const AuthForm = () => {
       console.log('📝 Intentando registrar usuario:', email);
       
       // Para usuarios super admin, verificar si ya existe
-      if (email === 'alexjfweb@gmail.com' || email === 'alex10@gmail.com') {
+      if (email === 'superadmin@gmail.com') {
         const userStatus = await checkUserExists(email);
         if (userStatus.exists) {
           toast({
@@ -214,7 +213,7 @@ const AuthForm = () => {
         });
         
         // Mensaje especial para usuarios super admin
-        if (email === 'alexjfweb@gmail.com' || email === 'alex10@gmail.com') {
+        if (email === 'superadmin@gmail.com') {
           toast({
             title: '🎉 Super Administrador registrado',
             description: 'Cuenta de Super Administrador creada exitosamente. Automáticamente tendrás permisos completos.',
@@ -245,25 +244,6 @@ const AuthForm = () => {
     }
   };
 
-  if (showSuperAdminPanel) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/10 flex flex-col items-center justify-start p-4">
-        <div className="w-full max-w-4xl">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold">Panel de Super Administrador</h1>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowSuperAdminPanel(false)}
-            >
-              Volver al Login
-            </Button>
-          </div>
-          <SuperAdminPanel />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/10 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
@@ -278,17 +258,6 @@ const AuthForm = () => {
               : 'Accede a tu cuenta para gestionar tu restaurante'
             }
           </CardDescription>
-          <div className="flex justify-center mt-2">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => setShowSuperAdminPanel(true)}
-              className="text-xs"
-            >
-              <Settings className="h-3 w-3 mr-1" />
-              Panel Super Admin
-            </Button>
-          </div>
         </CardHeader>
         <CardContent>
           {resetPasswordMode ? (
