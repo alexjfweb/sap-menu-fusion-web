@@ -34,6 +34,8 @@ const AuthForm = () => {
     setLoading(true);
 
     try {
+      console.log('🔐 Intentando iniciar sesión con:', email);
+      
       // Clean up existing state first
       cleanupAuthState();
       
@@ -41,7 +43,6 @@ const AuthForm = () => {
       try {
         await supabase.auth.signOut({ scope: 'global' });
       } catch (err) {
-        // Continue even if this fails
         console.log('Sign out before sign in failed:', err);
       }
 
@@ -51,16 +52,38 @@ const AuthForm = () => {
       });
 
       if (error) {
-        console.error('Sign in error:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Error de autenticación',
-          description: error.message === 'Invalid login credentials' 
-            ? 'Credenciales inválidas. Verifica tu email y contraseña.'
-            : error.message,
+        console.error('❌ Error de inicio de sesión:', error);
+        console.error('❌ Detalles del error:', {
+          message: error.message,
+          status: error.status,
+          code: error.code
         });
+        
+        // Mensaje específico para usuarios super admin
+        if ((email === 'alexjfweb@gmail.com' || email === 'alex10@gmail.com') && error.message === 'Invalid login credentials') {
+          toast({
+            variant: 'destructive',
+            title: 'Usuario Super Admin no encontrado',
+            description: 'Esta cuenta no existe. Necesitas registrarla primero usando la pestaña "Registrarse" o contactar al administrador del sistema.',
+          });
+        } else {
+          toast({
+            variant: 'destructive',
+            title: 'Error de autenticación',
+            description: error.message === 'Invalid login credentials' 
+              ? 'Credenciales inválidas. Verifica tu email y contraseña.'
+              : error.message,
+          });
+        }
       } else if (data.user) {
-        console.log('Sign in successful:', data.user.email);
+        console.log('✅ Inicio de sesión exitoso:', data.user.email);
+        console.log('🔍 Datos del usuario:', {
+          id: data.user.id,
+          email: data.user.email,
+          created_at: data.user.created_at,
+          last_sign_in_at: data.user.last_sign_in_at
+        });
+        
         toast({
           title: 'Bienvenido',
           description: 'Has iniciado sesión correctamente.',
@@ -72,7 +95,7 @@ const AuthForm = () => {
         }, 1000);
       }
     } catch (error) {
-      console.error('Unexpected error signing in:', error);
+      console.error('❌ Error inesperado al iniciar sesión:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -132,6 +155,8 @@ const AuthForm = () => {
     setLoading(true);
 
     try {
+      console.log('📝 Intentando registrar usuario:', email);
+      
       // Clean up existing state first
       cleanupAuthState();
 
@@ -149,7 +174,7 @@ const AuthForm = () => {
       });
 
       if (error) {
-        console.error('Sign up error:', error);
+        console.error('❌ Error de registro:', error);
         toast({
           variant: 'destructive',
           title: 'Error de registro',
@@ -158,11 +183,25 @@ const AuthForm = () => {
             : error.message,
         });
       } else if (data.user) {
-        console.log('Sign up successful:', data.user.email);
-        toast({
-          title: 'Registro exitoso',
-          description: 'Tu cuenta ha sido creada exitosamente.',
+        console.log('✅ Registro exitoso:', data.user.email);
+        console.log('🔍 Usuario creado:', {
+          id: data.user.id,
+          email: data.user.email,
+          created_at: data.user.created_at
         });
+        
+        // Mensaje especial para usuarios super admin
+        if (email === 'alexjfweb@gmail.com' || email === 'alex10@gmail.com') {
+          toast({
+            title: '🎉 Super Administrador registrado',
+            description: 'Cuenta de Super Administrador creada exitosamente. Automáticamente tendrás permisos completos.',
+          });
+        } else {
+          toast({
+            title: 'Registro exitoso',
+            description: 'Tu cuenta ha sido creada exitosamente.',
+          });
+        }
         
         // If user is immediately confirmed, redirect to dashboard
         if (data.session) {
@@ -172,7 +211,7 @@ const AuthForm = () => {
         }
       }
     } catch (error) {
-      console.error('Unexpected error signing up:', error);
+      console.error('❌ Error inesperado al registrarse:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
