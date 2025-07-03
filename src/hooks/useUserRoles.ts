@@ -76,6 +76,7 @@ export const useUserRoles = () => {
         if (profile.role !== expectedRole) {
           console.log(`Actualizando rol de ${profile.email}: ${profile.role} → ${expectedRole}`);
           
+          // Execute the query and add the promise to the array
           const updatePromise = supabase
             .from('profiles')
             .update({ role: expectedRole })
