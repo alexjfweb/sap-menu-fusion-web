@@ -105,18 +105,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     return defaults;
   }, [customization, customizationLoading, customizationError]);
 
-  // Add automatic refresh every 10 seconds when customization is not available
-  useEffect(() => {
-    if (!customization && !customizationLoading) {
-      const interval = setInterval(() => {
-        console.log('🔄 [AUTO-REFRESH] Refreshing customization...');
-        refetchCustomization();
-      }, 10000);
-
-      return () => clearInterval(interval);
-    }
-  }, [customization, customizationLoading, refetchCustomization]);
-
   // Fetch business info
   const { 
     data: businessInfo, 
@@ -151,7 +139,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     staleTime: 10 * 60 * 1000,
   });
 
-  // Fetch categories
+  // Fetch categories with custom ordering
   const { 
     data: categories, 
     isLoading: categoriesLoading, 
@@ -166,8 +154,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         const { data, error } = await supabase
           .from('categories')
           .select('*')
-          .eq('is_active', true)
-          .order('sort_order');
+          .eq('is_active', true);
         
         console.log('Categories query result:', { data, error });
         
@@ -176,8 +163,30 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
           throw new Error(`Failed to fetch categories: ${error.message}`);
         }
         
-        console.log(`Successfully fetched ${data?.length || 0} categories`);
-        return data || [];
+        // Orden personalizado: platos principales, platos ejecutivos, platos especiales, otros
+        const customOrder = ['platos principales', 'platos ejecutivos', 'platos especiales'];
+        const sortedCategories = data?.sort((a, b) => {
+          const aName = a.name.toLowerCase();
+          const bName = b.name.toLowerCase();
+          
+          const aIndex = customOrder.findIndex(order => aName.includes(order));
+          const bIndex = customOrder.findIndex(order => bName.includes(order));
+          
+          // Si ambos están en el orden personalizado
+          if (aIndex !== -1 && bIndex !== -1) {
+            return aIndex - bIndex;
+          }
+          
+          // Si solo uno está en el orden personalizado, el que está va primero
+          if (aIndex !== -1) return -1;
+          if (bIndex !== -1) return 1;
+          
+          // Si ninguno está en el orden personalizado, orden alfabético
+          return aName.localeCompare(bName);
+        }) || [];
+        
+        console.log(`Successfully fetched ${sortedCategories.length} categories with custom order`);
+        return sortedCategories;
       } catch (error) {
         console.error('Categories fetch error:', error);
         throw error;

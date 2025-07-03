@@ -5,11 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Search, Edit, Trash2, Eye, EyeOff, ArrowLeft, ChefHat, Menu as MenuIcon } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Eye, EyeOff, ArrowLeft, ChefHat, Menu as MenuIcon, Check, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import ProductForm from './ProductForm';
 import PublicMenu from '../menu/PublicMenu';
+import DeleteProductModal from './DeleteProductModal';
+import BulkActionsModal from './BulkActionsModal';
 import { Tables } from '@/integrations/supabase/types';
 
 type Product = Tables<'products'>;
@@ -25,6 +28,11 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showPublicMenu, setShowPublicMenu] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
   const { data: products, isLoading: productsLoading, refetch: refetchProducts } = useQuery({
@@ -75,6 +83,34 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     return matchesSearch && matchesCategory;
   });
 
+  const handleSelectProduct = (productId: string, checked: boolean) => {
+    const newSelected = new Set(selectedProducts);
+    if (checked) {
+      newSelected.add(productId);
+    } else {
+      newSelected.delete(productId);
+    }
+    setSelectedProducts(newSelected);
+  };
+
+  const handleSelectAllInCategory = () => {
+    if (!filteredProducts) return;
+    
+    const newSelected = new Set(selectedProducts);
+    const categoryProducts = filteredProducts.map(p => p.id);
+    
+    // Si todos los productos de la categoría están seleccionados, deseleccionar
+    const allSelected = categoryProducts.every(id => selectedProducts.has(id));
+    
+    if (allSelected) {
+      categoryProducts.forEach(id => newSelected.delete(id));
+    } else {
+      categoryProducts.forEach(id => newSelected.add(id));
+    }
+    
+    setSelectedProducts(newSelected);
+  };
+
   const toggleProductAvailability = async (product: Product) => {
     try {
       const { error } = await supabase
@@ -100,28 +136,128 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     }
   };
 
-  const deleteProduct = async (product: Product) => {
-    if (!confirm(`¿Estás seguro de eliminar "${product.name}"?`)) return;
+  const handleDeleteProduct = (product: Product) => {
+    setProductToDelete(product);
+    setShowDeleteModal(true);
+  };
 
+  const confirmDeleteProduct = async () => {
+    if (!productToDelete) return;
+
+    setIsDeleting(true);
     try {
       const { error } = await supabase
         .from('products')
         .delete()
-        .eq('id', product.id);
+        .eq('id', productToDelete.id);
 
       if (error) throw error;
 
       toast({
         title: "Producto eliminado",
-        description: `${product.name} eliminado correctamente`,
+        description: `${productToDelete.name} eliminado correctamente`,
       });
 
       refetchProducts();
+      setShowDeleteModal(false);
+      setProductToDelete(null);
     } catch (error) {
       console.error('Error deleting product:', error);
       toast({
         title: "Error",
         description: "No se pudo eliminar el producto",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedProducts.size === 0) return;
+
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .in('id', Array.from(selectedProducts));
+
+      if (error) throw error;
+
+      toast({
+        title: "Productos eliminados",
+        description: `${selectedProducts.size} productos eliminados correctamente`,
+      });
+
+      setSelectedProducts(new Set());
+      refetchProducts();
+      setShowBulkModal(false);
+    } catch (error) {
+      console.error('Error deleting products:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron eliminar los productos",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleBulkActivate = async () => {
+    if (selectedProducts.size === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ is_available: true })
+        .in('id', Array.from(selectedProducts));
+
+      if (error) throw error;
+
+      toast({
+        title: "Productos activados",
+        description: `${selectedProducts.size} productos activados correctamente`,
+      });
+
+      setSelectedProducts(new Set());
+      refetchProducts();
+      setShowBulkModal(false);
+    } catch (error) {
+      console.error('Error activating products:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron activar los productos",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkDeactivate = async () => {
+    if (selectedProducts.size === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ is_available: false })
+        .in('id', Array.from(selectedProducts));
+
+      if (error) throw error;
+
+      toast({
+        title: "Productos desactivados",
+        description: `${selectedProducts.size} productos desactivados correctamente`,
+      });
+
+      setSelectedProducts(new Set());
+      refetchProducts();
+      setShowBulkModal(false);
+    } catch (error) {
+      console.error('Error deactivating products:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron desactivar los productos",
         variant: "destructive",
       });
     }
@@ -154,6 +290,10 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
       </div>
     );
   }
+
+  const selectedCount = selectedProducts.size;
+  const categoryProductCount = filteredProducts?.length || 0;
+  const allCategorySelected = categoryProductCount > 0 && filteredProducts?.every(p => selectedProducts.has(p.id));
 
   return (
     <div className="min-h-screen bg-background">
@@ -199,31 +339,61 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
             <p className="text-muted-foreground">Administra el menú del restaurante</p>
           </div>
 
-          {/* Filtros */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Buscar productos..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+          {/* Filtros y acciones en lote */}
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    placeholder="Buscar productos..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="px-3 py-2 border border-input rounded-md bg-background"
+              >
+                <option value="all">Todas las categorías</option>
+                {categories?.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
             </div>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-3 py-2 border border-input rounded-md bg-background"
-            >
-              <option value="all">Todas las categorías</option>
-              {categories?.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+
+            {/* Barra de selección */}
+            {categoryProductCount > 0 && (
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    checked={allCategorySelected}
+                    onCheckedChange={handleSelectAllInCategory}
+                  />
+                  <span className="text-sm">
+                    {allCategorySelected ? 'Deseleccionar todos' : `Seleccionar todos (${categoryProductCount})`}
+                  </span>
+                  {selectedCount > 0 && (
+                    <Badge variant="secondary">{selectedCount} seleccionados</Badge>
+                  )}
+                </div>
+                
+                {selectedCount > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowBulkModal(true)}
+                  >
+                    Acciones en lote
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Lista de productos */}
@@ -232,11 +402,17 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
               <Card key={product.id} className="group hover:shadow-lg transition-shadow">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg">{product.name}</CardTitle>
-                      <CardDescription className="mt-1">
-                        {(product as any).categories?.name}
-                      </CardDescription>
+                    <div className="flex items-start space-x-3 flex-1">
+                      <Checkbox
+                        checked={selectedProducts.has(product.id)}
+                        onCheckedChange={(checked) => handleSelectProduct(product.id, checked as boolean)}
+                      />
+                      <div className="flex-1">
+                        <CardTitle className="text-lg">{product.name}</CardTitle>
+                        <CardDescription className="mt-1">
+                          {(product as any).categories?.name}
+                        </CardDescription>
+                      </div>
                     </div>
                     <div className="flex items-center gap-1">
                       <Button
@@ -262,7 +438,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => deleteProduct(product)}
+                        onClick={() => handleDeleteProduct(product)}
                         className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -330,6 +506,29 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
               onCancel={handleCloseForm}
             />
           )}
+
+          {/* Modal de eliminación */}
+          <DeleteProductModal
+            isOpen={showDeleteModal}
+            onClose={() => {
+              setShowDeleteModal(false);
+              setProductToDelete(null);
+            }}
+            onConfirm={confirmDeleteProduct}
+            productName={productToDelete?.name || ''}
+            isLoading={isDeleting}
+          />
+
+          {/* Modal de acciones en lote */}
+          <BulkActionsModal
+            isOpen={showBulkModal}
+            onClose={() => setShowBulkModal(false)}
+            selectedCount={selectedCount}
+            onBulkDelete={handleBulkDelete}
+            onBulkActivate={handleBulkActivate}
+            onBulkDeactivate={handleBulkDeactivate}
+            isLoading={isDeleting}
+          />
         </div>
       </main>
     </div>
