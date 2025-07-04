@@ -12,6 +12,8 @@ import { Eye, EyeOff, UserCheck, UserX, Key, Mail, Shield } from 'lucide-react';
 import UserPermissionValidator from './UserPermissionValidator';
 import AccountVerification from './AccountVerification';
 import PaymentConfiguration from './PaymentConfiguration';
+import SubscriptionPlansManagement from './subscriptions/SubscriptionPlansManagement';
+import WhatsappConfiguration from './whatsapp/WhatsappConfiguration';
 
 const SuperAdminPanel = () => {
   const [selectedEmail, setSelectedEmail] = useState<string>('');
@@ -114,11 +116,13 @@ const SuperAdminPanel = () => {
   return (
     <div className="space-y-6 p-6">
       <Tabs defaultValue="verification" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="verification">Verificación</TabsTrigger>
-          <TabsTrigger value="validator">Validador de Permisos</TabsTrigger>
-          <TabsTrigger value="management">Gestión de Usuarios</TabsTrigger>
-          <TabsTrigger value="payments">Configuración de Pagos</TabsTrigger>
+          <TabsTrigger value="validator">Validador</TabsTrigger>
+          <TabsTrigger value="management">Usuarios</TabsTrigger>
+          <TabsTrigger value="payments">Pagos</TabsTrigger>
+          <TabsTrigger value="subscriptions">Suscripciones</TabsTrigger>
+          <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
         </TabsList>
 
         <TabsContent value="verification" className="space-y-6">
@@ -360,6 +364,14 @@ const SuperAdminPanel = () => {
 
         <TabsContent value="payments" className="space-y-6">
           <PaymentConfiguration />
+        </TabsContent>
+
+        <TabsContent value="subscriptions" className="space-y-6">
+          <SubscriptionPlansManagement />
+        </TabsContent>
+
+        <TabsContent value="whatsapp" className="space-y-6">
+          <WhatsappConfiguration />
         </TabsContent>
       </Tabs>
     </div>
