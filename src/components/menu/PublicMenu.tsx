@@ -62,7 +62,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }
   }, []);
 
-  // Fetch customization with better error handling
+  // Fetch customization with enhanced debugging
   const { 
     data: customization, 
     isLoading: customizationLoading,
@@ -70,13 +70,15 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     refetch: refetchCustomization
   } = usePublicMenuCustomization();
   
-  // Apply colors - use customization if available, otherwise defaults
+  // Apply colors with enhanced debugging
   const colors = React.useMemo(() => {
     const defaults = getDefaultCustomization();
     
-    console.log('🎨 [COLORS] Raw customization data:', customization);
-    console.log('🎨 [COLORS] Is loading:', customizationLoading);
-    console.log('🎨 [COLORS] Error:', customizationError);
+    console.log('🎨 [COLORS DEBUG] ===================');
+    console.log('🎨 [COLORS DEBUG] Raw customization data:', customization);
+    console.log('🎨 [COLORS DEBUG] Is loading:', customizationLoading);
+    console.log('🎨 [COLORS DEBUG] Error:', customizationError);
+    console.log('🎨 [COLORS DEBUG] Defaults:', defaults);
     
     if (customization) {
       // Merge defaults with custom colors, ensuring all fields have values
@@ -97,11 +99,15 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         shadow_color: customization.shadow_color || defaults.shadow_color,
         social_links_color: customization.social_links_color || defaults.social_links_color,
       };
-      console.log('✅ [COLORS] Custom colors applied:', appliedColors);
+      console.log('✅ [COLORS DEBUG] Applied custom colors:', appliedColors);
+      console.log('🎨 [COLORS DEBUG] Button color will be:', appliedColors.button_bg_color);
+      console.log('🎨 [COLORS DEBUG] ===================');
       return appliedColors;
     }
     
-    console.log('⚪ [COLORS] Using defaults (no customization available)');
+    console.log('⚪ [COLORS DEBUG] Using defaults (no customization available)');
+    console.log('🎨 [COLORS DEBUG] Default button color:', defaults.button_bg_color);
+    console.log('🎨 [COLORS DEBUG] ===================');
     return defaults;
   }, [customization, customizationLoading, customizationError]);
 
@@ -360,9 +366,10 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   const isLoading = productsLoading || categoriesLoading;
   const hasError = productsError || categoriesError;
 
-  console.log('🎯 [RENDER] Current colors being applied:', colors);
-  console.log('🎯 [RENDER] Has customization:', !!customization);
-  console.log('🎯 [RENDER] Customization loading:', customizationLoading);
+  console.log('🎯 [RENDER DEBUG] Current colors being applied:', colors);
+  console.log('🎯 [RENDER DEBUG] Has customization:', !!customization);
+  console.log('🎯 [RENDER DEBUG] Customization loading:', customizationLoading);
+  console.log('🎯 [RENDER DEBUG] Will render with button color:', colors.button_bg_color);
 
   // Show loading
   if (isLoading) {
@@ -525,18 +532,16 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
                 >
                   Menú del Restaurante
                 </h1>
-                {/* Solo mostrar el badge si realmente no hay customización y no está cargando */}
-                {!customization && !customizationLoading && (
-                  <Badge 
-                    variant="outline" 
-                    className="text-xs"
-                    style={{ 
-                      borderColor: colors.product_card_border_color,
-                      color: colors.text_color
-                    }}
-                  >
-                    Usando colores por defecto
-                  </Badge>
+                {/* Debug info - solo mostrar en development */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div className="flex flex-col text-xs">
+                    <Badge variant="outline" className="mb-1">
+                      Customization: {customization ? 'LOADED' : 'NULL'}
+                    </Badge>
+                    <Badge variant="outline">
+                      Color: {colors.button_bg_color}
+                    </Badge>
+                  </div>
                 )}
               </div>
             </div>

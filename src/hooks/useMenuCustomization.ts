@@ -34,32 +34,67 @@ export const usePublicMenuCustomization = () => {
   return useQuery({
     queryKey: ['public-menu-customization'],
     queryFn: async () => {
-      console.log('🔧 [PUBLIC CUSTOMIZATION] Fetching menu customization...');
+      console.log('🔧 [PUBLIC CUSTOMIZATION] Starting fetch...');
       
       try {
-        const { data, error } = await supabase
+        // First, try to get the customization directly
+        console.log('🔧 [PUBLIC CUSTOMIZATION] Attempting direct fetch...');
+        const { data: customizationData, error: customizationError } = await supabase
           .from('menu_customization')
           .select('*')
-          .limit(1)
-          .single();
+          .limit(1);
 
-        if (error) {
-          console.warn('⚠️ [PUBLIC CUSTOMIZATION] Error fetching:', error);
-          return null;
+        console.log('🔧 [PUBLIC CUSTOMIZATION] Direct fetch result:', { 
+          data: customizationData, 
+          error: customizationError 
+        });
+
+        if (customizationError) {
+          console.warn('⚠️ [PUBLIC CUSTOMIZATION] Direct fetch error:', customizationError);
+          
+          // Fallback: try without RLS (this might fail, but let's log it)
+          console.log('🔧 [PUBLIC CUSTOMIZATION] Trying fallback approach...');
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('menu_customization')
+            .select('*')
+            .limit(1)
+            .single();
+            
+          console.log('🔧 [PUBLIC CUSTOMIZATION] Fallback result:', { 
+            data: fallbackData, 
+            error: fallbackError 
+          });
+          
+          if (fallbackError) {
+            console.error('💥 [PUBLIC CUSTOMIZATION] Both approaches failed');
+            return null;
+          }
+          
+          return fallbackData;
         }
 
-        console.log('✅ [PUBLIC CUSTOMIZATION] Customization fetched:', data);
-        return data;
+        // If we have data, return the first record
+        if (customizationData && customizationData.length > 0) {
+          const selectedCustomization = customizationData[0];
+          console.log('✅ [PUBLIC CUSTOMIZATION] Success! Using customization:', selectedCustomization);
+          return selectedCustomization;
+        }
+
+        console.warn('⚠️ [PUBLIC CUSTOMIZATION] No customization data found');
+        return null;
         
       } catch (error) {
-        console.error('💥 [PUBLIC CUSTOMIZATION] Error:', error);
+        console.error('💥 [PUBLIC CUSTOMIZATION] Unexpected error:', error);
         return null;
       }
     },
     staleTime: 1 * 60 * 1000, // 1 minute
     refetchOnMount: true,
     refetchOnWindowFocus: true,
-    retry: 3,
+    retry: (failureCount, error) => {
+      console.log(`🔄 [PUBLIC CUSTOMIZATION] Retry attempt ${failureCount}:`, error);
+      return failureCount < 3;
+    },
   });
 };
 
