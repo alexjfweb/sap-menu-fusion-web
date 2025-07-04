@@ -1189,6 +1189,42 @@ export type Database = {
           },
         ]
       }
+      whatsapp_business_config: {
+        Row: {
+          access_token: string
+          business_account_id: string
+          created_at: string
+          id: string
+          is_connected: boolean | null
+          last_verified_at: string | null
+          phone_number_id: string
+          updated_at: string
+          webhook_verify_token: string | null
+        }
+        Insert: {
+          access_token: string
+          business_account_id: string
+          created_at?: string
+          id?: string
+          is_connected?: boolean | null
+          last_verified_at?: string | null
+          phone_number_id: string
+          updated_at?: string
+          webhook_verify_token?: string | null
+        }
+        Update: {
+          access_token?: string
+          business_account_id?: string
+          created_at?: string
+          id?: string
+          is_connected?: boolean | null
+          last_verified_at?: string | null
+          phone_number_id?: string
+          updated_at?: string
+          webhook_verify_token?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

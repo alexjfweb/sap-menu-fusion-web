@@ -53,7 +53,7 @@ const SubscriptionPlansManagement = () => {
     if (existingPlans) {
       setPlans(existingPlans.map(plan => ({
         ...plan,
-        features: Array.isArray(plan.features) ? plan.features : []
+        features: Array.isArray(plan.features) ? plan.features.filter(f => typeof f === 'string') as string[] : []
       })));
     }
   }, [existingPlans]);
