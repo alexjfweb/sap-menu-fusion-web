@@ -103,7 +103,6 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     const newSelected = new Set(selectedProducts);
     const categoryProducts = filteredProducts.map(p => p.id);
     
-    // Si todos los productos de la categoría están seleccionados, deseleccionar
     const allSelected = categoryProducts.every(id => selectedProducts.has(id));
     
     if (allSelected) {
@@ -146,6 +145,74 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
       });
     }
   };
+
+  const performBulkOperation = async (operation: 'delete' | 'activate' | 'deactivate') => {
+    if (selectedProducts.size === 0) {
+      console.warn('⚠️ No hay productos seleccionados');
+      return;
+    }
+
+    const selectedIds = Array.from(selectedProducts);
+    console.log(`🔄 Iniciando operación masiva: ${operation}`);
+    console.log(`📋 IDs seleccionados:`, selectedIds.slice(0, 5), selectedIds.length > 5 ? `... y ${selectedIds.length - 5} más` : '');
+
+    setIsDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('bulk-product-operations', {
+        body: {
+          operation,
+          productIds: selectedIds
+        }
+      });
+
+      if (error) {
+        console.error(`❌ Error en operación masiva ${operation}:`, error);
+        throw error;
+      }
+
+      if (!data.success) {
+        console.error(`❌ Operación ${operation} falló:`, data.error);
+        throw new Error(data.error || `Error en operación ${operation}`);
+      }
+
+      console.log(`✅ Operación ${operation} completada:`, data.affectedRows, 'productos afectados');
+
+      let successMessage = '';
+      switch (operation) {
+        case 'delete':
+          successMessage = `${data.affectedRows} productos eliminados correctamente`;
+          break;
+        case 'activate':
+          successMessage = `${data.affectedRows} productos activados correctamente`;
+          break;
+        case 'deactivate':
+          successMessage = `${data.affectedRows} productos desactivados correctamente`;
+          break;
+      }
+
+      toast({
+        title: "Operación completada",
+        description: successMessage,
+      });
+
+      setSelectedProducts(new Set());
+      refetchProducts();
+      setShowBulkModal(false);
+    } catch (error) {
+      console.error(`❌ Error en operación masiva ${operation}:`, error);
+      toast({
+        title: "Error en operación masiva",
+        description: error.message || `No se pudo completar la operación ${operation}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleBulkDelete = () => performBulkOperation('delete');
+  const handleBulkActivate = () => performBulkOperation('activate');
+  const handleBulkDeactivate = () => performBulkOperation('deactivate');
 
   const handleDeleteProduct = (product: Product) => {
     console.log('🗑️ Preparando eliminación de producto:', product.name, product.id);
@@ -191,137 +258,6 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     }
   };
 
-  const handleBulkDelete = async () => {
-    if (selectedProducts.size === 0) {
-      console.warn('⚠️ No hay productos seleccionados para eliminar');
-      return;
-    }
-
-    const selectedIds = Array.from(selectedProducts);
-    console.log('🗑️ Iniciando eliminación masiva de productos:', selectedIds);
-    console.log('🗑️ Total de productos a eliminar:', selectedIds.length);
-
-    setIsDeleting(true);
-    try {
-      // Log detallado de la operación
-      console.log('🔍 Verificando productos seleccionados antes de eliminar:');
-      selectedIds.forEach((id, index) => {
-        const product = products?.find(p => p.id === id);
-        console.log(`  ${index + 1}. ID: ${id}, Nombre: ${product?.name || 'No encontrado'}`);
-      });
-
-      const { data, error } = await supabase
-        .from('products')
-        .delete()
-        .in('id', selectedIds)
-        .select('id, name');
-
-      if (error) {
-        console.error('❌ Error en eliminación masiva:', error);
-        console.error('❌ Detalles del error:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        throw error;
-      }
-
-      console.log('✅ Eliminación masiva exitosa. Productos eliminados:', data);
-      console.log('✅ Cantidad eliminada:', data?.length || 0);
-
-      toast({
-        title: "Productos eliminados",
-        description: `${selectedProducts.size} productos eliminados correctamente`,
-      });
-
-      setSelectedProducts(new Set());
-      refetchProducts();
-      setShowBulkModal(false);
-    } catch (error) {
-      console.error('❌ Error deleting products:', error);
-      toast({
-        title: "Error",
-        description: "No se pudieron eliminar los productos",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const handleBulkActivate = async () => {
-    if (selectedProducts.size === 0) return;
-
-    const selectedIds = Array.from(selectedProducts);
-    console.log('🔄 Activando productos masivamente:', selectedIds);
-
-    try {
-      const { error } = await supabase
-        .from('products')
-        .update({ is_available: true })
-        .in('id', selectedIds);
-
-      if (error) {
-        console.error('❌ Error activando productos:', error);
-        throw error;
-      }
-
-      console.log('✅ Productos activados correctamente');
-      toast({
-        title: "Productos activados",
-        description: `${selectedProducts.size} productos activados correctamente`,
-      });
-
-      setSelectedProducts(new Set());
-      refetchProducts();
-      setShowBulkModal(false);
-    } catch (error) {
-      console.error('❌ Error activating products:', error);
-      toast({
-        title: "Error",
-        description: "No se pudieron activar los productos",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleBulkDeactivate = async () => {
-    if (selectedProducts.size === 0) return;
-
-    const selectedIds = Array.from(selectedProducts);
-    console.log('🔄 Desactivando productos masivamente:', selectedIds);
-
-    try {
-      const { error } = await supabase
-        .from('products')
-        .update({ is_available: false })
-        .in('id', selectedIds);
-
-      if (error) {
-        console.error('❌ Error desactivando productos:', error);
-        throw error;
-      }
-
-      console.log('✅ Productos desactivados correctamente');
-      toast({
-        title: "Productos desactivados",
-        description: `${selectedProducts.size} productos desactivados correctamente`,
-      });
-
-      setSelectedProducts(new Set());
-      refetchProducts();
-      setShowBulkModal(false);
-    } catch (error) {
-      console.error('❌ Error deactivating products:', error);
-      toast({
-        title: "Error",
-        description: "No se pudieron desactivar los productos",
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleEditProduct = (product: Product) => {
     console.log('✏️ Editando producto:', product.name, product.id);
     setEditingProduct(product);
@@ -340,7 +276,6 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     refetchProducts();
   };
 
-  // Show public menu if requested
   if (showPublicMenu) {
     return <PublicMenu onBack={() => setShowPublicMenu(false)} />;
   }
@@ -359,7 +294,6 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
@@ -393,7 +327,6 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="space-y-6">
           <div>
@@ -401,7 +334,6 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
             <p className="text-muted-foreground">Administra el menú del restaurante</p>
           </div>
 
-          {/* Filtros y acciones en lote */}
           <div className="flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1">
@@ -429,7 +361,6 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
               </select>
             </div>
 
-            {/* Barra de selección */}
             {categoryProductCount > 0 && (
               <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                 <div className="flex items-center space-x-3">
@@ -458,7 +389,6 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
             )}
           </div>
 
-          {/* Lista de productos */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProducts?.map((product) => (
               <Card key={product.id} className="group hover:shadow-lg transition-shadow">
@@ -559,7 +489,6 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
             </div>
           )}
 
-          {/* Modal de formulario */}
           {showForm && (
             <ProductForm
               product={editingProduct}
@@ -569,7 +498,6 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
             />
           )}
 
-          {/* Modal de eliminación */}
           <DeleteProductModal
             isOpen={showDeleteModal}
             onClose={() => {
@@ -581,7 +509,6 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
             isLoading={isDeleting}
           />
 
-          {/* Modal de acciones en lote */}
           <BulkActionsModal
             isOpen={showBulkModal}
             onClose={() => setShowBulkModal(false)}
