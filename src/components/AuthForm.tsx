@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { safeSignIn, safeSignUp } from '@/integrations/supabase/authUtils';
 import { useToast } from '@/hooks/use-toast';
 import { ChefHat, Mail, Lock, User, AlertCircle } from 'lucide-react';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
@@ -19,6 +18,37 @@ const AuthForm = () => {
   const [resetPasswordMode, setResetPasswordMode] = useState(false);
   const { toast } = useToast();
   const { setConnecting, setError, resetError, isOnline } = useConnectionStatus();
+
+  // Check for password reset hash in URL
+  useEffect(() => {
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const accessToken = hashParams.get('access_token');
+    const refreshToken = hashParams.get('refresh_token');
+    const type = hashParams.get('type');
+
+    if (type === 'recovery' && accessToken && refreshToken) {
+      // Handle password reset
+      supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      }).then(({ error }) => {
+        if (error) {
+          console.error('Error setting session:', error);
+          toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Error al procesar el enlace de recuperación.',
+          });
+        } else {
+          toast({
+            title: 'Recuperación exitosa',
+            description: 'Ahora puedes cambiar tu contraseña.',
+          });
+          // Optionally redirect to a password change page
+        }
+      });
+    }
+  }, [toast]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,26 +230,33 @@ const AuthForm = () => {
     setLoading(true);
 
     try {
+      console.log('🔄 Enviando enlace de recuperación a:', email);
+      
+      // Use the current origin to ensure correct redirect
+      const redirectUrl = `${window.location.origin}/auth`;
+      console.log('🔗 URL de redirección:', redirectUrl);
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/auth`,
+        redirectTo: redirectUrl,
       });
 
       if (error) {
-        console.error('Password reset error:', error);
+        console.error('❌ Error enviando enlace de recuperación:', error);
         toast({
           variant: 'destructive',
           title: 'Error',
           description: error.message,
         });
       } else {
+        console.log('✅ Enlace de recuperación enviado exitosamente');
         toast({
           title: 'Email enviado',
-          description: 'Te hemos enviado un email con instrucciones para restablecer tu contraseña.',
+          description: 'Te hemos enviado un email con instrucciones para restablecer tu contraseña. Revisa tu bandeja de entrada y carpeta de spam.',
         });
         setResetPasswordMode(false);
       }
-    } catch (error) {
-      console.error('Unexpected error resetting password:', error);
+    } catch (error: any) {
+      console.error('❌ Error inesperado:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
