@@ -213,50 +213,81 @@ const AuthForm = () => {
     setLoading(true);
 
     try {
-      console.log('🔄 Enviando enlace de recuperación a:', email);
+      console.log('🔄 Iniciando proceso de recuperación de contraseña');
+      console.log('📧 Email:', email.trim());
       
       // Obtener la URL base actual
       const currentOrigin = window.location.origin;
       const redirectUrl = `${currentOrigin}/auth/reset-password`;
       
       console.log('🔗 URL de redirección configurada:', redirectUrl);
+      console.log('🌐 Origen actual:', currentOrigin);
       
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      // Verificar conectividad antes del envío
+      if (!isOnline) {
+        throw new Error('Sin conexión a internet. Verifica tu conexión y vuelve a intentar.');
+      }
+
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: redirectUrl,
       });
 
+      console.log('📬 Respuesta de Supabase:', { data, error });
+
       if (error) {
         console.error('❌ Error enviando enlace de recuperación:', error);
-        console.error('❌ Detalles del error:', {
-          message: error.message,
-          status: error.status,
-          name: error.name
-        });
+        console.error('❌ Código de error:', error.status);
+        console.error('❌ Mensaje de error:', error.message);
+        console.error('❌ Detalles completos:', JSON.stringify(error, null, 2));
+        
+        // Manejo específico de errores comunes
+        let errorMessage = 'No se pudo enviar el enlace de recuperación.';
+        
+        if (error.message?.includes('Invalid email')) {
+          errorMessage = 'El formato del email no es válido.';
+        } else if (error.message?.includes('rate limit')) {
+          errorMessage = 'Has solicitado demasiados enlaces. Espera unos minutos antes de intentar de nuevo.';
+        } else if (error.message?.includes('SMTP')) {
+          errorMessage = 'Error en la configuración del servidor de correo. Contacta al administrador.';
+        } else if (error.message?.includes('User not found')) {
+          // No revelamos si el usuario existe o no por seguridad
+          console.log('⚠️ Usuario no encontrado, pero mostramos mensaje genérico por seguridad');
+        }
         
         toast({
           variant: 'destructive',
-          title: 'Error',
-          description: error.message || 'No se pudo enviar el enlace de recuperación.',
+          title: 'Error al enviar correo',
+          description: error.message || errorMessage,
         });
       } else {
-        console.log('✅ Enlace de recuperación enviado exitosamente');
+        console.log('✅ Solicitud de recuperación procesada exitosamente');
         console.log('✅ Configuración utilizada:', {
           email: email.trim(),
-          redirectUrl: redirectUrl
+          redirectUrl: redirectUrl,
+          timestamp: new Date().toISOString()
         });
         
         toast({
-          title: 'Email enviado',
-          description: `Te hemos enviado un email con instrucciones para restablecer tu contraseña a ${email}. Revisa tu bandeja de entrada y carpeta de spam.`,
+          title: '📧 Correo enviado',
+          description: `Si existe una cuenta asociada a ${email}, recibirás un email con instrucciones para restablecer tu contraseña. Revisa tu bandeja de entrada y carpeta de spam.`,
         });
+        
+        console.log('💡 Consejos para el usuario:');
+        console.log('1. Revisar bandeja de entrada y carpeta de spam');
+        console.log('2. Verificar que el email sea correcto');
+        console.log('3. Esperar hasta 10 minutos para recibir el correo');
+        console.log('4. Verificar configuración SMTP en Supabase Dashboard');
+        
         setResetPasswordMode(false);
       }
     } catch (error: any) {
-      console.error('❌ Error inesperado:', error);
+      console.error('❌ Error inesperado en recuperación de contraseña:', error);
+      console.error('❌ Stack trace:', error.stack);
+      
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Ocurrió un error inesperado. Inténtalo de nuevo.',
+        title: 'Error inesperado',
+        description: 'Ocurrió un error al procesar tu solicitud. Inténtalo de nuevo más tarde.',
       });
     } finally {
       setLoading(false);
@@ -316,6 +347,13 @@ const AuthForm = () => {
                 >
                   Volver al inicio de sesión
                 </Button>
+                
+                {/* Información adicional para ayudar al usuario */}
+                <div className="text-xs text-muted-foreground space-y-1 mt-4">
+                  <p>• Revisa tu bandeja de entrada y carpeta de spam</p>
+                  <p>• El correo puede tardar hasta 10 minutos en llegar</p>
+                  <p>• Verifica que el email sea correcto</p>
+                </div>
               </form>
             ) : (
               <Tabs defaultValue="signin" className="space-y-4">
