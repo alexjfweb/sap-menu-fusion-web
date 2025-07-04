@@ -3,7 +3,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
 import { Tables } from '@/integrations/supabase/types';
-import { cleanupAuthState, safeGetSession } from '@/integrations/supabase/authUtils';
+import { cleanupAuthState } from '@/integrations/supabase/authUtils';
 
 type Profile = Tables<'profiles'>;
 
@@ -69,7 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // THEN check for existing session using safe method
     const initializeAuth = async () => {
       try {
-        const { data: session, error } = await safeGetSession();
+        const { data, error } = await supabase.auth.getSession();
         
         if (!mounted) return;
         
@@ -79,12 +79,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
 
-        console.log('🔍 Initial session check:', session?.user?.email || 'No session');
-        setSession(session);
-        setUser(session?.user ?? null);
+        console.log('🔍 Initial session check:', data.session?.user?.email || 'No session');
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
         
-        if (session?.user) {
-          await fetchOrCreateProfile(session.user);
+        if (data.session?.user) {
+          await fetchOrCreateProfile(data.session.user);
         } else {
           setLoading(false);
         }
