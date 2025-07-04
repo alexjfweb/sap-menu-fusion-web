@@ -11,6 +11,7 @@ import { useSuperAdminAuth } from '@/hooks/useSuperAdminAuth';
 import { Eye, EyeOff, UserCheck, UserX, Key, Mail, Shield } from 'lucide-react';
 import UserPermissionValidator from './UserPermissionValidator';
 import AccountVerification from './AccountVerification';
+import PaymentConfiguration from './PaymentConfiguration';
 
 const SuperAdminPanel = () => {
   const [selectedEmail, setSelectedEmail] = useState<string>('');
@@ -113,10 +114,11 @@ const SuperAdminPanel = () => {
   return (
     <div className="space-y-6 p-6">
       <Tabs defaultValue="verification" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="verification">Verificación</TabsTrigger>
           <TabsTrigger value="validator">Validador de Permisos</TabsTrigger>
           <TabsTrigger value="management">Gestión de Usuarios</TabsTrigger>
+          <TabsTrigger value="payments">Configuración de Pagos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="verification" className="space-y-6">
@@ -354,6 +356,10 @@ const SuperAdminPanel = () => {
               </Card>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="payments" className="space-y-6">
+          <PaymentConfiguration />
         </TabsContent>
       </Tabs>
     </div>
