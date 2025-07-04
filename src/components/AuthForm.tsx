@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +8,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { safeSignIn, safeSignUp } from '@/integrations/supabase/authUtils';
 import { useToast } from '@/hooks/use-toast';
 import { ChefHat, Mail, Lock, User, AlertCircle } from 'lucide-react';
-import { useSuperAdminAuth } from '@/hooks/useSuperAdminAuth';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import ConnectionStatusIndicator from '@/components/ConnectionStatusIndicator';
 
@@ -20,7 +18,6 @@ const AuthForm = () => {
   const [loading, setLoading] = useState(false);
   const [resetPasswordMode, setResetPasswordMode] = useState(false);
   const { toast } = useToast();
-  const { checkUserExists } = useSuperAdminAuth();
   const { setConnecting, setError, resetError, isOnline } = useConnectionStatus();
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -37,10 +34,17 @@ const AuthForm = () => {
         throw new Error('Sin conexión a internet. Verifica tu conexión y vuelve a intentar.');
       }
       
-      // Usar función segura para sign in
-      const { data, error } = await safeSignIn(email, password);
+      // Usar directamente signInWithPassword sin funciones wrapper
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
       
       if (error) {
+        // Log del error real para debugging
+        console.error('❌ Error real de Supabase:', error);
+        console.error('❌ Código de error:', error.code);
+        console.error('❌ Mensaje completo:', error.message);
         throw error;
       }
 
@@ -53,18 +57,11 @@ const AuthForm = () => {
           last_sign_in_at: data.user.last_sign_in_at
         });
         
-        // Mensaje especial para usuarios super admin
-        if (data.user.email === 'alexjfweb@gmail.com' || data.user.email === 'superadmin@gmail.com') {
-          toast({
-            title: '🚀 Bienvenido Super Administrador',
-            description: `Acceso completo al panel de administración concedido para ${data.user.email}`,
-          });
-        } else {
-          toast({
-            title: 'Bienvenido',
-            description: 'Has iniciado sesión correctamente.',
-          });
-        }
+        // Mensaje de bienvenida basado en el usuario real
+        toast({
+          title: 'Bienvenido',
+          description: `Has iniciado sesión correctamente como ${data.user.email}`,
+        });
         
         // Redirección segura con timeout
         setTimeout(() => {
@@ -76,6 +73,7 @@ const AuthForm = () => {
       
       let errorMessage = 'Ocurrió un error inesperado. Inténtalo de nuevo.';
       
+      // Usar el mensaje real de Supabase sin modificaciones personalizadas
       if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
         errorMessage = 'Error de conexión. Verifica tu conexión a internet y vuelve a intentar.';
         setError('Error de red - CORS o conectividad');
@@ -86,19 +84,14 @@ const AuthForm = () => {
         errorMessage = 'Error de política del navegador. Recarga la página e intenta nuevamente.';
         setError('Error de CORS policy');
       } else if (error.message === 'Invalid login credentials') {
-        // Mensaje específico para usuarios super admin
-        if (email === 'alexjfweb@gmail.com' || email === 'superadmin@gmail.com') {
-          const userStatus = await checkUserExists(email);
-          errorMessage = userStatus.exists 
-            ? `La cuenta ${email} existe pero las credenciales son incorrectas. Verifica la contraseña o usa el panel de Super Admin para restablecerla.`
-            : `La cuenta ${email} no existe. Créala usando el panel de Super Admin o regístrate en la pestaña "Registrarse".`;
-        } else {
-          errorMessage = 'Credenciales inválidas. Verifica tu email y contraseña.';
-        }
+        // Este es el mensaje real de Supabase - mostrar tal como es
+        errorMessage = 'Credenciales inválidas. Verifica tu email y contraseña, o regístrate si no tienes cuenta.';
       } else if (error.message?.includes('timeout') || error.message?.includes('Timeout')) {
         errorMessage = 'Tiempo de espera agotado. El servidor puede estar sobrecargado.';
         setError('Timeout de conexión');
       } else {
+        // Mostrar el mensaje real de Supabase
+        errorMessage = error.message || 'Error desconocido';
         setError(error.message || 'Error desconocido');
       }
       
@@ -127,47 +120,33 @@ const AuthForm = () => {
         throw new Error('Sin conexión a internet. Verifica tu conexión y vuelve a intentar.');
       }
       
-      // Para usuarios super admin, verificar si ya existe
-      if (email === 'alexjfweb@gmail.com' || email === 'superadmin@gmail.com') {
-        const userStatus = await checkUserExists(email);
-        if (userStatus.exists) {
-          toast({
-            variant: 'destructive',
-            title: 'Usuario Super Admin ya existe',
-            description: 'Esta cuenta ya está registrada. Intenta iniciar sesión o usa el panel de Super Admin para restablecer la contraseña.',
-          });
-          setLoading(false);
-          setConnecting(false);
-          return;
-        }
-      }
-      
-      // Usar función segura para sign up
-      const { data, error } = await safeSignUp(email, password, {
-        data: {
-          full_name: fullName,
+      // Usar directamente signUp sin funciones wrapper
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+          data: {
+            full_name: fullName,
+          },
         },
       });
 
       if (error) {
+        // Log del error real para debugging
+        console.error('❌ Error real de Supabase en registro:', error);
+        console.error('❌ Código de error:', error.code);
+        console.error('❌ Mensaje completo:', error.message);
         throw error;
       }
 
       if (data?.user) {
         console.log('✅ Registro exitoso:', data.user.email);
         
-        // Mensaje especial para usuarios super admin
-        if (email === 'alexjfweb@gmail.com' || email === 'superadmin@gmail.com') {
-          toast({
-            title: '🎉 Super Administrador registrado',
-            description: 'Cuenta de Super Administrador creada exitosamente. Automáticamente tendrás permisos completos.',
-          });
-        } else {
-          toast({
-            title: 'Registro exitoso',
-            description: 'Tu cuenta ha sido creada exitosamente.',
-          });
-        }
+        toast({
+          title: 'Registro exitoso',
+          description: 'Tu cuenta ha sido creada exitosamente.',
+        });
         
         // If user is immediately confirmed, redirect to dashboard
         if (data.session) {
@@ -181,6 +160,7 @@ const AuthForm = () => {
       
       let errorMessage = 'Ocurrió un error inesperado. Inténtalo de nuevo.';
       
+      // Usar mensajes reales de Supabase
       if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
         errorMessage = 'Error de conexión. Verifica tu conexión a internet y vuelve a intentar.';
         setError('Error de red durante registro');
@@ -190,6 +170,8 @@ const AuthForm = () => {
       } else if (error.message === 'User already registered') {
         errorMessage = 'Este email ya está registrado. Intenta iniciar sesión.';
       } else {
+        // Mostrar el mensaje real de Supabase
+        errorMessage = error.message || 'Error de registro';
         setError(error.message || 'Error de registro');
       }
       
