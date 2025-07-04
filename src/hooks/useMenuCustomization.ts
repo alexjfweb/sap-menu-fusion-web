@@ -29,7 +29,7 @@ export const useMenuCustomization = (businessId?: string) => {
   });
 };
 
-// Hook for public access - fetches customization without authentication
+// Hook optimizado para acceso público - ahora puede acceder sin autenticación
 export const usePublicMenuCustomization = () => {
   return useQuery({
     queryKey: ['public-menu-customization'],
@@ -37,47 +37,30 @@ export const usePublicMenuCustomization = () => {
       console.log('🔧 [PUBLIC CUSTOMIZATION] Starting fetch...');
       
       try {
-        // First, try to get the customization directly
-        console.log('🔧 [PUBLIC CUSTOMIZATION] Attempting direct fetch...');
-        const { data: customizationData, error: customizationError } = await supabase
+        // Fetch simplificado - ahora funciona con la nueva política RLS
+        const { data, error } = await supabase
           .from('menu_customization')
           .select('*')
-          .limit(1);
+          .maybeSingle();
 
-        console.log('🔧 [PUBLIC CUSTOMIZATION] Direct fetch result:', { 
-          data: customizationData, 
-          error: customizationError 
+        console.log('🔧 [PUBLIC CUSTOMIZATION] Query result:', { 
+          data, 
+          error,
+          hasData: !!data 
         });
 
-        if (customizationError) {
-          console.warn('⚠️ [PUBLIC CUSTOMIZATION] Direct fetch error:', customizationError);
-          
-          // Fallback: try without RLS (this might fail, but let's log it)
-          console.log('🔧 [PUBLIC CUSTOMIZATION] Trying fallback approach...');
-          const { data: fallbackData, error: fallbackError } = await supabase
-            .from('menu_customization')
-            .select('*')
-            .limit(1)
-            .single();
-            
-          console.log('🔧 [PUBLIC CUSTOMIZATION] Fallback result:', { 
-            data: fallbackData, 
-            error: fallbackError 
-          });
-          
-          if (fallbackError) {
-            console.error('💥 [PUBLIC CUSTOMIZATION] Both approaches failed');
-            return null;
-          }
-          
-          return fallbackData;
+        if (error) {
+          console.error('💥 [PUBLIC CUSTOMIZATION] Error:', error);
+          return null;
         }
 
-        // If we have data, return the first record
-        if (customizationData && customizationData.length > 0) {
-          const selectedCustomization = customizationData[0];
-          console.log('✅ [PUBLIC CUSTOMIZATION] Success! Using customization:', selectedCustomization);
-          return selectedCustomization;
+        if (data) {
+          console.log('✅ [PUBLIC CUSTOMIZATION] Success! Using customization:', {
+            id: data.id,
+            button_bg_color: data.button_bg_color,
+            menu_bg_color: data.menu_bg_color
+          });
+          return data;
         }
 
         console.warn('⚠️ [PUBLIC CUSTOMIZATION] No customization data found');
@@ -93,7 +76,7 @@ export const usePublicMenuCustomization = () => {
     refetchOnWindowFocus: true,
     retry: (failureCount, error) => {
       console.log(`🔄 [PUBLIC CUSTOMIZATION] Retry attempt ${failureCount}:`, error);
-      return failureCount < 3;
+      return failureCount < 2; // Reducir reintentos
     },
   });
 };

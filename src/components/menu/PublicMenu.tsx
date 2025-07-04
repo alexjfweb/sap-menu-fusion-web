@@ -62,7 +62,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }
   }, []);
 
-  // Fetch customization with enhanced debugging
+  // Fetch customization with optimized debugging
   const { 
     data: customization, 
     isLoading: customizationLoading,
@@ -70,18 +70,16 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     refetch: refetchCustomization
   } = usePublicMenuCustomization();
   
-  // Apply colors with enhanced debugging
+  // Apply colors with clear debugging
   const colors = React.useMemo(() => {
     const defaults = getDefaultCustomization();
     
-    console.log('🎨 [COLORS DEBUG] ===================');
-    console.log('🎨 [COLORS DEBUG] Raw customization data:', customization);
-    console.log('🎨 [COLORS DEBUG] Is loading:', customizationLoading);
-    console.log('🎨 [COLORS DEBUG] Error:', customizationError);
-    console.log('🎨 [COLORS DEBUG] Defaults:', defaults);
+    console.log('🎨 [COLORS] ===================');
+    console.log('🎨 [COLORS] Customization data:', customization);
+    console.log('🎨 [COLORS] Is loading:', customizationLoading);
+    console.log('🎨 [COLORS] Error:', customizationError);
     
     if (customization) {
-      // Merge defaults with custom colors, ensuring all fields have values
       const appliedColors = {
         menu_bg_color: customization.menu_bg_color || defaults.menu_bg_color,
         header_bg_color: customization.header_bg_color || defaults.header_bg_color,
@@ -99,15 +97,13 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         shadow_color: customization.shadow_color || defaults.shadow_color,
         social_links_color: customization.social_links_color || defaults.social_links_color,
       };
-      console.log('✅ [COLORS DEBUG] Applied custom colors:', appliedColors);
-      console.log('🎨 [COLORS DEBUG] Button color will be:', appliedColors.button_bg_color);
-      console.log('🎨 [COLORS DEBUG] ===================');
+      console.log('✅ [COLORS] Applied CUSTOM colors:', appliedColors);
+      console.log('🎨 [COLORS] ===================');
       return appliedColors;
     }
     
-    console.log('⚪ [COLORS DEBUG] Using defaults (no customization available)');
-    console.log('🎨 [COLORS DEBUG] Default button color:', defaults.button_bg_color);
-    console.log('🎨 [COLORS DEBUG] ===================');
+    console.log('⚪ [COLORS] Using DEFAULT colors');
+    console.log('🎨 [COLORS] ===================');
     return defaults;
   }, [customization, customizationLoading, customizationError]);
 
@@ -366,10 +362,8 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   const isLoading = productsLoading || categoriesLoading;
   const hasError = productsError || categoriesError;
 
-  console.log('🎯 [RENDER DEBUG] Current colors being applied:', colors);
-  console.log('🎯 [RENDER DEBUG] Has customization:', !!customization);
-  console.log('🎯 [RENDER DEBUG] Customization loading:', customizationLoading);
-  console.log('🎯 [RENDER DEBUG] Will render with button color:', colors.button_bg_color);
+  console.log('🎯 [RENDER] Current colors:', colors);
+  console.log('🎯 [RENDER] Button color will be:', colors.button_bg_color);
 
   // Show loading
   if (isLoading) {
