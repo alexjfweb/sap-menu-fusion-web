@@ -42,7 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (event === 'SIGNED_IN' && session?.user) {
         // Log detalles del usuario para usuarios especiales
-        if (session.user.email === 'alexjfweb@gmail.com' || session.user.email === 'superadmin@gmail.com') {
+        if (session.user.email === 'alexjfweb@gmail.com' || session.user.email === 'superadmin@gmail.com' || session.user.email === 'allseosoporte@gmail.com') {
           console.log('👑 Usuario especial detectado:', {
             email: session.user.email,
             id: session.user.id,
@@ -144,9 +144,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateRoleIfNeeded = async (user: User, existingProfile: Profile) => {
     try {
-      // Determine the correct role based on email - ACTUALIZADO PARA alexjfweb@gmail.com
+      // Determine the correct role based on email - ACTUALIZADO PARA allseosoporte@gmail.com
       let expectedRole: 'empleado' | 'admin' | 'superadmin' = 'empleado';
-      if (user.email === 'alexjfweb@gmail.com' || user.email === 'superadmin@gmail.com') {
+      if (user.email === 'alexjfweb@gmail.com' || user.email === 'superadmin@gmail.com' || user.email === 'allseosoporte@gmail.com') {
         expectedRole = 'superadmin';
       } else if (user.email === 'karen@gmail.com') {
         expectedRole = 'admin';
@@ -174,7 +174,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('✅ Role is already correct:', existingProfile.role);
         
         // Log información adicional para usuarios especiales
-        if (user.email === 'alexjfweb@gmail.com' || user.email === 'superadmin@gmail.com') {
+        if (user.email === 'alexjfweb@gmail.com' || user.email === 'superadmin@gmail.com' || user.email === 'allseosoporte@gmail.com') {
           console.log('👑 Usuario especial - Estado del perfil:', {
             email: existingProfile.email,
             role: existingProfile.role,
@@ -205,9 +205,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                       user.email?.split('@')[0] || 
                       'Usuario';
 
-      // Set role based on email - ACTUALIZADO PARA alexjfweb@gmail.com
+      // Set role based on email - ACTUALIZADO PARA allseosoporte@gmail.com
       let role: 'empleado' | 'admin' | 'superadmin' = 'empleado';
-      if (user.email === 'alexjfweb@gmail.com' || user.email === 'superadmin@gmail.com') {
+      if (user.email === 'alexjfweb@gmail.com' || user.email === 'superadmin@gmail.com' || user.email === 'allseosoporte@gmail.com') {
         role = 'superadmin';
       } else if (user.email === 'karen@gmail.com') {
         role = 'admin';

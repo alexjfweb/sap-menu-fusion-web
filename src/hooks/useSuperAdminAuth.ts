@@ -137,10 +137,25 @@ export const useSuperAdminAuth = () => {
           created_at: data.user.created_at
         });
         
-        // Mensaje especial para alexjfweb@gmail.com
-        if (email === 'alexjfweb@gmail.com') {
+        // Promover a superadmin usando la función de base de datos
+        try {
+          const { data: promoteResult, error: promoteError } = await supabase.rpc('promote_to_superadmin', {
+            user_email: email.trim()
+          });
+          
+          if (promoteError) {
+            console.error('❌ Error promoviendo a superadmin:', promoteError);
+          } else if (promoteResult) {
+            console.log('✅ Usuario promovido a superadmin exitosamente');
+          }
+        } catch (promoteErr) {
+          console.error('❌ Error en promoción:', promoteErr);
+        }
+        
+        // Mensaje especial para usuarios autorizados
+        if (email === 'alexjfweb@gmail.com' || email === 'allseosoporte@gmail.com') {
           toast({
-            title: '🎉 Super Administrador alexjfweb@gmail.com creado',
+            title: `🎉 Super Administrador ${email} creado`,
             description: 'Cuenta creada con acceso completo al panel de administración.',
           });
         }

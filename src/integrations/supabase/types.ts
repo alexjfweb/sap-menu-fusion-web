@@ -1202,6 +1202,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      promote_to_superadmin: {
+        Args: { user_email: string }
+        Returns: boolean
+      }
     }
     Enums: {
       order_status:

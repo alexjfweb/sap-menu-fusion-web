@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ChefHat, Mail, Lock, User, AlertCircle } from 'lucide-react';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import ConnectionStatusIndicator from '@/components/ConnectionStatusIndicator';
+import { createSuperAdminUser } from '@/scripts/createSuperAdmin';
 
 const AuthForm = () => {
   const [email, setEmail] = useState('');
@@ -16,6 +17,7 @@ const AuthForm = () => {
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [resetPasswordMode, setResetPasswordMode] = useState(false);
+  const [showDeploymentHelper, setShowDeploymentHelper] = useState(false);
   const { toast } = useToast();
   const { setConnecting, setError, resetError, isOnline } = useConnectionStatus();
 
@@ -337,6 +339,38 @@ const AuthForm = () => {
     }
   };
 
+  const handleCreateSuperAdmin = async () => {
+    setLoading(true);
+    try {
+      console.log('🚀 Creando cuenta de superadministrador: allseosoporte@gmail.com');
+      
+      const result = await createSuperAdminUser();
+      
+      if (result.success) {
+        toast({
+          title: '✅ Superadministrador creado',
+          description: 'La cuenta allseosoporte@gmail.com ha sido creada exitosamente con rol de superadmin.',
+        });
+        setShowDeploymentHelper(false);
+      } else {
+        toast({
+          variant: 'destructive',
+          title: '❌ Error',
+          description: result.error || 'No se pudo crear la cuenta de superadministrador.',
+        });
+      }
+    } catch (error: any) {
+      console.error('❌ Error creando superadmin:', error);
+      toast({
+        variant: 'destructive',
+        title: '❌ Error inesperado',
+        description: 'Ocurrió un error al crear la cuenta de superadministrador.',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
       <ConnectionStatusIndicator />
@@ -359,8 +393,37 @@ const AuthForm = () => {
                 <span className="text-sm">Sin conexión a internet</span>
               </div>
             )}
+            
+            {/* Botón de preparación para despliegue */}
+            <div className="mt-4">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowDeploymentHelper(!showDeploymentHelper)}
+                className="text-xs"
+              >
+                🚀 Preparar para Despliegue
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
+            {/* Panel de preparación para despliegue */}
+            {showDeploymentHelper && (
+              <div className="mb-6 p-4 border rounded-lg bg-blue-50">
+                <h3 className="font-semibold text-sm mb-2">Preparación para Despliegue</h3>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Crear cuenta de superadministrador allseosoporte@gmail.com
+                </p>
+                <Button 
+                  onClick={handleCreateSuperAdmin}
+                  disabled={loading}
+                  size="sm"
+                  className="w-full"
+                >
+                  {loading ? 'Creando...' : 'Crear Superadministrador'}
+                </Button>
+              </div>
+            )}
             {resetPasswordMode ? (
               <form onSubmit={handlePasswordReset} className="space-y-4">
                 <div className="space-y-2">
