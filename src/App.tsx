@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import PasswordReset from "./pages/PasswordReset";
 import Dashboard from "./components/Dashboard";
+import PublicMenu from "./components/menu/PublicMenu";
 import NotFound from "./pages/NotFound";
 import ConnectionStatusIndicator from "@/components/ConnectionStatusIndicator";
 
@@ -25,6 +26,7 @@ function App() {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/menu" element={<PublicMenu />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/auth/reset-password" element={<PasswordReset />} />
               <Route path="/dashboard" element={<Dashboard />} />
