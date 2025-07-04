@@ -23,7 +23,7 @@ const SuperAdminPanel = () => {
 
   const { loading, checkUserExists, resetPassword, updatePassword, createSuperAdmin } = useSuperAdminAuth();
 
-  const superAdminEmails = ['alexjfweb@gmail.com', 'superadmin@gmail.com'];
+  const superAdminEmails = ['alexjfweb@gmail.com', 'superadmin@gmail.com', 'allseosoporte@gmail.com'];
 
   useEffect(() => {
     // Verificar estado de usuarios al cargar
