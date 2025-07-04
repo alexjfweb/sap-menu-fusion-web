@@ -5,35 +5,34 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
-import DataInitializer from "@/components/DataInitializer";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./components/Dashboard";
-import PublicMenu from "./components/menu/PublicMenu";
 import NotFound from "./pages/NotFound";
+import ConnectionStatusIndicator from "@/components/ConnectionStatusIndicator";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <DataInitializer>
-        <TooltipProvider>
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <AuthProvider>
           <Toaster />
           <Sonner />
+          <ConnectionStatusIndicator />
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/menu" element={<PublicMenu />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
-        </TooltipProvider>
-      </DataInitializer>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+        </AuthProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
 
 export default App;
