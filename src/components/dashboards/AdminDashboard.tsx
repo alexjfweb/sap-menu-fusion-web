@@ -18,6 +18,7 @@ import {
   Building,
   Globe
 } from 'lucide-react';
+import { usePublicMenuCustomization, getDefaultCustomization } from '@/hooks/useMenuCustomization';
 import OrderManagement from '../orders/OrderManagement';
 import ProductManagement from '../products/ProductManagement';
 import ReservationManagement from '../reservations/ReservationManagement';
@@ -29,6 +30,36 @@ import PublicMenu from '../menu/PublicMenu';
 const AdminDashboard = () => {
   const { profile, signOut } = useAuth();
   const [activeSection, setActiveSection] = useState<string | null>(null);
+
+  // Fetch customization with the same hook as PublicMenu
+  const { data: customization, isLoading: customizationLoading } = usePublicMenuCustomization();
+  
+  // Apply colors - use customization if available, otherwise defaults
+  const colors = React.useMemo(() => {
+    const defaults = getDefaultCustomization();
+    
+    if (customization) {
+      return {
+        menu_bg_color: customization.menu_bg_color || defaults.menu_bg_color,
+        header_bg_color: customization.header_bg_color || defaults.header_bg_color,
+        text_color: customization.text_color || defaults.text_color,
+        header_text_color: customization.header_text_color || defaults.header_text_color,
+        button_bg_color: customization.button_bg_color || defaults.button_bg_color,
+        button_text_color: customization.button_text_color || defaults.button_text_color,
+        contact_button_bg_color: customization.contact_button_bg_color || defaults.contact_button_bg_color,
+        contact_button_text_color: customization.contact_button_text_color || defaults.contact_button_text_color,
+        product_card_bg_color: customization.product_card_bg_color || defaults.product_card_bg_color,
+        product_card_border_color: customization.product_card_border_color || defaults.product_card_border_color,
+        product_name_color: customization.product_name_color || defaults.product_name_color,
+        product_description_color: customization.product_description_color || defaults.product_description_color,
+        product_price_color: customization.product_price_color || defaults.product_price_color,
+        shadow_color: customization.shadow_color || defaults.shadow_color,
+        social_links_color: customization.social_links_color || defaults.social_links_color,
+      };
+    }
+    
+    return defaults;
+  }, [customization]);
 
   const handleBackToDashboard = () => {
     setActiveSection(null);
@@ -64,19 +95,47 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div 
+      className="min-h-screen"
+      style={{ backgroundColor: colors.menu_bg_color }}
+    >
       {/* Header */}
-      <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header 
+        className="border-b backdrop-blur supports-[backdrop-filter]:bg-background/60"
+        style={{ 
+          backgroundColor: colors.header_bg_color,
+          borderColor: colors.product_card_border_color
+        }}
+      >
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-2">
-            <ChefHat className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl font-bold">SAP Menu - Panel Administrativo</h1>
+            <ChefHat 
+              className="h-8 w-8" 
+              style={{ color: colors.header_text_color }}
+            />
+            <h1 
+              className="text-2xl font-bold"
+              style={{ color: colors.header_text_color }}
+            >
+              SAP Menu - Panel Administrativo
+            </h1>
           </div>
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-muted-foreground">
+            <span 
+              className="text-sm"
+              style={{ color: colors.product_description_color }}
+            >
               Admin: {profile?.full_name || profile?.email}
             </span>
-            <Button variant="outline" size="sm" onClick={signOut}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={signOut}
+              style={{ 
+                borderColor: colors.product_card_border_color,
+                color: colors.header_text_color
+              }}
+            >
               <LogOut className="h-4 w-4 mr-2" />
               Cerrar Sesión
             </Button>
@@ -87,55 +146,135 @@ const AdminDashboard = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">Panel de Control</h2>
-          <p className="text-muted-foreground">
+          <h2 
+            className="text-3xl font-bold mb-2"
+            style={{ color: colors.text_color }}
+          >
+            Panel de Control
+          </h2>
+          <p 
+            className="text-muted-foreground"
+            style={{ color: colors.product_description_color }}
+          >
             Gestiona tu restaurante desde aquí
           </p>
         </div>
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card>
+          <Card 
+            style={{ 
+              backgroundColor: colors.product_card_bg_color,
+              borderColor: colors.product_card_border_color
+            }}
+          >
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-primary">24</div>
-                  <p className="text-sm text-muted-foreground">Pedidos Hoy</p>
+                  <div 
+                    className="text-2xl font-bold"
+                    style={{ color: colors.button_bg_color }}
+                  >
+                    24
+                  </div>
+                  <p 
+                    className="text-sm"
+                    style={{ color: colors.product_description_color }}
+                  >
+                    Pedidos Hoy
+                  </p>
                 </div>
-                <ShoppingCart className="h-8 w-8 text-primary opacity-50" />
+                <ShoppingCart 
+                  className="h-8 w-8 opacity-50" 
+                  style={{ color: colors.button_bg_color }}
+                />
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card 
+            style={{ 
+              backgroundColor: colors.product_card_bg_color,
+              borderColor: colors.product_card_border_color
+            }}
+          >
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-green-600">€1,247</div>
-                  <p className="text-sm text-muted-foreground">Ventas Hoy</p>
+                  <div 
+                    className="text-2xl font-bold"
+                    style={{ color: colors.product_price_color }}
+                  >
+                    €1,247
+                  </div>
+                  <p 
+                    className="text-sm"
+                    style={{ color: colors.product_description_color }}
+                  >
+                    Ventas Hoy
+                  </p>
                 </div>
-                <DollarSign className="h-8 w-8 text-green-600 opacity-50" />
+                <DollarSign 
+                  className="h-8 w-8 opacity-50" 
+                  style={{ color: colors.product_price_color }}
+                />
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card 
+            style={{ 
+              backgroundColor: colors.product_card_bg_color,
+              borderColor: colors.product_card_border_color
+            }}
+          >
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-blue-600">12</div>
-                  <p className="text-sm text-muted-foreground">Reservas Hoy</p>
+                  <div 
+                    className="text-2xl font-bold text-blue-600"
+                    style={{ color: colors.social_links_color }}
+                  >
+                    12
+                  </div>
+                  <p 
+                    className="text-sm"
+                    style={{ color: colors.product_description_color }}
+                  >
+                    Reservas Hoy
+                  </p>
                 </div>
-                <Calendar className="h-8 w-8 text-blue-600 opacity-50" />
+                <Calendar 
+                  className="h-8 w-8 opacity-50" 
+                  style={{ color: colors.social_links_color }}
+                />
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card 
+            style={{ 
+              backgroundColor: colors.product_card_bg_color,
+              borderColor: colors.product_card_border_color
+            }}
+          >
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-orange-600">15 min</div>
-                  <p className="text-sm text-muted-foreground">Tiempo Promedio</p>
+                  <div 
+                    className="text-2xl font-bold text-orange-600"
+                    style={{ color: colors.contact_button_bg_color }}
+                  >
+                    15 min
+                  </div>
+                  <p 
+                    className="text-sm"
+                    style={{ color: colors.product_description_color }}
+                  >
+                    Tiempo Promedio
+                  </p>
                 </div>
-                <Clock className="h-8 w-8 text-orange-600 opacity-50" />
+                <Clock 
+                  className="h-8 w-8 opacity-50" 
+                  style={{ color: colors.contact_button_bg_color }}
+                />
               </div>
             </CardContent>
           </Card>
@@ -144,13 +283,25 @@ const AdminDashboard = () => {
         {/* Management Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Gestión de Pedidos */}
-          <Card className="hover:shadow-lg transition-shadow duration-300">
+          <Card 
+            className="hover:shadow-lg transition-shadow duration-300"
+            style={{ 
+              backgroundColor: colors.product_card_bg_color,
+              borderColor: colors.product_card_border_color
+            }}
+          >
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <ShoppingCart className="h-5 w-5 text-primary" />
+              <CardTitle 
+                className="flex items-center space-x-2"
+                style={{ color: colors.product_name_color }}
+              >
+                <ShoppingCart 
+                  className="h-5 w-5"
+                  style={{ color: colors.button_bg_color }}
+                />
                 <span>Gestión de Pedidos</span>
               </CardTitle>
-              <CardDescription>
+              <CardDescription style={{ color: colors.product_description_color }}>
                 Administra pedidos entrantes y su estado
               </CardDescription>
             </CardHeader>
@@ -158,6 +309,10 @@ const AdminDashboard = () => {
               <Button 
                 className="w-full"
                 onClick={() => setActiveSection('orders')}
+                style={{ 
+                  backgroundColor: colors.button_bg_color,
+                  color: colors.button_text_color
+                }}
               >
                 Gestionar Pedidos
               </Button>
@@ -165,13 +320,25 @@ const AdminDashboard = () => {
           </Card>
 
           {/* Gestión de Productos */}
-          <Card className="hover:shadow-lg transition-shadow duration-300">
+          <Card 
+            className="hover:shadow-lg transition-shadow duration-300"
+            style={{ 
+              backgroundColor: colors.product_card_bg_color,
+              borderColor: colors.product_card_border_color
+            }}
+          >
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Package className="h-5 w-5 text-primary" />
+              <CardTitle 
+                className="flex items-center space-x-2"
+                style={{ color: colors.product_name_color }}
+              >
+                <Package 
+                  className="h-5 w-5"
+                  style={{ color: colors.button_bg_color }}
+                />
                 <span>Gestión de Productos</span>
               </CardTitle>
-              <CardDescription>
+              <CardDescription style={{ color: colors.product_description_color }}>
                 Añade, edita y organiza tu menú
               </CardDescription>
             </CardHeader>
@@ -179,20 +346,36 @@ const AdminDashboard = () => {
               <Button 
                 className="w-full"
                 onClick={() => setActiveSection('products')}
+                style={{ 
+                  backgroundColor: colors.button_bg_color,
+                  color: colors.button_text_color
+                }}
               >
                 Gestionar Productos
               </Button>
             </CardContent>
           </Card>
 
-          {/* Personalización del Menú - NUEVA SECCIÓN */}
-          <Card className="hover:shadow-lg transition-shadow duration-300 border-primary/20">
+          {/* Personalización del Menú */}
+          <Card 
+            className="hover:shadow-lg transition-shadow duration-300 border-primary/20"
+            style={{ 
+              backgroundColor: colors.product_card_bg_color,
+              borderColor: colors.button_bg_color
+            }}
+          >
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Palette className="h-5 w-5 text-primary" />
+              <CardTitle 
+                className="flex items-center space-x-2"
+                style={{ color: colors.product_name_color }}
+              >
+                <Palette 
+                  className="h-5 w-5"
+                  style={{ color: colors.button_bg_color }}
+                />
                 <span>Personalización del Menú</span>
               </CardTitle>
-              <CardDescription>
+              <CardDescription style={{ color: colors.product_description_color }}>
                 Personaliza colores y diseño de tu menú público
               </CardDescription>
             </CardHeader>
@@ -200,6 +383,10 @@ const AdminDashboard = () => {
               <Button 
                 className="w-full"
                 onClick={() => setActiveSection('menu-customization')}
+                style={{ 
+                  backgroundColor: colors.button_bg_color,
+                  color: colors.button_text_color
+                }}
               >
                 Personalizar Menú
               </Button>
@@ -207,13 +394,25 @@ const AdminDashboard = () => {
           </Card>
 
           {/* Gestión de Reservas */}
-          <Card className="hover:shadow-lg transition-shadow duration-300">
+          <Card 
+            className="hover:shadow-lg transition-shadow duration-300"
+            style={{ 
+              backgroundColor: colors.product_card_bg_color,
+              borderColor: colors.product_card_border_color
+            }}
+          >
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Calendar className="h-5 w-5 text-primary" />
+              <CardTitle 
+                className="flex items-center space-x-2"
+                style={{ color: colors.product_name_color }}
+              >
+                <Calendar 
+                  className="h-5 w-5"
+                  style={{ color: colors.button_bg_color }}
+                />
                 <span>Gestión de Reservas</span>
               </CardTitle>
-              <CardDescription>
+              <CardDescription style={{ color: colors.product_description_color }}>
                 Administra reservas de mesas
               </CardDescription>
             </CardHeader>
@@ -221,6 +420,10 @@ const AdminDashboard = () => {
               <Button 
                 className="w-full"
                 onClick={() => setActiveSection('reservations')}
+                style={{ 
+                  backgroundColor: colors.button_bg_color,
+                  color: colors.button_text_color
+                }}
               >
                 Gestionar Reservas
               </Button>
@@ -228,13 +431,25 @@ const AdminDashboard = () => {
           </Card>
 
           {/* Información del Negocio */}
-          <Card className="hover:shadow-lg transition-shadow duration-300">
+          <Card 
+            className="hover:shadow-lg transition-shadow duration-300"
+            style={{ 
+              backgroundColor: colors.product_card_bg_color,
+              borderColor: colors.product_card_border_color
+            }}
+          >
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Building className="h-5 w-5 text-primary" />
+              <CardTitle 
+                className="flex items-center space-x-2"
+                style={{ color: colors.product_name_color }}
+              >
+                <Building 
+                  className="h-5 w-5"
+                  style={{ color: colors.button_bg_color }}
+                />
                 <span>Información del Negocio</span>
               </CardTitle>
-              <CardDescription>
+              <CardDescription style={{ color: colors.product_description_color }}>
                 Configura datos de tu restaurante
               </CardDescription>
             </CardHeader>
@@ -242,6 +457,10 @@ const AdminDashboard = () => {
               <Button 
                 className="w-full"
                 onClick={() => setActiveSection('business-info')}
+                style={{ 
+                  backgroundColor: colors.button_bg_color,
+                  color: colors.button_text_color
+                }}
               >
                 Configurar Negocio
               </Button>
@@ -249,13 +468,25 @@ const AdminDashboard = () => {
           </Card>
 
           {/* Ver Menú Público */}
-          <Card className="hover:shadow-lg transition-shadow duration-300">
+          <Card 
+            className="hover:shadow-lg transition-shadow duration-300"
+            style={{ 
+              backgroundColor: colors.product_card_bg_color,
+              borderColor: colors.product_card_border_color
+            }}
+          >
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Globe className="h-5 w-5 text-primary" />
+              <CardTitle 
+                className="flex items-center space-x-2"
+                style={{ color: colors.product_name_color }}
+              >
+                <Globe 
+                  className="h-5 w-5"
+                  style={{ color: colors.button_bg_color }}
+                />
                 <span>Ver Menú Público</span>
               </CardTitle>
-              <CardDescription>
+              <CardDescription style={{ color: colors.product_description_color }}>
                 Previsualiza cómo ven tu menú los clientes
               </CardDescription>
             </CardHeader>
@@ -263,6 +494,10 @@ const AdminDashboard = () => {
               <Button 
                 className="w-full"
                 onClick={() => setActiveSection('public-menu')}
+                style={{ 
+                  backgroundColor: colors.button_bg_color,
+                  color: colors.button_text_color
+                }}
               >
                 Ver Menú Público
               </Button>
@@ -270,13 +505,25 @@ const AdminDashboard = () => {
           </Card>
 
           {/* Reportes y Analíticas */}
-          <Card className="hover:shadow-lg transition-shadow duration-300">
+          <Card 
+            className="hover:shadow-lg transition-shadow duration-300"
+            style={{ 
+              backgroundColor: colors.product_card_bg_color,
+              borderColor: colors.product_card_border_color
+            }}
+          >
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <BarChart3 className="h-5 w-5 text-primary" />
+              <CardTitle 
+                className="flex items-center space-x-2"
+                style={{ color: colors.product_name_color }}
+              >
+                <BarChart3 
+                  className="h-5 w-5"
+                  style={{ color: colors.button_bg_color }}
+                />
                 <span>Reportes y Analíticas</span>
               </CardTitle>
-              <CardDescription>
+              <CardDescription style={{ color: colors.product_description_color }}>
                 Visualiza estadísticas de ventas
               </CardDescription>
             </CardHeader>
@@ -284,6 +531,10 @@ const AdminDashboard = () => {
               <Button 
                 className="w-full"
                 onClick={() => setActiveSection('reports')}
+                style={{ 
+                  backgroundColor: colors.button_bg_color,
+                  color: colors.button_text_color
+                }}
               >
                 Ver Reportes
               </Button>

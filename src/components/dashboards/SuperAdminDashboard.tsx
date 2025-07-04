@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,7 @@ import {
   Shield,
   UserCheck
 } from 'lucide-react';
+import { usePublicMenuCustomization, getDefaultCustomization } from '@/hooks/useMenuCustomization';
 import OrderManagement from '../orders/OrderManagement';
 import ProductManagement from '../products/ProductManagement';
 import ReservationManagement from '../reservations/ReservationManagement';
@@ -45,6 +47,36 @@ import WhatsappConfiguration from '../whatsapp/WhatsappConfiguration';
 const SuperAdminDashboard = () => {
   const { profile, signOut } = useAuth();
   const [activeSection, setActiveSection] = useState<string | null>(null);
+
+  // Fetch customization with the same hook as PublicMenu
+  const { data: customization, isLoading: customizationLoading } = usePublicMenuCustomization();
+  
+  // Apply colors - use customization if available, otherwise defaults
+  const colors = React.useMemo(() => {
+    const defaults = getDefaultCustomization();
+    
+    if (customization) {
+      return {
+        menu_bg_color: customization.menu_bg_color || defaults.menu_bg_color,
+        header_bg_color: customization.header_bg_color || defaults.header_bg_color,
+        text_color: customization.text_color || defaults.text_color,
+        header_text_color: customization.header_text_color || defaults.header_text_color,
+        button_bg_color: customization.button_bg_color || defaults.button_bg_color,
+        button_text_color: customization.button_text_color || defaults.button_text_color,
+        contact_button_bg_color: customization.contact_button_bg_color || defaults.contact_button_bg_color,
+        contact_button_text_color: customization.contact_button_text_color || defaults.contact_button_text_color,
+        product_card_bg_color: customization.product_card_bg_color || defaults.product_card_bg_color,
+        product_card_border_color: customization.product_card_border_color || defaults.product_card_border_color,
+        product_name_color: customization.product_name_color || defaults.product_name_color,
+        product_description_color: customization.product_description_color || defaults.product_description_color,
+        product_price_color: customization.product_price_color || defaults.product_price_color,
+        shadow_color: customization.shadow_color || defaults.shadow_color,
+        social_links_color: customization.social_links_color || defaults.social_links_color,
+      };
+    }
+    
+    return defaults;
+  }, [customization]);
 
   const handleBackToDashboard = () => {
     setActiveSection(null);
@@ -199,19 +231,47 @@ const SuperAdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div 
+      className="min-h-screen"
+      style={{ backgroundColor: colors.menu_bg_color }}
+    >
       {/* Header */}
-      <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header 
+        className="border-b backdrop-blur supports-[backdrop-filter]:bg-background/60"
+        style={{ 
+          backgroundColor: colors.header_bg_color,
+          borderColor: colors.product_card_border_color
+        }}
+      >
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-2">
-            <ChefHat className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl font-bold">SAP Menu - Panel Super Administrador</h1>
+            <ChefHat 
+              className="h-8 w-8"
+              style={{ color: colors.header_text_color }}
+            />
+            <h1 
+              className="text-2xl font-bold"
+              style={{ color: colors.header_text_color }}
+            >
+              SAP Menu - Panel Super Administrador
+            </h1>
           </div>
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-muted-foreground">
+            <span 
+              className="text-sm"
+              style={{ color: colors.product_description_color }}
+            >
               Super Admin: {profile?.full_name || profile?.email}
             </span>
-            <Button variant="outline" size="sm" onClick={signOut}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={signOut}
+              style={{ 
+                borderColor: colors.product_card_border_color,
+                color: colors.header_text_color
+              }}
+            >
               <LogOut className="h-4 w-4 mr-2" />
               Cerrar Sesión
             </Button>
@@ -222,55 +282,135 @@ const SuperAdminDashboard = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">Panel de Super Administrador</h2>
-          <p className="text-muted-foreground">
+          <h2 
+            className="text-3xl font-bold mb-2"
+            style={{ color: colors.text_color }}
+          >
+            Panel de Super Administrador
+          </h2>
+          <p 
+            className="text-muted-foreground"
+            style={{ color: colors.product_description_color }}
+          >
             Control total sobre la plataforma SAP Menu
           </p>
         </div>
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card>
+          <Card 
+            style={{ 
+              backgroundColor: colors.product_card_bg_color,
+              borderColor: colors.product_card_border_color
+            }}
+          >
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-primary">156</div>
-                  <p className="text-sm text-muted-foreground">Usuarios Totales</p>
+                  <div 
+                    className="text-2xl font-bold"
+                    style={{ color: colors.button_bg_color }}
+                  >
+                    156
+                  </div>
+                  <p 
+                    className="text-sm"
+                    style={{ color: colors.product_description_color }}
+                  >
+                    Usuarios Totales
+                  </p>
                 </div>
-                <Users className="h-8 w-8 text-primary opacity-50" />
+                <Users 
+                  className="h-8 w-8 opacity-50" 
+                  style={{ color: colors.button_bg_color }}
+                />
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card 
+            style={{ 
+              backgroundColor: colors.product_card_bg_color,
+              borderColor: colors.product_card_border_color
+            }}
+          >
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-green-600">€45,247</div>
-                  <p className="text-sm text-muted-foreground">Ingresos del Mes</p>
+                  <div 
+                    className="text-2xl font-bold"
+                    style={{ color: colors.product_price_color }}
+                  >
+                    €45,247
+                  </div>
+                  <p 
+                    className="text-sm"
+                    style={{ color: colors.product_description_color }}
+                  >
+                    Ingresos del Mes
+                  </p>
                 </div>
-                <DollarSign className="h-8 w-8 text-green-600 opacity-50" />
+                <DollarSign 
+                  className="h-8 w-8 opacity-50" 
+                  style={{ color: colors.product_price_color }}
+                />
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card 
+            style={{ 
+              backgroundColor: colors.product_card_bg_color,
+              borderColor: colors.product_card_border_color
+            }}
+          >
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-blue-600">23</div>
-                  <p className="text-sm text-muted-foreground">Restaurantes Activos</p>
+                  <div 
+                    className="text-2xl font-bold"
+                    style={{ color: colors.social_links_color }}
+                  >
+                    23
+                  </div>
+                  <p 
+                    className="text-sm"
+                    style={{ color: colors.product_description_color }}
+                  >
+                    Restaurantes Activos
+                  </p>
                 </div>
-                <Building className="h-8 w-8 text-blue-600 opacity-50" />
+                <Building 
+                  className="h-8 w-8 opacity-50" 
+                  style={{ color: colors.social_links_color }}
+                />
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card 
+            style={{ 
+              backgroundColor: colors.product_card_bg_color,
+              borderColor: colors.product_card_border_color
+            }}
+          >
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-orange-600">98.2%</div>
-                  <p className="text-sm text-muted-foreground">Tiempo de Actividad</p>
+                  <div 
+                    className="text-2xl font-bold"
+                    style={{ color: colors.contact_button_bg_color }}
+                  >
+                    98.2%
+                  </div>
+                  <p 
+                    className="text-sm"
+                    style={{ color: colors.product_description_color }}
+                  >
+                    Tiempo de Actividad
+                  </p>
                 </div>
-                <TrendingUp className="h-8 w-8 text-orange-600 opacity-50" />
+                <TrendingUp 
+                  className="h-8 w-8 opacity-50" 
+                  style={{ color: colors.contact_button_bg_color }}
+                />
               </div>
             </CardContent>
           </Card>
@@ -278,14 +418,23 @@ const SuperAdminDashboard = () => {
 
         {/* Management Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Panel de Super Administrador - NUEVA SECCIÓN */}
-          <Card className="hover:shadow-lg transition-shadow duration-300 border-red-200">
+          {/* Panel de Super Administrador */}
+          <Card 
+            className="hover:shadow-lg transition-shadow duration-300"
+            style={{ 
+              backgroundColor: colors.product_card_bg_color,
+              borderColor: '#ef4444'
+            }}
+          >
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
+              <CardTitle 
+                className="flex items-center space-x-2"
+                style={{ color: colors.product_name_color }}
+              >
                 <Shield className="h-5 w-5 text-red-600" />
                 <span>Panel de Super Admin</span>
               </CardTitle>
-              <CardDescription>
+              <CardDescription style={{ color: colors.product_description_color }}>
                 Gestión avanzada de usuarios super administradores
               </CardDescription>
             </CardHeader>
@@ -293,6 +442,10 @@ const SuperAdminDashboard = () => {
               <Button 
                 className="w-full"
                 onClick={() => setActiveSection('superadmin-panel')}
+                style={{ 
+                  backgroundColor: colors.button_bg_color,
+                  color: colors.button_text_color
+                }}
               >
                 Acceder al Panel
               </Button>
