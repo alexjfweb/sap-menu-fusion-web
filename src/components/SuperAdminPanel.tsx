@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSuperAdminAuth } from '@/hooks/useSuperAdminAuth';
 import { Eye, EyeOff, UserCheck, UserX, Key, Mail, Shield } from 'lucide-react';
 import UserPermissionValidator from './UserPermissionValidator';
+import AccountVerification from './AccountVerification';
 
 const SuperAdminPanel = () => {
   const [selectedEmail, setSelectedEmail] = useState<string>('');
@@ -110,11 +112,16 @@ const SuperAdminPanel = () => {
 
   return (
     <div className="space-y-6 p-6">
-      <Tabs defaultValue="validator" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+      <Tabs defaultValue="verification" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="verification">Verificación</TabsTrigger>
           <TabsTrigger value="validator">Validador de Permisos</TabsTrigger>
           <TabsTrigger value="management">Gestión de Usuarios</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="verification" className="space-y-6">
+          <AccountVerification />
+        </TabsContent>
 
         <TabsContent value="validator" className="space-y-6">
           <UserPermissionValidator />

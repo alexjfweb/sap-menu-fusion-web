@@ -18,7 +18,8 @@ import {
   CreditCard,
   Database,
   Bell,
-  Shield
+  Shield,
+  UserCheck
 } from 'lucide-react';
 import OrderManagement from '../orders/OrderManagement';
 import ProductManagement from '../products/ProductManagement';
@@ -35,6 +36,7 @@ import SubscriptionManagement from '../subscriptions/SubscriptionManagement';
 import DatabaseTestPanel from '../DatabaseTestPanel';
 import PaymentReminderManagement from '../payment-reminders/PaymentReminderManagement';
 import UserPermissionValidator from '../UserPermissionValidator';
+import AccountVerification from '../AccountVerification';
 
 const SuperAdminDashboard = () => {
   const { profile, signOut } = useAuth();
@@ -54,6 +56,19 @@ const SuperAdminDashboard = () => {
           </Button>
         </div>
         <UserPermissionValidator />
+      </div>
+    );
+  }
+
+  if (activeSection === 'verification') {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="mb-6">
+          <Button variant="outline" onClick={handleBackToDashboard}>
+            ← Volver al Dashboard
+          </Button>
+        </div>
+        <AccountVerification />
       </div>
     );
   }
@@ -190,6 +205,27 @@ const SuperAdminDashboard = () => {
 
         {/* Management Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Verificación de Cuentas - NUEVA SECCIÓN */}
+          <Card className="hover:shadow-lg transition-shadow duration-300 border-green-200">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <UserCheck className="h-5 w-5 text-green-600" />
+                <span>Verificación de Cuentas</span>
+              </CardTitle>
+              <CardDescription>
+                Verifica si las cuentas existen en la base de datos
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('verification')}
+              >
+                Verificar Cuentas
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Validador de Permisos - NUEVA SECCIÓN */}
           <Card className="hover:shadow-lg transition-shadow duration-300 border-blue-200">
             <CardHeader>
