@@ -1238,9 +1238,27 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      get_whatsapp_config: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          phone_number_id: string
+          business_account_id: string
+          access_token: string
+          webhook_verify_token: string
+          is_connected: boolean
+          last_verified_at: string
+          created_at: string
+          updated_at: string
+        }[]
+      }
       promote_to_superadmin: {
         Args: { user_email: string }
         Returns: boolean
+      }
+      save_whatsapp_config: {
+        Args: { config_data: Json; config_id?: string }
+        Returns: string
       }
     }
     Enums: {

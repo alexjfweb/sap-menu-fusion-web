@@ -42,16 +42,17 @@ const WhatsappConfiguration = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Cargar configuración existente usando raw query temporal
+  // Load existing configuration
   const { data: existingConfig, isLoading } = useQuery({
     queryKey: ['whatsapp-config'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .rpc('get_whatsapp_config')
-        .single();
+        .from('whatsapp_business_config')
+        .select('*')
+        .maybeSingle();
       
-      if (error && error.code !== 'PGRST116') {
-        // Si la función no existe, crear configuración vacía
+      if (error) {
+        console.error('Error loading WhatsApp config:', error);
         return null;
       }
       return data;
@@ -157,21 +158,33 @@ const WhatsappConfiguration = () => {
         phone_number_id: config.phone_number_id,
         business_account_id: config.business_account_id,
         access_token: config.access_token,
-        webhook_verify_token: config.webhook_verify_token,
+        webhook_verify_token: config.webhook_verify_token || null,
         is_connected: config.is_connected,
-        last_verified_at: config.last_verified_at
+        last_verified_at: config.last_verified_at || null
       };
 
-      // Usar función RPC temporal hasta que se regeneren los tipos
-      const { data, error } = await supabase.rpc('save_whatsapp_config', {
-        config_data: configData,
-        config_id: config.id || null
-      });
+      let result;
+      if (config.id) {
+        // Update existing configuration
+        result = await supabase
+          .from('whatsapp_business_config')
+          .update(configData)
+          .eq('id', config.id)
+          .select()
+          .single();
+      } else {
+        // Insert new configuration
+        result = await supabase
+          .from('whatsapp_business_config')
+          .insert(configData)
+          .select()
+          .single();
+      }
       
-      if (error) throw error;
+      if (result.error) throw result.error;
       
-      if (!config.id && data) {
-        setConfig(prev => ({ ...prev, id: data }));
+      if (!config.id && result.data) {
+        setConfig(prev => ({ ...prev, id: result.data.id }));
       }
 
       toast({
