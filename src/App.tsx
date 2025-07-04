@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import PasswordReset from "./pages/PasswordReset";
 import Dashboard from "./components/Dashboard";
 import NotFound from "./pages/NotFound";
 import ConnectionStatusIndicator from "@/components/ConnectionStatusIndicator";
@@ -25,6 +26,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/reset-password" element={<PasswordReset />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

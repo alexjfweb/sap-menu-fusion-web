@@ -19,36 +19,17 @@ const AuthForm = () => {
   const { toast } = useToast();
   const { setConnecting, setError, resetError, isOnline } = useConnectionStatus();
 
-  // Check for password reset hash in URL
+  // Check for password reset hash in URL - redirect to proper reset page
   useEffect(() => {
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const accessToken = hashParams.get('access_token');
-    const refreshToken = hashParams.get('refresh_token');
     const type = hashParams.get('type');
 
-    if (type === 'recovery' && accessToken && refreshToken) {
-      // Handle password reset
-      supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      }).then(({ error }) => {
-        if (error) {
-          console.error('Error setting session:', error);
-          toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: 'Error al procesar el enlace de recuperación.',
-          });
-        } else {
-          toast({
-            title: 'Recuperación exitosa',
-            description: 'Ahora puedes cambiar tu contraseña.',
-          });
-          // Optionally redirect to a password change page
-        }
-      });
+    if (type === 'recovery') {
+      console.log('🔄 Token de recuperación detectado, redirigiendo a /auth/reset-password');
+      // Redirect to the dedicated reset password page with the hash
+      window.location.href = `/auth/reset-password${window.location.hash}`;
     }
-  }, [toast]);
+  }, []);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -232,8 +213,8 @@ const AuthForm = () => {
     try {
       console.log('🔄 Enviando enlace de recuperación a:', email);
       
-      // Use the current origin to ensure correct redirect
-      const redirectUrl = `${window.location.origin}/auth`;
+      // Use the current origin to ensure correct redirect to the dedicated reset page
+      const redirectUrl = `${window.location.origin}/auth/reset-password`;
       console.log('🔗 URL de redirección:', redirectUrl);
       
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
