@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, EyeOff } from 'lucide-react';
 
 interface DeleteProductModalProps {
   isOpen: boolean;
@@ -43,11 +43,22 @@ const DeleteProductModal = ({
           </div>
         </DialogHeader>
         
-        <div className="py-4">
+        <div className="py-4 space-y-3">
           <p className="text-sm text-muted-foreground">
             ¿Estás seguro de que quieres eliminar el producto{' '}
             <span className="font-semibold text-foreground">"{productName}"</span>?
           </p>
+          
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <EyeOff className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-800">Alternativa recomendada</span>
+            </div>
+            <p className="text-sm text-blue-700">
+              Si el producto tiene pedidos asociados, considera <strong>desactivarlo</strong> en lugar de eliminarlo. 
+              Esto mantendrá el historial pero ocultará el producto del menú público.
+            </p>
+          </div>
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
@@ -63,7 +74,7 @@ const DeleteProductModal = ({
             onClick={onConfirm}
             disabled={isLoading}
           >
-            {isLoading ? 'Eliminando...' : 'Eliminar'}
+            {isLoading ? 'Eliminando...' : 'Eliminar Definitivamente'}
           </Button>
         </DialogFooter>
       </DialogContent>

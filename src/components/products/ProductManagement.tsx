@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,7 +23,7 @@ interface ProductManagementProps {
   onBack?: () => void;
 }
 
-const PRODUCTS_PER_PAGE = 100; // Aumentado de 24 a 100 productos por página
+const PRODUCTS_PER_PAGE = 100;
 
 const ProductManagement = ({ onBack }: ProductManagementProps) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -82,6 +83,31 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     },
   });
 
+  // Ordenar categorías según el orden establecido
+  const sortedCategories = React.useMemo(() => {
+    if (!categories) return [];
+    
+    const categoryOrder = ['Platos principales', 'Platos ejecutivos', 'Platos especiales'];
+    
+    return [...categories].sort((a, b) => {
+      const indexA = categoryOrder.indexOf(a.name);
+      const indexB = categoryOrder.indexOf(b.name);
+      
+      if (indexA !== -1 && indexB !== -1) {
+        return indexA - indexB;
+      }
+      
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      
+      if (a.sort_order !== b.sort_order) {
+        return (a.sort_order || 0) - (b.sort_order || 0);
+      }
+      
+      return a.name.localeCompare(b.name);
+    });
+  }, [categories]);
+
   const filteredProducts = products?.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          product.description?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -99,8 +125,35 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
 
   React.useEffect(() => {
     setCurrentPage(1);
-    setSelectedProducts(new Set()); // Limpiar selección al cambiar filtros
+    setSelectedProducts(new Set());
   }, [searchTerm, selectedCategory]);
+
+  // Función para verificar si un producto tiene dependencias
+  const checkProductDependencies = async (productId: string) => {
+    try {
+      // Verificar si existe en order_items
+      const { data: orderItems, error: orderError } = await supabase
+        .from('order_items')
+        .select('id')
+        .eq('product_id', productId)
+        .limit(1);
+
+      if (orderError) {
+        console.error('❌ Error verificando dependencias en order_items:', orderError);
+        return { hasOrderItems: false, hasDependencies: false };
+      }
+
+      const hasOrderItems = (orderItems?.length || 0) > 0;
+
+      return {
+        hasOrderItems,
+        hasDependencies: hasOrderItems
+      };
+    } catch (error) {
+      console.error('❌ Error verificando dependencias:', error);
+      return { hasOrderItems: false, hasDependencies: false };
+    }
+  };
 
   const handleSelectProduct = (productId: string, checked: boolean) => {
     const newSelected = new Set(selectedProducts);
@@ -270,7 +323,26 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     }
   };
 
-  const handleDeleteProduct = (product: Product) => {
+  const handleDeleteProduct = async (product: Product) => {
+    console.log('🔍 Verificando dependencias para:', product.name, product.id);
+    
+    // Verificar dependencias antes de mostrar el modal
+    const dependencies = await checkProductDependencies(product.id);
+    
+    if (dependencies.hasDependencies) {
+      let dependencyMessage = '';
+      if (dependencies.hasOrderItems) {
+        dependencyMessage = 'Este producto está asociado a pedidos anteriores y no puede ser eliminado. ';
+      }
+      
+      toast({
+        title: "No se puede eliminar el producto",
+        description: `${dependencyMessage}Considera desactivarlo en su lugar para que no aparezca en el menú público pero mantenga el historial.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     console.log('🗑️ Preparando eliminación de producto:', product.name, product.id);
     setProductToDelete(product);
     setShowDeleteModal(true);
@@ -290,7 +362,22 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
 
       if (error) {
         console.error('❌ Error eliminando producto:', error);
-        throw error;
+        
+        // Manejar específicamente el error 409 de clave foránea
+        if (error.code === '23503' || error.message.includes('violates foreign key constraint')) {
+          toast({
+            title: "No se puede eliminar el producto",
+            description: "Este producto está asociado a pedidos anteriores y no puede ser eliminado. Considera desactivarlo en su lugar.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Error",
+            description: "No se pudo eliminar el producto. Inténtalo de nuevo.",
+            variant: "destructive",
+          });
+        }
+        return;
       }
 
       console.log('✅ Producto eliminado correctamente:', productToDelete.name);
@@ -326,10 +413,17 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     setEditingProduct(null);
   };
 
-  const handleSaveProduct = () => {
+  const handleSaveProduct = async () => {
     console.log('💾 Producto guardado, refrescando lista...');
     handleCloseForm();
-    refetchProducts();
+    
+    // Refrescar inmediatamente y mostrar feedback
+    await refetchProducts();
+    
+    toast({
+      title: "Éxito",
+      description: editingProduct ? "Producto actualizado correctamente" : "Producto creado correctamente",
+    });
   };
 
   if (showPublicMenu) {
@@ -412,7 +506,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
                 className="px-3 py-2 border border-input rounded-md bg-background"
               >
                 <option value="all">Todas las categorías</option>
-                {categories?.map((category) => (
+                {sortedCategories?.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name}
                   </option>
@@ -573,7 +667,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
           {showForm && (
             <ProductForm
               product={editingProduct}
-              categories={categories || []}
+              categories={sortedCategories || []}
               onSave={handleSaveProduct}
               onCancel={handleCloseForm}
             />
