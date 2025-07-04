@@ -44,22 +44,22 @@ serve(async (req) => {
       throw new Error('No products selected');
     }
 
-    // Aumentar límite a 500 productos por operación
-    if (productIds.length > 500) {
-      throw new Error('Cannot process more than 500 products at once. Please split into smaller batches.');
+    // Reducir límite a 100 productos por operación para mayor estabilidad
+    if (productIds.length > 100) {
+      throw new Error('Cannot process more than 100 products at once. Please split into smaller batches.');
     }
 
     console.log(`🔄 Starting bulk ${operation} operation for ${productIds.length} products`);
-    console.log(`📋 Product IDs sample:`, productIds.slice(0, 5), productIds.length > 5 ? `... and ${productIds.length - 5} more` : '');
+    console.log(`📋 Product IDs:`, productIds.slice(0, 5), productIds.length > 5 ? `... and ${productIds.length - 5} more` : '');
 
-    // Procesar en lotes de 50 productos para evitar límites de URL
-    const BATCH_SIZE = 50;
+    // Procesar de 5 en 5 para evitar sobrecarga y mejorar control de errores
+    const INDIVIDUAL_BATCH_SIZE = 5;
     const batches = [];
-    for (let i = 0; i < productIds.length; i += BATCH_SIZE) {
-      batches.push(productIds.slice(i, i + BATCH_SIZE));
+    for (let i = 0; i < productIds.length; i += INDIVIDUAL_BATCH_SIZE) {
+      batches.push(productIds.slice(i, i + INDIVIDUAL_BATCH_SIZE));
     }
 
-    console.log(`📦 Processing ${batches.length} batches of up to ${BATCH_SIZE} products each`);
+    console.log(`📦 Processing ${batches.length} micro-batches of up to ${INDIVIDUAL_BATCH_SIZE} products each`);
 
     let totalAffectedRows = 0;
     const allResults = [];
@@ -67,85 +67,93 @@ serve(async (req) => {
 
     for (const batch of batches) {
       batchIndex++;
-      console.log(`🔄 Processing batch ${batchIndex}/${batches.length} with ${batch.length} products`);
+      console.log(`🔄 Processing micro-batch ${batchIndex}/${batches.length} with ${batch.length} products`);
 
-      let batchResult;
-      let batchAffectedRows = 0;
+      // Procesar cada producto individualmente para evitar problemas con .in()
+      for (const productId of batch) {
+        try {
+          let result;
+          let affectedRows = 0;
 
-      try {
-        switch (operation) {
-          case 'delete':
-            console.log(`🗑️ Executing batch delete for ${batch.length} products...`);
-            const { data: deletedData, error: deleteError } = await supabaseClient
-              .from('products')
-              .delete()
-              .in('id', batch)
-              .select('id, name');
+          switch (operation) {
+            case 'delete':
+              console.log(`🗑️ Deleting product: ${productId}`);
+              const { data: deletedData, error: deleteError } = await supabaseClient
+                .from('products')
+                .delete()
+                .eq('id', productId)
+                .select('id, name');
 
-            if (deleteError) {
-              console.error(`❌ Delete error in batch ${batchIndex}:`, deleteError);
-              throw deleteError;
-            }
+              if (deleteError) {
+                console.error(`❌ Delete error for product ${productId}:`, deleteError);
+                throw deleteError;
+              }
 
-            batchResult = deletedData;
-            batchAffectedRows = deletedData?.length || 0;
-            console.log(`✅ Batch ${batchIndex}: Successfully deleted ${batchAffectedRows} products`);
-            break;
+              result = deletedData;
+              affectedRows = deletedData?.length || 0;
+              break;
 
-          case 'activate':
-            console.log(`👁️ Executing batch activate for ${batch.length} products...`);
-            const { data: activateData, error: activateError } = await supabaseClient
-              .from('products')
-              .update({ is_available: true })
-              .in('id', batch)
-              .select('id, name');
+            case 'activate':
+              console.log(`👁️ Activating product: ${productId}`);
+              const { data: activateData, error: activateError } = await supabaseClient
+                .from('products')
+                .update({ is_available: true })
+                .eq('id', productId)
+                .select('id, name');
 
-            if (activateError) {
-              console.error(`❌ Activate error in batch ${batchIndex}:`, activateError);
-              throw activateError;
-            }
+              if (activateError) {
+                console.error(`❌ Activate error for product ${productId}:`, activateError);
+                throw activateError;
+              }
 
-            batchResult = activateData;
-            batchAffectedRows = activateData?.length || 0;
-            console.log(`✅ Batch ${batchIndex}: Successfully activated ${batchAffectedRows} products`);
-            break;
+              result = activateData;
+              affectedRows = activateData?.length || 0;
+              break;
 
-          case 'deactivate':
-            console.log(`🚫 Executing batch deactivate for ${batch.length} products...`);
-            const { data: deactivateData, error: deactivateError } = await supabaseClient
-              .from('products')
-              .update({ is_available: false })
-              .in('id', batch)
-              .select('id, name');
+            case 'deactivate':
+              console.log(`🚫 Deactivating product: ${productId}`);
+              const { data: deactivateData, error: deactivateError } = await supabaseClient
+                .from('products')
+                .update({ is_available: false })
+                .eq('id', productId)
+                .select('id, name');
 
-            if (deactivateError) {
-              console.error(`❌ Deactivate error in batch ${batchIndex}:`, deactivateError);
-              throw deactivateError;
-            }
+              if (deactivateError) {
+                console.error(`❌ Deactivate error for product ${productId}:`, deactivateError);
+                throw deactivateError;
+              }
 
-            batchResult = deactivateData;
-            batchAffectedRows = deactivateData?.length || 0;
-            console.log(`✅ Batch ${batchIndex}: Successfully deactivated ${batchAffectedRows} products`);
-            break;
+              result = deactivateData;
+              affectedRows = deactivateData?.length || 0;
+              break;
 
-          default:
-            throw new Error(`Invalid operation: ${operation}`);
+            default:
+              throw new Error(`Invalid operation: ${operation}`);
+          }
+
+          totalAffectedRows += affectedRows;
+          if (result && result.length > 0) {
+            allResults.push(...result);
+          }
+
+          console.log(`✅ Successfully processed product ${productId}`);
+
+        } catch (productError) {
+          console.error(`💥 Error processing product ${productId}:`, productError);
+          // Continuar con el siguiente producto en lugar de fallar completamente
+          console.log(`⚠️ Skipping product ${productId} due to error, continuing with remaining products`);
         }
 
-        totalAffectedRows += batchAffectedRows;
-        if (batchResult) {
-          allResults.push(...batchResult);
-        }
-
-      } catch (batchError) {
-        console.error(`💥 Error in batch ${batchIndex}:`, batchError);
-        // En caso de error en un lote, aún reportamos los lotes exitosos anteriores
-        throw new Error(`Batch ${batchIndex} failed: ${batchError.message}. ${totalAffectedRows} products were processed successfully before this error.`);
+        // Pequeña pausa entre productos para evitar sobrecarga
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
+
+      // Pausa entre micro-lotes
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    console.log(`🎉 Bulk ${operation} operation completed successfully`);
-    console.log(`📊 Total processed: ${totalAffectedRows} products across ${batches.length} batches`);
+    console.log(`🎉 Bulk ${operation} operation completed`);
+    console.log(`📊 Total processed: ${totalAffectedRows} products across ${batches.length} micro-batches`);
 
     return new Response(
       JSON.stringify({
@@ -153,7 +161,7 @@ serve(async (req) => {
         operation,
         affectedRows: totalAffectedRows,
         totalBatches: batches.length,
-        batchSize: BATCH_SIZE,
+        batchSize: INDIVIDUAL_BATCH_SIZE,
         data: allResults
       }),
       {

@@ -6,12 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Search, Edit, Trash2, Eye, EyeOff, ArrowLeft, ChefHat, Menu as MenuIcon, Check, X } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Eye, EyeOff, ArrowLeft, ChefHat, Menu as MenuIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import ProductForm from './ProductForm';
 import PublicMenu from '../menu/PublicMenu';
 import DeleteProductModal from './DeleteProductModal';
-import BulkActionsModal from './BulkActionsModal';
+import EnhancedBulkActionsModal from './EnhancedBulkActionsModal';
+import ProductPagination from './ProductPagination';
 import { Tables } from '@/integrations/supabase/types';
 
 type Product = Tables<'products'>;
@@ -21,9 +22,12 @@ interface ProductManagementProps {
   onBack?: () => void;
 }
 
+const PRODUCTS_PER_PAGE = 24; // Mostrar 24 productos por página (4x6 grid)
+
 const ProductManagement = ({ onBack }: ProductManagementProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showPublicMenu, setShowPublicMenu] = useState(false);
@@ -86,6 +90,18 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     return matchesSearch && matchesCategory;
   });
 
+  const totalProducts = filteredProducts?.length || 0;
+  const totalPages = Math.ceil(totalProducts / PRODUCTS_PER_PAGE);
+  const paginatedProducts = filteredProducts?.slice(
+    (currentPage - 1) * PRODUCTS_PER_PAGE,
+    currentPage * PRODUCTS_PER_PAGE
+  );
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+    setSelectedProducts(new Set()); // Limpiar selección al cambiar filtros
+  }, [searchTerm, selectedCategory]);
+
   const handleSelectProduct = (productId: string, checked: boolean) => {
     const newSelected = new Set(selectedProducts);
     if (checked) {
@@ -93,27 +109,135 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     } else {
       newSelected.delete(productId);
     }
-    console.log('📋 Productos seleccionados:', Array.from(newSelected));
+    console.log('📋 Productos seleccionados en página:', Array.from(newSelected));
     setSelectedProducts(newSelected);
   };
 
-  const handleSelectAllInCategory = () => {
-    if (!filteredProducts) return;
+  const handleSelectAllCurrentPage = () => {
+    if (!paginatedProducts) return;
     
     const newSelected = new Set(selectedProducts);
-    const categoryProducts = filteredProducts.map(p => p.id);
+    const currentPageIds = paginatedProducts.map(p => p.id);
     
-    const allSelected = categoryProducts.every(id => selectedProducts.has(id));
+    const allCurrentPageSelected = currentPageIds.every(id => selectedProducts.has(id));
     
-    if (allSelected) {
-      categoryProducts.forEach(id => newSelected.delete(id));
+    if (allCurrentPageSelected) {
+      currentPageIds.forEach(id => newSelected.delete(id));
     } else {
-      categoryProducts.forEach(id => newSelected.add(id));
+      currentPageIds.forEach(id => newSelected.add(id));
     }
     
-    console.log('📋 Selección masiva - productos seleccionados:', Array.from(newSelected));
+    console.log('📋 Selección página actual - productos seleccionados:', Array.from(newSelected));
     setSelectedProducts(newSelected);
   };
+
+  const performBulkOperation = async (
+    operation: 'delete' | 'activate' | 'deactivate',
+    showProgress: (progress: number) => void
+  ) => {
+    if (selectedProducts.size === 0) {
+      console.warn('⚠️ No hay productos seleccionados');
+      return;
+    }
+
+    const selectedIds = Array.from(selectedProducts);
+    console.log(`🔄 Iniciando operación masiva: ${operation}`);
+    console.log(`📋 Total productos seleccionados:`, selectedIds.length);
+
+    if (selectedIds.length > 50) {
+      toast({
+        title: "Demasiados productos",
+        description: "Por favor selecciona máximo 50 productos a la vez para mayor estabilidad.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsDeleting(true);
+    
+    try {
+      const CHUNK_SIZE = 20;
+      const chunks = [];
+      for (let i = 0; i < selectedIds.length; i += CHUNK_SIZE) {
+        chunks.push(selectedIds.slice(i, i + CHUNK_SIZE));
+      }
+
+      console.log(`📦 Procesando ${chunks.length} grupos de hasta ${CHUNK_SIZE} productos cada uno`);
+
+      let totalAffected = 0;
+      let chunkIndex = 0;
+
+      for (const chunk of chunks) {
+        chunkIndex++;
+        const progressValue = (chunkIndex / chunks.length) * 100;
+        showProgress(progressValue);
+        
+        console.log(`📦 Procesando grupo ${chunkIndex}/${chunks.length} con ${chunk.length} productos`);
+
+        const { data, error } = await supabase.functions.invoke('bulk-product-operations', {
+          body: {
+            operation,
+            productIds: chunk
+          }
+        });
+
+        if (error) {
+          console.error(`❌ Error en grupo ${chunkIndex} de operación ${operation}:`, error);
+          throw new Error(`Error en grupo ${chunkIndex}: ${error.message}. ${totalAffected} productos fueron procesados exitosamente.`);
+        }
+
+        if (!data.success) {
+          console.error(`❌ Grupo ${chunkIndex} de operación ${operation} falló:`, data.error);
+          throw new Error(`Grupo ${chunkIndex} falló: ${data.error}. ${totalAffected} productos fueron procesados exitosamente.`);
+        }
+
+        totalAffected += data.affectedRows;
+        console.log(`✅ Grupo ${chunkIndex} completado: ${data.affectedRows} productos afectados (Total: ${totalAffected})`);
+      }
+
+      showProgress(100);
+      console.log(`🎉 Operación masiva ${operation} completada: ${totalAffected} productos procesados en ${chunks.length} grupos`);
+
+      let successMessage = '';
+      switch (operation) {
+        case 'delete':
+          successMessage = `${totalAffected} productos eliminados correctamente`;
+          break;
+        case 'activate':
+          successMessage = `${totalAffected} productos activados correctamente`;
+          break;
+        case 'deactivate':
+          successMessage = `${totalAffected} productos desactivados correctamente`;
+          break;
+      }
+
+      toast({
+        title: "Operación completada",
+        description: successMessage,
+      });
+
+      setSelectedProducts(new Set());
+      refetchProducts();
+      setShowBulkModal(false);
+
+    } catch (error) {
+      console.error(`❌ Error en operación masiva ${operation}:`, error);
+      toast({
+        title: "Error en operación masiva",
+        description: error.message || `No se pudo completar la operación ${operation}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleBulkDelete = (showProgress: (progress: number) => void) => 
+    performBulkOperation('delete', showProgress);
+  const handleBulkActivate = (showProgress: (progress: number) => void) => 
+    performBulkOperation('activate', showProgress);
+  const handleBulkDeactivate = (showProgress: (progress: number) => void) => 
+    performBulkOperation('deactivate', showProgress);
 
   const toggleProductAvailability = async (product: Product) => {
     try {
@@ -145,143 +269,6 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
       });
     }
   };
-
-  const performBulkOperation = async (operation: 'delete' | 'activate' | 'deactivate') => {
-    if (selectedProducts.size === 0) {
-      console.warn('⚠️ No hay productos seleccionados');
-      return;
-    }
-
-    const selectedIds = Array.from(selectedProducts);
-    console.log(`🔄 Iniciando operación masiva: ${operation}`);
-    console.log(`📋 Total productos seleccionados:`, selectedIds.length);
-
-    setIsDeleting(true);
-    
-    try {
-      // Para operaciones muy grandes (>500), dividir en múltiples llamadas
-      const MAX_PER_CALL = 500;
-      
-      if (selectedIds.length <= MAX_PER_CALL) {
-        // Operación simple para lotes pequeños
-        console.log(`📦 Procesando ${selectedIds.length} productos en una sola llamada`);
-        
-        const { data, error } = await supabase.functions.invoke('bulk-product-operations', {
-          body: {
-            operation,
-            productIds: selectedIds
-          }
-        });
-
-        if (error) {
-          console.error(`❌ Error en operación masiva ${operation}:`, error);
-          throw error;
-        }
-
-        if (!data.success) {
-          console.error(`❌ Operación ${operation} falló:`, data.error);
-          throw new Error(data.error || `Error en operación ${operation}`);
-        }
-
-        console.log(`✅ Operación ${operation} completada:`, data.affectedRows, 'productos afectados');
-
-        let successMessage = '';
-        switch (operation) {
-          case 'delete':
-            successMessage = `${data.affectedRows} productos eliminados correctamente`;
-            break;
-          case 'activate':
-            successMessage = `${data.affectedRows} productos activados correctamente`;
-            break;
-          case 'deactivate':
-            successMessage = `${data.affectedRows} productos desactivados correctamente`;
-            break;
-        }
-
-        toast({
-          title: "Operación completada",
-          description: successMessage,
-        });
-
-      } else {
-        // Operación grande - dividir en múltiples llamadas
-        console.log(`📦 Dividiendo ${selectedIds.length} productos en lotes de ${MAX_PER_CALL}`);
-        
-        const chunks = [];
-        for (let i = 0; i < selectedIds.length; i += MAX_PER_CALL) {
-          chunks.push(selectedIds.slice(i, i + MAX_PER_CALL));
-        }
-
-        console.log(`🔄 Procesando ${chunks.length} lotes de hasta ${MAX_PER_CALL} productos cada uno`);
-
-        let totalAffected = 0;
-        let chunkIndex = 0;
-
-        for (const chunk of chunks) {
-          chunkIndex++;
-          console.log(`📦 Procesando lote ${chunkIndex}/${chunks.length} con ${chunk.length} productos`);
-
-          const { data, error } = await supabase.functions.invoke('bulk-product-operations', {
-            body: {
-              operation,
-              productIds: chunk
-            }
-          });
-
-          if (error) {
-            console.error(`❌ Error en lote ${chunkIndex} de operación ${operation}:`, error);
-            throw new Error(`Error en lote ${chunkIndex}: ${error.message}. ${totalAffected} productos fueron procesados exitosamente.`);
-          }
-
-          if (!data.success) {
-            console.error(`❌ Lote ${chunkIndex} de operación ${operation} falló:`, data.error);
-            throw new Error(`Lote ${chunkIndex} falló: ${data.error}. ${totalAffected} productos fueron procesados exitosamente.`);
-          }
-
-          totalAffected += data.affectedRows;
-          console.log(`✅ Lote ${chunkIndex} completado: ${data.affectedRows} productos afectados (Total: ${totalAffected})`);
-        }
-
-        console.log(`🎉 Operación masiva ${operation} completada: ${totalAffected} productos procesados en ${chunks.length} lotes`);
-
-        let successMessage = '';
-        switch (operation) {
-          case 'delete':
-            successMessage = `${totalAffected} productos eliminados correctamente en ${chunks.length} lotes`;
-            break;
-          case 'activate':
-            successMessage = `${totalAffected} productos activados correctamente en ${chunks.length} lotes`;
-            break;
-          case 'deactivate':
-            successMessage = `${totalAffected} productos desactivados correctamente en ${chunks.length} lotes`;
-            break;
-        }
-
-        toast({
-          title: "Operación masiva completada",
-          description: successMessage,
-        });
-      }
-
-      setSelectedProducts(new Set());
-      refetchProducts();
-      setShowBulkModal(false);
-
-    } catch (error) {
-      console.error(`❌ Error en operación masiva ${operation}:`, error);
-      toast({
-        title: "Error en operación masiva",
-        description: error.message || `No se pudo completar la operación ${operation}`,
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const handleBulkDelete = () => performBulkOperation('delete');
-  const handleBulkActivate = () => performBulkOperation('activate');
-  const handleBulkDeactivate = () => performBulkOperation('deactivate');
 
   const handleDeleteProduct = (product: Product) => {
     console.log('🗑️ Preparando eliminación de producto:', product.name, product.id);
@@ -358,8 +345,9 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
   }
 
   const selectedCount = selectedProducts.size;
-  const categoryProductCount = filteredProducts?.length || 0;
-  const allCategorySelected = categoryProductCount > 0 && filteredProducts?.every(p => selectedProducts.has(p.id));
+  const currentPageProductCount = paginatedProducts?.length || 0;
+  const allCurrentPageSelected = currentPageProductCount > 0 && 
+    paginatedProducts?.every(p => selectedProducts.has(p.id));
 
   return (
     <div className="min-h-screen bg-background">
@@ -400,7 +388,9 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
         <div className="space-y-6">
           <div>
             <h2 className="text-2xl font-bold">Gestión de Productos</h2>
-            <p className="text-muted-foreground">Administra el menú del restaurante</p>
+            <p className="text-muted-foreground">
+              Administra el menú del restaurante • Paginación optimizada para mejor rendimiento
+            </p>
           </div>
 
           <div className="flex flex-col gap-4">
@@ -430,15 +420,18 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
               </select>
             </div>
 
-            {categoryProductCount > 0 && (
+            {currentPageProductCount > 0 && (
               <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                 <div className="flex items-center space-x-3">
                   <Checkbox
-                    checked={allCategorySelected}
-                    onCheckedChange={handleSelectAllInCategory}
+                    checked={allCurrentPageSelected}
+                    onCheckedChange={handleSelectAllCurrentPage}
                   />
                   <span className="text-sm">
-                    {allCategorySelected ? 'Deseleccionar todos' : `Seleccionar todos (${categoryProductCount})`}
+                    {allCurrentPageSelected 
+                      ? `Deseleccionar página (${currentPageProductCount})` 
+                      : `Seleccionar página actual (${currentPageProductCount})`
+                    }
                   </span>
                   {selectedCount > 0 && (
                     <Badge variant="secondary">{selectedCount} seleccionados</Badge>
@@ -446,20 +439,26 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
                 </div>
                 
                 {selectedCount > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowBulkModal(true)}
-                  >
-                    Acciones en lote
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      Máx. 50 por operación
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowBulkModal(true)}
+                      disabled={selectedCount > 50}
+                    >
+                      Acciones en lote
+                    </Button>
+                  </div>
                 )}
               </div>
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProducts?.map((product) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {paginatedProducts?.map((product) => (
               <Card key={product.id} className="group hover:shadow-lg transition-shadow">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
@@ -552,9 +551,22 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
             ))}
           </div>
 
-          {filteredProducts?.length === 0 && (
+          <ProductPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalProducts}
+            itemsPerPage={PRODUCTS_PER_PAGE}
+            onPageChange={setCurrentPage}
+          />
+
+          {paginatedProducts?.length === 0 && (
             <div className="text-center py-12">
-              <p className="text-muted-foreground">No se encontraron productos</p>
+              <p className="text-muted-foreground">
+                {searchTerm || selectedCategory !== 'all' 
+                  ? 'No se encontraron productos con los filtros aplicados'
+                  : 'No hay productos registrados'
+                }
+              </p>
             </div>
           )}
 
@@ -578,10 +590,11 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
             isLoading={isDeleting}
           />
 
-          <BulkActionsModal
+          <EnhancedBulkActionsModal
             isOpen={showBulkModal}
             onClose={() => setShowBulkModal(false)}
             selectedCount={selectedCount}
+            currentPage={currentPage}
             onBulkDelete={handleBulkDelete}
             onBulkActivate={handleBulkActivate}
             onBulkDeactivate={handleBulkDeactivate}
