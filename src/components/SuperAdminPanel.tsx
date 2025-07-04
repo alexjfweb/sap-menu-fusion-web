@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,11 +8,13 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSuperAdminAuth } from '@/hooks/useSuperAdminAuth';
 import { Eye, EyeOff, UserCheck, UserX, Key, Mail, Shield } from 'lucide-react';
-import UserPermissionValidator from './UserPermissionValidator';
-import AccountVerification from './AccountVerification';
-import PaymentConfiguration from './PaymentConfiguration';
-import SubscriptionPlansManagement from './subscriptions/SubscriptionPlansManagement';
-import WhatsappConfiguration from './whatsapp/WhatsappConfiguration';
+
+// Import de componentes - verificando que existan
+const UserPermissionValidator = React.lazy(() => import('./UserPermissionValidator'));
+const AccountVerification = React.lazy(() => import('./AccountVerification'));
+const PaymentConfiguration = React.lazy(() => import('./PaymentConfiguration'));
+const SubscriptionPlansManagement = React.lazy(() => import('./subscriptions/SubscriptionPlansManagement'));
+const WhatsappConfiguration = React.lazy(() => import('./whatsapp/WhatsappConfiguration'));
 
 const SuperAdminPanel = () => {
   const [selectedEmail, setSelectedEmail] = useState<string>('');
@@ -24,15 +25,17 @@ const SuperAdminPanel = () => {
   const [mode, setMode] = useState<'check' | 'reset' | 'create'>('check');
   const [fullName, setFullName] = useState('');
   const [mounted, setMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState('verification');
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   const { loading, checkUserExists, resetPassword, updatePassword, createSuperAdmin } = useSuperAdminAuth();
 
   const superAdminEmails = ['alexjfweb@gmail.com', 'superadmin@gmail.com', 'allseosoporte@gmail.com'];
 
   useEffect(() => {
+    console.log('🔧 SuperAdminPanel montándose...');
     setMounted(true);
     
-    // Verificar estado de usuarios al cargar
     const checkAllUsers = async () => {
       try {
         const statuses: { [email: string]: any } = {};
@@ -56,10 +59,12 @@ const SuperAdminPanel = () => {
     checkAllUsers();
 
     return () => {
+      console.log('🔧 SuperAdminPanel desmontándose...');
       setMounted(false);
     };
   }, []);
 
+  // Funciones de manejo de usuarios
   const handleCheckUser = async () => {
     if (!selectedEmail) return;
     
@@ -138,7 +143,6 @@ const SuperAdminPanel = () => {
       
       if (result.success) {
         alert(`✅ Super administrador ${selectedEmail} creado exitosamente`);
-        // Actualizar estado
         await handleCheckUser();
         setNewPassword('');
         setConfirmPassword('');
@@ -152,13 +156,30 @@ const SuperAdminPanel = () => {
     }
   };
 
+  // Componente de error fallback
+  const ErrorFallback = ({ componentName, error }: { componentName: string; error?: string }) => (
+    <Alert className="border-red-200 bg-red-50">
+      <AlertDescription className="text-red-800">
+        <strong>Error cargando {componentName}:</strong><br />
+        {error || 'El componente no se pudo cargar correctamente.'}
+        <br />
+        <small>Revisa la consola para más detalles.</small>
+      </AlertDescription>
+    </Alert>
+  );
+
+  // Componente de carga
+  const LoadingSpinner = ({ message }: { message: string }) => (
+    <div className="flex items-center justify-center p-8">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-4"></div>
+      <p className="text-muted-foreground">{message}</p>
+    </div>
+  );
+
   if (!mounted) {
     return (
       <div className="min-h-screen bg-background p-6 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Cargando Panel de Super Administrador...</p>
-        </div>
+        <LoadingSpinner message="Cargando Panel de Super Administrador..." />
       </div>
     );
   }
@@ -177,8 +198,13 @@ const SuperAdminPanel = () => {
           </p>
         </div>
 
+        {/* Debug info */}
+        <div className="text-xs text-muted-foreground text-center">
+          Tab activa: {activeTab} | Estado: {mounted ? 'Montado' : 'No montado'}
+        </div>
+
         {/* Tabs Navigation */}
-        <Tabs defaultValue="verification" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-6 mb-8">
             <TabsTrigger value="verification" className="text-sm">
               Verificación
@@ -210,7 +236,7 @@ const SuperAdminPanel = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <React.Suspense fallback={<div>Cargando verificación de cuentas...</div>}>
+                <React.Suspense fallback={<LoadingSpinner message="Cargando verificación de cuentas..." />}>
                   <AccountVerification />
                 </React.Suspense>
               </CardContent>
@@ -226,7 +252,7 @@ const SuperAdminPanel = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <React.Suspense fallback={<div>Cargando validador de permisos...</div>}>
+                <React.Suspense fallback={<LoadingSpinner message="Cargando validador de permisos..." />}>
                   <UserPermissionValidator />
                 </React.Suspense>
               </CardContent>
@@ -242,7 +268,7 @@ const SuperAdminPanel = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Estado atual de usuarios */}
+                {/* Estado actual de usuarios */}
                 <div className="space-y-4">
                   <h3 className="font-semibold">Estado Actual de Usuarios Super Admin</h3>
                   {superAdminEmails.map(email => {
@@ -468,7 +494,14 @@ const SuperAdminPanel = () => {
                 <CardTitle>Gestión de Configuración de Pagos</CardTitle>
               </CardHeader>
               <CardContent>
-                <React.Suspense fallback={<div>Cargando configuración de pagos...</div>}>
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                  <p className="text-sm text-blue-800">
+                    🔧 <strong>Estado:</strong> Cargando Configuración de Pagos...
+                  </p>
+                </div>
+                <React.Suspense 
+                  fallback={<LoadingSpinner message="Cargando configuración de pagos..." />}
+                >
                   <PaymentConfiguration />
                 </React.Suspense>
               </CardContent>
@@ -481,7 +514,14 @@ const SuperAdminPanel = () => {
                 <CardTitle>Gestión de Planes de Suscripción</CardTitle>
               </CardHeader>
               <CardContent>
-                <React.Suspense fallback={<div>Cargando planes de suscripción...</div>}>
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded">
+                  <p className="text-sm text-green-800">
+                    🔧 <strong>Estado:</strong> Cargando Planes de Suscripción...
+                  </p>
+                </div>
+                <React.Suspense 
+                  fallback={<LoadingSpinner message="Cargando planes de suscripción..." />}
+                >
                   <SubscriptionPlansManagement />
                 </React.Suspense>
               </CardContent>
@@ -494,7 +534,14 @@ const SuperAdminPanel = () => {
                 <CardTitle>Configuración de WhatsApp Business API</CardTitle>
               </CardHeader>
               <CardContent>
-                <React.Suspense fallback={<div>Cargando configuración de WhatsApp...</div>}>
+                <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded">
+                  <p className="text-sm text-purple-800">
+                    🔧 <strong>Estado:</strong> Cargando WhatsApp Configuration...
+                  </p>
+                </div>
+                <React.Suspense 
+                  fallback={<LoadingSpinner message="Cargando configuración de WhatsApp..." />}
+                >
                   <WhatsappConfiguration />
                 </React.Suspense>
               </CardContent>
