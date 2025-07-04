@@ -213,8 +213,10 @@ const AuthForm = () => {
     setLoading(true);
 
     try {
-      console.log('🔄 Iniciando proceso de recuperación de contraseña');
-      console.log('📧 Email:', email.trim());
+      console.log('🔄 Validación de configuración SMTP - SendGrid');
+      console.log('📧 Email destino:', email.trim());
+      console.log('📧 Dominio esperado del remitente: websap.site');
+      console.log('📧 Email remitente esperado: soporte@websap.site');
       
       // Obtener la URL base actual
       const currentOrigin = window.location.origin;
@@ -222,23 +224,50 @@ const AuthForm = () => {
       
       console.log('🔗 URL de redirección configurada:', redirectUrl);
       console.log('🌐 Origen actual:', currentOrigin);
+      console.log('⏰ Timestamp inicial:', new Date().toISOString());
       
       // Verificar conectividad antes del envío
       if (!isOnline) {
         throw new Error('Sin conexión a internet. Verifica tu conexión y vuelve a intentar.');
       }
 
+      console.log('📤 Enviando solicitud de recuperación a Supabase...');
+      const startTime = Date.now();
+      
       const { data, error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: redirectUrl,
       });
 
-      console.log('📬 Respuesta de Supabase:', { data, error });
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+      
+      console.log('📬 Respuesta de Supabase recibida en:', duration + 'ms');
+      console.log('📬 Data response:', data);
+      console.log('📬 Error response:', error);
 
       if (error) {
-        console.error('❌ Error enviando enlace de recuperación:', error);
+        console.error('❌ ERROR DETALLADO EN ENVÍO DE CORREO:');
         console.error('❌ Código de error:', error.status);
+        console.error('❌ Nombre del error:', error.name);
         console.error('❌ Mensaje de error:', error.message);
-        console.error('❌ Detalles completos:', JSON.stringify(error, null, 2));
+        console.error('❌ Stack trace:', error.stack);
+        console.error('❌ Detalles completos del error:', JSON.stringify(error, null, 2));
+        
+        // Análisis específico de errores SMTP/SendGrid
+        if (error.message?.includes('SMTP')) {
+          console.error('🔧 ERROR SMTP DETECTADO:');
+          console.error('🔧 Revisar configuración SMTP en Supabase');
+          console.error('🔧 Host esperado: smtp.sendgrid.net');
+          console.error('🔧 Puerto esperado: 587');
+          console.error('🔧 Usuario esperado: apikey');
+          console.error('🔧 Verificar API Key de SendGrid');
+        }
+        
+        if (error.message?.includes('domain') || error.message?.includes('websap.site')) {
+          console.error('🌐 ERROR DE DOMINIO DETECTADO:');
+          console.error('🌐 Verificar autenticación de dominio websap.site en SendGrid');
+          console.error('🌐 Confirmar DNS records para websap.site');
+        }
         
         // Manejo específico de errores comunes
         let errorMessage = 'No se pudo enviar el enlace de recuperación.';
@@ -248,10 +277,13 @@ const AuthForm = () => {
         } else if (error.message?.includes('rate limit')) {
           errorMessage = 'Has solicitado demasiados enlaces. Espera unos minutos antes de intentar de nuevo.';
         } else if (error.message?.includes('SMTP')) {
-          errorMessage = 'Error en la configuración del servidor de correo. Contacta al administrador.';
+          errorMessage = 'Error de configuración SMTP con SendGrid. Revisar configuración del servidor de correo.';
+        } else if (error.message?.includes('domain')) {
+          errorMessage = 'Error de autenticación del dominio websap.site. Verificar configuración DNS.';
         } else if (error.message?.includes('User not found')) {
           // No revelamos si el usuario existe o no por seguridad
           console.log('⚠️ Usuario no encontrado, pero mostramos mensaje genérico por seguridad');
+          errorMessage = 'Si el email existe en el sistema, recibirás el enlace de recuperación.';
         }
         
         toast({
@@ -260,29 +292,40 @@ const AuthForm = () => {
           description: error.message || errorMessage,
         });
       } else {
-        console.log('✅ Solicitud de recuperación procesada exitosamente');
+        console.log('✅ ÉXITO - Solicitud de recuperación procesada correctamente');
         console.log('✅ Configuración utilizada:', {
           email: email.trim(),
           redirectUrl: redirectUrl,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          responseTime: duration + 'ms'
         });
+        
+        console.log('📧 VALIDACIÓN DE ENTREGA:');
+        console.log('📧 El correo debería enviarse desde: soporte@websap.site');
+        console.log('📧 El correo debería llegar a:', email.trim());
+        console.log('📧 Revisar en los próximos 2-5 minutos');
+        console.log('📧 Si no llega, revisar logs de SendGrid dashboard');
         
         toast({
-          title: '📧 Correo enviado',
-          description: `Si existe una cuenta asociada a ${email}, recibirás un email con instrucciones para restablecer tu contraseña. Revisa tu bandeja de entrada y carpeta de spam.`,
+          title: '📧 Solicitud enviada exitosamente',
+          description: `Correo de recuperación enviado desde soporte@websap.site a ${email}. Revisa tu bandeja de entrada y spam en los próximos minutos.`,
         });
         
-        console.log('💡 Consejos para el usuario:');
+        console.log('🔍 PASOS PARA VERIFICAR ENTREGA:');
         console.log('1. Revisar bandeja de entrada y carpeta de spam');
-        console.log('2. Verificar que el email sea correcto');
-        console.log('3. Esperar hasta 10 minutos para recibir el correo');
-        console.log('4. Verificar configuración SMTP en Supabase Dashboard');
+        console.log('2. Buscar correo desde soporte@websap.site');
+        console.log('3. Verificar que el enlace contenga /auth/reset-password');
+        console.log('4. Si no llega, revisar Activity en SendGrid dashboard');
+        console.log('5. Verificar configuración DNS de websap.site');
         
         setResetPasswordMode(false);
       }
     } catch (error: any) {
-      console.error('❌ Error inesperado en recuperación de contraseña:', error);
-      console.error('❌ Stack trace:', error.stack);
+      console.error('❌ ERROR INESPERADO EN RECUPERACIÓN DE CONTRASEÑA:');
+      console.error('❌ Tipo de error:', typeof error);
+      console.error('❌ Mensaje:', error.message);
+      console.error('❌ Stack trace completo:', error.stack);
+      console.error('❌ Objeto error completo:', JSON.stringify(error, null, 2));
       
       toast({
         variant: 'destructive',
