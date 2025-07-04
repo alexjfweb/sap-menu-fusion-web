@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,46 +23,75 @@ const SuperAdminPanel = () => {
   const [userStatuses, setUserStatuses] = useState<{ [email: string]: any }>({});
   const [mode, setMode] = useState<'check' | 'reset' | 'create'>('check');
   const [fullName, setFullName] = useState('');
+  const [mounted, setMounted] = useState(false);
 
   const { loading, checkUserExists, resetPassword, updatePassword, createSuperAdmin } = useSuperAdminAuth();
 
   const superAdminEmails = ['alexjfweb@gmail.com', 'superadmin@gmail.com', 'allseosoporte@gmail.com'];
 
   useEffect(() => {
+    setMounted(true);
+    
     // Verificar estado de usuarios al cargar
     const checkAllUsers = async () => {
-      const statuses: { [email: string]: any } = {};
-      
-      for (const email of superAdminEmails) {
-        const status = await checkUserExists(email);
-        statuses[email] = status;
+      try {
+        const statuses: { [email: string]: any } = {};
+        
+        for (const email of superAdminEmails) {
+          try {
+            const status = await checkUserExists(email);
+            statuses[email] = status;
+          } catch (error) {
+            console.error(`Error checking user ${email}:`, error);
+            statuses[email] = { exists: false, error: true };
+          }
+        }
+        
+        setUserStatuses(statuses);
+      } catch (error) {
+        console.error('Error checking users:', error);
       }
-      
-      setUserStatuses(statuses);
     };
 
     checkAllUsers();
+
+    return () => {
+      setMounted(false);
+    };
   }, []);
 
   const handleCheckUser = async () => {
     if (!selectedEmail) return;
     
-    const status = await checkUserExists(selectedEmail);
-    setUserStatuses(prev => ({
-      ...prev,
-      [selectedEmail]: status
-    }));
+    try {
+      const status = await checkUserExists(selectedEmail);
+      setUserStatuses(prev => ({
+        ...prev,
+        [selectedEmail]: status
+      }));
+    } catch (error) {
+      console.error('Error checking user:', error);
+      setUserStatuses(prev => ({
+        ...prev,
+        [selectedEmail]: { exists: false, error: true }
+      }));
+    }
   };
 
   const handleResetPassword = async () => {
     if (!selectedEmail) return;
 
-    const result = await resetPassword(selectedEmail);
-    
-    if (result.success) {
-      alert(`✅ Enlace de restablecimiento enviado a ${selectedEmail}`);
-    } else {
-      alert(`❌ Error: ${result.error}`);
+    try {
+      const result = await resetPassword(selectedEmail);
+      
+      if (result.success) {
+        alert(`✅ Enlace de restablecimiento enviado a ${selectedEmail}`);
+      } else {
+        alert(`❌ Error: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      alert('❌ Error al enviar enlace de restablecimiento');
     }
   };
 
@@ -76,14 +106,19 @@ const SuperAdminPanel = () => {
       return;
     }
 
-    const result = await updatePassword(newPassword);
-    
-    if (result.success) {
-      alert('✅ Contraseña actualizada exitosamente');
-      setNewPassword('');
-      setConfirmPassword('');
-    } else {
-      alert(`❌ Error: ${result.error}`);
+    try {
+      const result = await updatePassword(newPassword);
+      
+      if (result.success) {
+        alert('✅ Contraseña actualizada exitosamente');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        alert(`❌ Error: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error updating password:', error);
+      alert('❌ Error al actualizar contraseña');
     }
   };
 
@@ -98,19 +133,35 @@ const SuperAdminPanel = () => {
       return;
     }
 
-    const result = await createSuperAdmin(selectedEmail, newPassword, fullName);
-    
-    if (result.success) {
-      alert(`✅ Super administrador ${selectedEmail} creado exitosamente`);
-      // Actualizar estado
-      await handleCheckUser();
-      setNewPassword('');
-      setConfirmPassword('');
-      setFullName('');
-    } else {
-      alert(`❌ Error: ${result.error}`);
+    try {
+      const result = await createSuperAdmin(selectedEmail, newPassword, fullName);
+      
+      if (result.success) {
+        alert(`✅ Super administrador ${selectedEmail} creado exitosamente`);
+        // Actualizar estado
+        await handleCheckUser();
+        setNewPassword('');
+        setConfirmPassword('');
+        setFullName('');
+      } else {
+        alert(`❌ Error: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error creating super admin:', error);
+      alert('❌ Error al crear super administrador');
     }
   };
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Cargando Panel de Super Administrador...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -159,7 +210,9 @@ const SuperAdminPanel = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <AccountVerification />
+                <React.Suspense fallback={<div>Cargando verificación de cuentas...</div>}>
+                  <AccountVerification />
+                </React.Suspense>
               </CardContent>
             </Card>
           </TabsContent>
@@ -173,7 +226,9 @@ const SuperAdminPanel = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <UserPermissionValidator />
+                <React.Suspense fallback={<div>Cargando validador de permisos...</div>}>
+                  <UserPermissionValidator />
+                </React.Suspense>
               </CardContent>
             </Card>
           </TabsContent>
@@ -217,7 +272,7 @@ const SuperAdminPanel = () => {
                           ) : (
                             <Badge variant="destructive">
                               <UserX className="h-3 w-3 mr-1" />
-                              No existe
+                              {status?.error ? 'Error' : 'No existe'}
                             </Badge>
                           )}
                         </div>
@@ -284,7 +339,7 @@ const SuperAdminPanel = () => {
                               ✅ Usuario existe<br />
                               📧 Email: {userStatuses[selectedEmail].email}<br />
                               👤 Rol: {userStatuses[selectedEmail].role}<br />
-                              📅 Creado: {new Date(userStatuses[selectedEmail].created_at).toLocaleDateString()}<br />
+                              📅 Creado: {userStatuses[selectedEmail].created_at ? new Date(userStatuses[selectedEmail].created_at).toLocaleDateString() : 'N/A'}<br />
                               🔒 Activo: {userStatuses[selectedEmail].is_active ? 'Sí' : 'No'}
                             </>
                           ) : (
@@ -413,7 +468,9 @@ const SuperAdminPanel = () => {
                 <CardTitle>Gestión de Configuración de Pagos</CardTitle>
               </CardHeader>
               <CardContent>
-                <PaymentConfiguration />
+                <React.Suspense fallback={<div>Cargando configuración de pagos...</div>}>
+                  <PaymentConfiguration />
+                </React.Suspense>
               </CardContent>
             </Card>
           </TabsContent>
@@ -424,7 +481,9 @@ const SuperAdminPanel = () => {
                 <CardTitle>Gestión de Planes de Suscripción</CardTitle>
               </CardHeader>
               <CardContent>
-                <SubscriptionPlansManagement />
+                <React.Suspense fallback={<div>Cargando planes de suscripción...</div>}>
+                  <SubscriptionPlansManagement />
+                </React.Suspense>
               </CardContent>
             </Card>
           </TabsContent>
@@ -435,7 +494,9 @@ const SuperAdminPanel = () => {
                 <CardTitle>Configuración de WhatsApp Business API</CardTitle>
               </CardHeader>
               <CardContent>
-                <WhatsappConfiguration />
+                <React.Suspense fallback={<div>Cargando configuración de WhatsApp...</div>}>
+                  <WhatsappConfiguration />
+                </React.Suspense>
               </CardContent>
             </Card>
           </TabsContent>
