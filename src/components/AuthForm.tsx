@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -5,25 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { signInWithRetry, signUpWithRetry } from '@/integrations/supabase/clientWithRetry';
+import { safeSignIn, safeSignUp } from '@/integrations/supabase/authUtils';
 import { useToast } from '@/hooks/use-toast';
 import { ChefHat, Mail, Lock, User, AlertCircle } from 'lucide-react';
 import { useSuperAdminAuth } from '@/hooks/useSuperAdminAuth';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import ConnectionStatusIndicator from '@/components/ConnectionStatusIndicator';
-
-// Función para limpiar el estado de autenticación
-const cleanupAuthState = () => {
-  try {
-    Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
-        localStorage.removeItem(key);
-      }
-    });
-  } catch (error) {
-    console.log('Error cleaning auth state:', error);
-  }
-};
 
 const AuthForm = () => {
   const [email, setEmail] = useState('');
@@ -49,19 +37,14 @@ const AuthForm = () => {
         throw new Error('Sin conexión a internet. Verifica tu conexión y vuelve a intentar.');
       }
       
-      // Clean up existing state first
-      cleanupAuthState();
+      // Usar función segura para sign in
+      const { data, error } = await safeSignIn(email, password);
       
-      // Attempt global sign out first
-      try {
-        await supabase.auth.signOut({ scope: 'global' });
-      } catch (err) {
-        console.log('Sign out before sign in failed:', err);
+      if (error) {
+        throw error;
       }
 
-      const data = await signInWithRetry(email, password);
-
-      if (data.user) {
+      if (data?.user) {
         console.log('✅ Inicio de sesión exitoso:', data.user.email);
         console.log('🔍 Datos del usuario:', {
           id: data.user.id,
@@ -83,7 +66,7 @@ const AuthForm = () => {
           });
         }
         
-        // Force page reload for clean state
+        // Redirección segura con timeout
         setTimeout(() => {
           window.location.href = '/dashboard';
         }, 1000);
@@ -96,6 +79,12 @@ const AuthForm = () => {
       if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
         errorMessage = 'Error de conexión. Verifica tu conexión a internet y vuelve a intentar.';
         setError('Error de red - CORS o conectividad');
+      } else if (error.message?.includes('INTERNAL ASSERTION FAILED')) {
+        errorMessage = 'Error interno de autenticación. Recarga la página e intenta nuevamente.';
+        setError('Error interno de Supabase');
+      } else if (error.message?.includes('Cross-Origin-Opener-Policy')) {
+        errorMessage = 'Error de política del navegador. Recarga la página e intenta nuevamente.';
+        setError('Error de CORS policy');
       } else if (error.message === 'Invalid login credentials') {
         // Mensaje específico para usuarios super admin
         if (email === 'alexjfweb@gmail.com' || email === 'superadmin@gmail.com') {
@@ -106,7 +95,7 @@ const AuthForm = () => {
         } else {
           errorMessage = 'Credenciales inválidas. Verifica tu email y contraseña.';
         }
-      } else if (error.message?.includes('timeout')) {
+      } else if (error.message?.includes('timeout') || error.message?.includes('Timeout')) {
         errorMessage = 'Tiempo de espera agotado. El servidor puede estar sobrecargado.';
         setError('Timeout de conexión');
       } else {
@@ -153,19 +142,18 @@ const AuthForm = () => {
         }
       }
       
-      // Clean up existing state first
-      cleanupAuthState();
-
-      const redirectUrl = `${window.location.origin}/dashboard`;
-
-      const data = await signUpWithRetry(email, password, {
-        emailRedirectTo: redirectUrl,
+      // Usar función segura para sign up
+      const { data, error } = await safeSignUp(email, password, {
         data: {
           full_name: fullName,
         },
       });
 
-      if (data.user) {
+      if (error) {
+        throw error;
+      }
+
+      if (data?.user) {
         console.log('✅ Registro exitoso:', data.user.email);
         
         // Mensaje especial para usuarios super admin
@@ -196,6 +184,9 @@ const AuthForm = () => {
       if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
         errorMessage = 'Error de conexión. Verifica tu conexión a internet y vuelve a intentar.';
         setError('Error de red durante registro');
+      } else if (error.message?.includes('INTERNAL ASSERTION FAILED')) {
+        errorMessage = 'Error interno de autenticación. Recarga la página e intenta nuevamente.';
+        setError('Error interno durante registro');
       } else if (error.message === 'User already registered') {
         errorMessage = 'Este email ya está registrado. Intenta iniciar sesión.';
       } else {

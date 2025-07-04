@@ -3,6 +3,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
 import { Tables } from '@/integrations/supabase/types';
+import { cleanupAuthState, safeGetSession } from '@/integrations/supabase/authUtils';
 
 type Profile = Tables<'profiles'>;
 
@@ -18,27 +19,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Función para limpiar el estado de autenticación
-const cleanupAuthState = () => {
-  try {
-    Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
-        localStorage.removeItem(key);
-      }
-    });
-    
-    if (typeof sessionStorage !== 'undefined') {
-      Object.keys(sessionStorage).forEach((key) => {
-        if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
-          sessionStorage.removeItem(key);
-        }
-      });
-    }
-  } catch (error) {
-    console.log('Error cleaning auth state:', error);
-  }
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -46,13 +26,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+    
     // Set up auth state listener FIRST
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+      
       console.log('🔐 Auth state change event:', event, session?.user?.email || 'No session');
       
-      // Update state synchronously
+      // Update state synchronously to prevent race conditions
       setSession(session);
       setUser(session?.user ?? null);
       
@@ -70,18 +54,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Defer profile fetching to prevent deadlocks
         setTimeout(() => {
-          fetchOrCreateProfile(session.user);
-        }, 0);
+          if (mounted) {
+            fetchOrCreateProfile(session.user);
+          }
+        }, 100);
       } else if (event === 'SIGNED_OUT' || !session) {
-        setProfile(null);
-        setLoading(false);
+        if (mounted) {
+          setProfile(null);
+          setLoading(false);
+        }
       }
     });
 
-    // THEN check for existing session
+    // THEN check for existing session using safe method
     const initializeAuth = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: session, error } = await safeGetSession();
+        
+        if (!mounted) return;
         
         if (error) {
           console.error('❌ Error getting session:', error);
@@ -100,13 +90,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (error) {
         console.error('❌ Error initializing auth:', error);
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
     initializeAuth();
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchOrCreateProfile = async (user: User) => {
@@ -119,7 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', user.id)
         .maybeSingle();
 
-      if (error) {
+      if (error && error.code !== 'PGRST116') {
         console.error('❌ Error fetching profile:', error);
         setProfile(null);
         setLoading(false);
@@ -254,8 +249,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Clean up auth state first
       cleanupAuthState();
       
-      // Sign out from Supabase
-      await supabase.auth.signOut({ scope: 'global' });
+      // Sign out from Supabase with error handling
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (signOutError) {
+        console.log('⚠️ Error during sign out:', signOutError);
+        // Continue with cleanup even if sign out fails
+      }
       
       // Reset state
       setSession(null);
@@ -263,11 +263,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setProfile(null);
       
       // Force page reload for clean state
-      window.location.href = '/auth';
+      setTimeout(() => {
+        window.location.href = '/auth';
+      }, 100);
     } catch (error) {
       console.error('❌ Error signing out:', error);
       // Force reload anyway
-      window.location.href = '/auth';
+      setTimeout(() => {
+        window.location.href = '/auth';
+      }, 100);
     }
   };
 
