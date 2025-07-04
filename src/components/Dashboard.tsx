@@ -5,7 +5,7 @@ import EmpleadoDashboard from './dashboards/EmpleadoDashboard';
 import AdminDashboard from './dashboards/AdminDashboard';
 import SuperAdminDashboard from './dashboards/SuperAdminDashboard';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, User, AlertCircle, LogOut } from 'lucide-react';
+import { RefreshCw, User, AlertCircle, LogOut, Shield } from 'lucide-react';
 
 const Dashboard = () => {
   const { profile, loading, user, signOut } = useAuth();
@@ -52,6 +52,18 @@ const Dashboard = () => {
             <p className="font-semibold mb-1">Información de depuración:</p>
             <p>Usuario: {user.email}</p>
             <p>ID: {user.id}</p>
+            {/* Mensaje especial para usuarios super admin */}
+            {(user.email === 'alexjfweb@gmail.com' || user.email === 'superadmin@gmail.com') && (
+              <div className="mt-2 p-2 bg-blue-100 border border-blue-300 rounded text-blue-800">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  <span className="font-semibold">Usuario Super Administrador detectado</span>
+                </div>
+                <p className="text-xs mt-1">
+                  Se está intentando crear el perfil automáticamente con permisos de superadmin.
+                </p>
+              </div>
+            )}
             <p className="text-red-600 mt-2">
               Si eres administrador y este problema persiste, verifica los permisos de la base de datos.
             </p>
@@ -73,14 +85,15 @@ const Dashboard = () => {
   }
 
   const renderDashboard = () => {
-    switch (profile?.role) {
-      case 'superadmin':
-        return <SuperAdminDashboard />;
-      case 'admin':
-        return <AdminDashboard />;
-      case 'empleado':
-      default:
-        return <EmpleadoDashboard />;
+    // Verificación especial de acceso para Super Administradores
+    if (profile?.role === 'superadmin') {
+      // Log adicional para super admins
+      console.log('🚀 Renderizando dashboard de Super Administrador para:', user.email);
+      return <SuperAdminDashboard />;
+    } else if (profile?.role === 'admin') {
+      return <AdminDashboard />;
+    } else {
+      return <EmpleadoDashboard />;
     }
   };
 

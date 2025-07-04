@@ -136,6 +136,15 @@ export const useSuperAdminAuth = () => {
           email: data.user.email,
           created_at: data.user.created_at
         });
+        
+        // Mensaje especial para alexjfweb@gmail.com
+        if (email === 'alexjfweb@gmail.com') {
+          toast({
+            title: '🎉 Super Administrador alexjfweb@gmail.com creado',
+            description: 'Cuenta creada con acceso completo al panel de administración.',
+          });
+        }
+        
         return { success: true };
       }
 

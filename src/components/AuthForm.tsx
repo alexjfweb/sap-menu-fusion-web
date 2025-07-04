@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,16 +62,16 @@ const AuthForm = () => {
         });
         
         // Mensaje específico para usuarios super admin
-        if (email === 'superadmin@gmail.com' && error.message === 'Invalid login credentials') {
+        if ((email === 'alexjfweb@gmail.com' || email === 'superadmin@gmail.com') && error.message === 'Invalid login credentials') {
           // Verificar si el usuario existe
           const userStatus = await checkUserExists(email);
           
           toast({
             variant: 'destructive',
-            title: 'Usuario Super Admin no encontrado',
+            title: 'Usuario Super Admin - Error de credenciales',
             description: userStatus.exists 
-              ? 'La cuenta existe pero la contraseña es incorrecta. Usa el panel de Super Admin para restablecer la contraseña.'
-              : 'Esta cuenta no existe. Usa el panel de Super Admin para crearla o regístrate en la pestaña "Registrarse".',
+              ? `La cuenta ${email} existe pero las credenciales son incorrectas. Verifica la contraseña o usa el panel de Super Admin para restablecerla.`
+              : `La cuenta ${email} no existe. Créala usando el panel de Super Admin o regístrate en la pestaña "Registrarse".`,
           });
         } else {
           toast({
@@ -92,10 +91,18 @@ const AuthForm = () => {
           last_sign_in_at: data.user.last_sign_in_at
         });
         
-        toast({
-          title: 'Bienvenido',
-          description: 'Has iniciado sesión correctamente.',
-        });
+        // Mensaje especial para usuarios super admin
+        if (data.user.email === 'alexjfweb@gmail.com' || data.user.email === 'superadmin@gmail.com') {
+          toast({
+            title: '🚀 Bienvenido Super Administrador',
+            description: `Acceso completo al panel de administración concedido para ${data.user.email}`,
+          });
+        } else {
+          toast({
+            title: 'Bienvenido',
+            description: 'Has iniciado sesión correctamente.',
+          });
+        }
         
         // Force page reload for clean state
         setTimeout(() => {
@@ -166,7 +173,7 @@ const AuthForm = () => {
       console.log('📝 Intentando registrar usuario:', email);
       
       // Para usuarios super admin, verificar si ya existe
-      if (email === 'superadmin@gmail.com') {
+      if (email === 'alexjfweb@gmail.com' || email === 'superadmin@gmail.com') {
         const userStatus = await checkUserExists(email);
         if (userStatus.exists) {
           toast({
@@ -213,7 +220,7 @@ const AuthForm = () => {
         });
         
         // Mensaje especial para usuarios super admin
-        if (email === 'superadmin@gmail.com') {
+        if (email === 'alexjfweb@gmail.com' || email === 'superadmin@gmail.com') {
           toast({
             title: '🎉 Super Administrador registrado',
             description: 'Cuenta de Super Administrador creada exitosamente. Automáticamente tendrás permisos completos.',
