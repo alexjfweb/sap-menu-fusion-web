@@ -17,7 +17,8 @@ import {
   Building,
   CreditCard,
   Database,
-  Bell
+  Bell,
+  Shield
 } from 'lucide-react';
 import OrderManagement from '../orders/OrderManagement';
 import ProductManagement from '../products/ProductManagement';
@@ -33,6 +34,7 @@ import MaintenanceTools from '../maintenance/MaintenanceTools';
 import SubscriptionManagement from '../subscriptions/SubscriptionManagement';
 import DatabaseTestPanel from '../DatabaseTestPanel';
 import PaymentReminderManagement from '../payment-reminders/PaymentReminderManagement';
+import UserPermissionValidator from '../UserPermissionValidator';
 
 const SuperAdminDashboard = () => {
   const { profile, signOut } = useAuth();
@@ -43,6 +45,19 @@ const SuperAdminDashboard = () => {
   };
 
   // Si hay una sección activa, mostrar ese componente
+  if (activeSection === 'validator') {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="mb-6">
+          <Button variant="outline" onClick={handleBackToDashboard}>
+            ← Volver al Dashboard
+          </Button>
+        </div>
+        <UserPermissionValidator />
+      </div>
+    );
+  }
+
   if (activeSection === 'orders') {
     return <OrderManagement onBack={handleBackToDashboard} />;
   }
@@ -175,23 +190,23 @@ const SuperAdminDashboard = () => {
 
         {/* Management Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Gestión de Suscripciones - NUEVA SECCIÓN */}
-          <Card className="hover:shadow-lg transition-shadow duration-300 border-primary/20">
+          {/* Validador de Permisos - NUEVA SECCIÓN */}
+          <Card className="hover:shadow-lg transition-shadow duration-300 border-blue-200">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                <CreditCard className="h-5 w-5 text-primary" />
-                <span>Gestión de Suscripciones</span>
+                <Shield className="h-5 w-5 text-blue-600" />
+                <span>Validador de Permisos</span>
               </CardTitle>
               <CardDescription>
-                Administra planes, métodos de pago y transacciones
+                Verifica permisos de usuarios y estado de autenticación
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Button 
                 className="w-full"
-                onClick={() => setActiveSection('subscriptions')}
+                onClick={() => setActiveSection('validator')}
               >
-                Gestionar Suscripciones
+                Validar Permisos
               </Button>
             </CardContent>
           </Card>
