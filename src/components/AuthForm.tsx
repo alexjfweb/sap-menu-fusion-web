@@ -22,12 +22,14 @@ const AuthForm = () => {
   // Check for password reset hash in URL - redirect to proper reset page
   useEffect(() => {
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const type = hashParams.get('type');
+    const searchParams = new URLSearchParams(window.location.search);
+    const type = hashParams.get('type') || searchParams.get('type');
 
     if (type === 'recovery') {
       console.log('🔄 Token de recuperación detectado, redirigiendo a /auth/reset-password');
-      // Redirect to the dedicated reset password page with the hash
-      window.location.href = `/auth/reset-password${window.location.hash}`;
+      // Redirect to the dedicated reset password page with the hash and search params
+      const fullFragment = window.location.hash || ('?' + window.location.search);
+      window.location.href = `/auth/reset-password${fullFragment}`;
     }
   }, []);
 
@@ -213,9 +215,11 @@ const AuthForm = () => {
     try {
       console.log('🔄 Enviando enlace de recuperación a:', email);
       
-      // Use the current origin to ensure correct redirect to the dedicated reset page
-      const redirectUrl = `${window.location.origin}/auth/reset-password`;
-      console.log('🔗 URL de redirección:', redirectUrl);
+      // Obtener la URL base actual
+      const currentOrigin = window.location.origin;
+      const redirectUrl = `${currentOrigin}/auth/reset-password`;
+      
+      console.log('🔗 URL de redirección configurada:', redirectUrl);
       
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: redirectUrl,
@@ -223,16 +227,27 @@ const AuthForm = () => {
 
       if (error) {
         console.error('❌ Error enviando enlace de recuperación:', error);
+        console.error('❌ Detalles del error:', {
+          message: error.message,
+          status: error.status,
+          name: error.name
+        });
+        
         toast({
           variant: 'destructive',
           title: 'Error',
-          description: error.message,
+          description: error.message || 'No se pudo enviar el enlace de recuperación.',
         });
       } else {
         console.log('✅ Enlace de recuperación enviado exitosamente');
+        console.log('✅ Configuración utilizada:', {
+          email: email.trim(),
+          redirectUrl: redirectUrl
+        });
+        
         toast({
           title: 'Email enviado',
-          description: 'Te hemos enviado un email con instrucciones para restablecer tu contraseña. Revisa tu bandeja de entrada y carpeta de spam.',
+          description: `Te hemos enviado un email con instrucciones para restablecer tu contraseña a ${email}. Revisa tu bandeja de entrada y carpeta de spam.`,
         });
         setResetPasswordMode(false);
       }

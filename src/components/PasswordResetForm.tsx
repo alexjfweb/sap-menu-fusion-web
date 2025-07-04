@@ -14,33 +14,56 @@ const PasswordResetForm = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [isValidToken, setIsValidToken] = useState<boolean | null>(null);
-  const [tokenProcessed, setTokenProcessed] = useState(false);
-  const { toast } = useToast();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
     const processResetToken = async () => {
       console.log('🔍 Verificando token de recuperación...');
+      console.log('🔗 URL completa:', window.location.href);
+      console.log('🔗 Hash:', window.location.hash);
+      console.log('🔗 Search:', window.location.search);
       
-      // Check URL hash for recovery tokens
+      // Obtener parámetros del hash (#) - formato Supabase estándar
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const accessToken = hashParams.get('access_token');
-      const refreshToken = hashParams.get('refresh_token');
-      const type = hashParams.get('type');
+      
+      // Obtener parámetros de la query string (?) - formato alternativo
+      const searchParams = new URLSearchParams(window.location.search);
+      
+      // Intentar obtener tokens de ambas fuentes
+      const accessToken = hashParams.get('access_token') || searchParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token') || searchParams.get('refresh_token');
+      const type = hashParams.get('type') || searchParams.get('type');
+      
+      console.log('🔑 Parámetros detectados:', { 
+        type, 
+        hasAccessToken: !!accessToken, 
+        hasRefreshToken: !!refreshToken,
+        accessTokenLength: accessToken?.length,
+        tokenStart: accessToken?.substring(0, 20) + '...'
+      });
 
-      console.log('🔑 Parámetros del hash:', { type, hasAccessToken: !!accessToken, hasRefreshToken: !!refreshToken });
-
-      if (type === 'recovery' && accessToken && refreshToken) {
+      if (type === 'recovery' && accessToken) {
         try {
-          console.log('🔄 Procesando token de recuperación...');
+          console.log('🔄 Estableciendo sesión con token...');
           
+          // Limpiar cualquier sesión existente primero
+          await supabase.auth.signOut();
+          
+          // Establecer la nueva sesión con los tokens
           const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
-            refresh_token: refreshToken,
+            refresh_token: refreshToken || '',
           });
 
           if (error) {
-            console.error('❌ Error al procesar token:', error);
+            console.error('❌ Error al establecer sesión:', error);
+            console.error('❌ Detalles del error:', {
+              message: error.message,
+              status: error.status,
+              name: error.name
+            });
+            
             setIsValidToken(false);
             toast({
               variant: 'destructive',
@@ -48,15 +71,28 @@ const PasswordResetForm = () => {
               description: 'El enlace de recuperación es inválido o ha expirado. Solicita uno nuevo.',
             });
           } else if (data.session) {
-            console.log('✅ Token válido, sesión establecida');
+            console.log('✅ Sesión establecida correctamente');
+            console.log('✅ Usuario autenticado:', data.session.user.email);
             setIsValidToken(true);
+            
+            // Limpiar la URL sin recargar la página
+            window.history.replaceState({}, document.title, window.location.pathname);
+            
             toast({
               title: 'Enlace válido',
               description: 'Ahora puedes establecer tu nueva contraseña.',
             });
+          } else {
+            console.error('❌ No se pudo establecer la sesión');
+            setIsValidToken(false);
+            toast({
+              variant: 'destructive',
+              title: 'Error',
+              description: 'No se pudo procesar el enlace de recuperación.',
+            });
           }
         } catch (error) {
-          console.error('❌ Error inesperado procesando token:', error);
+          console.error('❌ Error inesperado:', error);
           setIsValidToken(false);
           toast({
             variant: 'destructive',
@@ -66,6 +102,13 @@ const PasswordResetForm = () => {
         }
       } else {
         console.log('❌ Token de recuperación no encontrado o incompleto');
+        console.log('❌ Parámetros disponibles:', {
+          hashKeys: Array.from(hashParams.keys()),
+          searchKeys: Array.from(searchParams.keys()),
+          type,
+          hasAccessToken: !!accessToken
+        });
+        
         setIsValidToken(false);
         toast({
           variant: 'destructive',
@@ -73,14 +116,10 @@ const PasswordResetForm = () => {
           description: 'No se encontró un enlace de recuperación válido. Verifica que hayas copiado la URL completa del email.',
         });
       }
-      
-      setTokenProcessed(true);
     };
 
-    if (!tokenProcessed) {
-      processResetToken();
-    }
-  }, [toast, tokenProcessed]);
+    processResetToken();
+  }, [toast]);
 
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,8 +147,14 @@ const PasswordResetForm = () => {
     try {
       console.log('🔄 Actualizando contraseña...');
       
+      // Verificar que tenemos una sesión activa
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        throw new Error('No hay sesión activa para actualizar la contraseña');
+      }
+      
       const { error } = await supabase.auth.updateUser({
-        password,
+        password: password,
       });
 
       if (error) {
@@ -126,7 +171,8 @@ const PasswordResetForm = () => {
           description: 'Tu contraseña ha sido actualizada correctamente.',
         });
         
-        // Redirect to login after successful password reset
+        // Cerrar sesión y redirigir a login
+        await supabase.auth.signOut();
         setTimeout(() => {
           navigate('/auth');
         }, 2000);
@@ -136,15 +182,15 @@ const PasswordResetForm = () => {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Ocurrió un error inesperado. Inténtalo de nuevo.',
+        description: error.message || 'Ocurrió un error inesperado. Inténtalo de nuevo.',
       });
     } finally {
       setLoading(false);
     }
   };
 
-  // Show loading while processing token
-  if (!tokenProcessed) {
+  // Mostrar loading mientras se procesa el token
+  if (isValidToken === null) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/10 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
@@ -152,9 +198,9 @@ const PasswordResetForm = () => {
             <div className="flex justify-center mb-4">
               <ChefHat className="h-12 w-12 text-primary animate-pulse" />
             </div>
-            <CardTitle className="text-2xl font-bold">Procesando enlace</CardTitle>
+            <CardTitle className="text-2xl font-bold">Verificando enlace</CardTitle>
             <CardDescription>
-              Verificando el enlace de recuperación...
+              Procesando el enlace de recuperación...
             </CardDescription>
           </CardHeader>
         </Card>
@@ -162,7 +208,7 @@ const PasswordResetForm = () => {
     );
   }
 
-  // Show error if token is invalid
+  // Mostrar error si el token es inválido
   if (isValidToken === false) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/10 flex items-center justify-center p-4">
@@ -173,7 +219,7 @@ const PasswordResetForm = () => {
             </div>
             <CardTitle className="text-2xl font-bold text-destructive">Enlace inválido</CardTitle>
             <CardDescription>
-              El enlace de recuperación es inválido o ha expirado.
+              El enlace de recuperación es inválido, ha expirado o ya fue usado.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -181,7 +227,7 @@ const PasswordResetForm = () => {
               onClick={() => navigate('/auth')} 
               className="w-full"
             >
-              Volver al inicio de sesión
+              Solicitar nuevo enlace
             </Button>
           </CardContent>
         </Card>
@@ -189,7 +235,7 @@ const PasswordResetForm = () => {
     );
   }
 
-  // Show password reset form if token is valid
+  // Mostrar formulario de nueva contraseña si el token es válido
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/10 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
