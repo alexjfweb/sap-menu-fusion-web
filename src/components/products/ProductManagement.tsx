@@ -154,50 +154,119 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
 
     const selectedIds = Array.from(selectedProducts);
     console.log(`🔄 Iniciando operación masiva: ${operation}`);
-    console.log(`📋 IDs seleccionados:`, selectedIds.slice(0, 5), selectedIds.length > 5 ? `... y ${selectedIds.length - 5} más` : '');
+    console.log(`📋 Total productos seleccionados:`, selectedIds.length);
 
     setIsDeleting(true);
+    
     try {
-      const { data, error } = await supabase.functions.invoke('bulk-product-operations', {
-        body: {
-          operation,
-          productIds: selectedIds
+      // Para operaciones muy grandes (>500), dividir en múltiples llamadas
+      const MAX_PER_CALL = 500;
+      
+      if (selectedIds.length <= MAX_PER_CALL) {
+        // Operación simple para lotes pequeños
+        console.log(`📦 Procesando ${selectedIds.length} productos en una sola llamada`);
+        
+        const { data, error } = await supabase.functions.invoke('bulk-product-operations', {
+          body: {
+            operation,
+            productIds: selectedIds
+          }
+        });
+
+        if (error) {
+          console.error(`❌ Error en operación masiva ${operation}:`, error);
+          throw error;
         }
-      });
 
-      if (error) {
-        console.error(`❌ Error en operación masiva ${operation}:`, error);
-        throw error;
+        if (!data.success) {
+          console.error(`❌ Operación ${operation} falló:`, data.error);
+          throw new Error(data.error || `Error en operación ${operation}`);
+        }
+
+        console.log(`✅ Operación ${operation} completada:`, data.affectedRows, 'productos afectados');
+
+        let successMessage = '';
+        switch (operation) {
+          case 'delete':
+            successMessage = `${data.affectedRows} productos eliminados correctamente`;
+            break;
+          case 'activate':
+            successMessage = `${data.affectedRows} productos activados correctamente`;
+            break;
+          case 'deactivate':
+            successMessage = `${data.affectedRows} productos desactivados correctamente`;
+            break;
+        }
+
+        toast({
+          title: "Operación completada",
+          description: successMessage,
+        });
+
+      } else {
+        // Operación grande - dividir en múltiples llamadas
+        console.log(`📦 Dividiendo ${selectedIds.length} productos en lotes de ${MAX_PER_CALL}`);
+        
+        const chunks = [];
+        for (let i = 0; i < selectedIds.length; i += MAX_PER_CALL) {
+          chunks.push(selectedIds.slice(i, i + MAX_PER_CALL));
+        }
+
+        console.log(`🔄 Procesando ${chunks.length} lotes de hasta ${MAX_PER_CALL} productos cada uno`);
+
+        let totalAffected = 0;
+        let chunkIndex = 0;
+
+        for (const chunk of chunks) {
+          chunkIndex++;
+          console.log(`📦 Procesando lote ${chunkIndex}/${chunks.length} con ${chunk.length} productos`);
+
+          const { data, error } = await supabase.functions.invoke('bulk-product-operations', {
+            body: {
+              operation,
+              productIds: chunk
+            }
+          });
+
+          if (error) {
+            console.error(`❌ Error en lote ${chunkIndex} de operación ${operation}:`, error);
+            throw new Error(`Error en lote ${chunkIndex}: ${error.message}. ${totalAffected} productos fueron procesados exitosamente.`);
+          }
+
+          if (!data.success) {
+            console.error(`❌ Lote ${chunkIndex} de operación ${operation} falló:`, data.error);
+            throw new Error(`Lote ${chunkIndex} falló: ${data.error}. ${totalAffected} productos fueron procesados exitosamente.`);
+          }
+
+          totalAffected += data.affectedRows;
+          console.log(`✅ Lote ${chunkIndex} completado: ${data.affectedRows} productos afectados (Total: ${totalAffected})`);
+        }
+
+        console.log(`🎉 Operación masiva ${operation} completada: ${totalAffected} productos procesados en ${chunks.length} lotes`);
+
+        let successMessage = '';
+        switch (operation) {
+          case 'delete':
+            successMessage = `${totalAffected} productos eliminados correctamente en ${chunks.length} lotes`;
+            break;
+          case 'activate':
+            successMessage = `${totalAffected} productos activados correctamente en ${chunks.length} lotes`;
+            break;
+          case 'deactivate':
+            successMessage = `${totalAffected} productos desactivados correctamente en ${chunks.length} lotes`;
+            break;
+        }
+
+        toast({
+          title: "Operación masiva completada",
+          description: successMessage,
+        });
       }
-
-      if (!data.success) {
-        console.error(`❌ Operación ${operation} falló:`, data.error);
-        throw new Error(data.error || `Error en operación ${operation}`);
-      }
-
-      console.log(`✅ Operación ${operation} completada:`, data.affectedRows, 'productos afectados');
-
-      let successMessage = '';
-      switch (operation) {
-        case 'delete':
-          successMessage = `${data.affectedRows} productos eliminados correctamente`;
-          break;
-        case 'activate':
-          successMessage = `${data.affectedRows} productos activados correctamente`;
-          break;
-        case 'deactivate':
-          successMessage = `${data.affectedRows} productos desactivados correctamente`;
-          break;
-      }
-
-      toast({
-        title: "Operación completada",
-        description: successMessage,
-      });
 
       setSelectedProducts(new Set());
       refetchProducts();
       setShowBulkModal(false);
+
     } catch (error) {
       console.error(`❌ Error en operación masiva ${operation}:`, error);
       toast({

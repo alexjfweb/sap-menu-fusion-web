@@ -35,7 +35,7 @@ serve(async (req) => {
 
     const { operation, productIds }: BulkOperationRequest = await req.json();
 
-    // Validaciones
+    // Validaciones básicas
     if (!operation || !productIds || !Array.isArray(productIds)) {
       throw new Error('Invalid request: operation and productIds are required');
     }
@@ -44,83 +44,117 @@ serve(async (req) => {
       throw new Error('No products selected');
     }
 
-    if (productIds.length > 100) {
-      throw new Error('Cannot process more than 100 products at once');
+    // Aumentar límite a 500 productos por operación
+    if (productIds.length > 500) {
+      throw new Error('Cannot process more than 500 products at once. Please split into smaller batches.');
     }
 
     console.log(`🔄 Starting bulk ${operation} operation for ${productIds.length} products`);
-    console.log(`📋 Product IDs:`, productIds.slice(0, 10), productIds.length > 10 ? `... and ${productIds.length - 10} more` : '');
+    console.log(`📋 Product IDs sample:`, productIds.slice(0, 5), productIds.length > 5 ? `... and ${productIds.length - 5} more` : '');
 
-    let result;
-    let affectedRows = 0;
+    // Procesar en lotes de 50 productos para evitar límites de URL
+    const BATCH_SIZE = 50;
+    const batches = [];
+    for (let i = 0; i < productIds.length; i += BATCH_SIZE) {
+      batches.push(productIds.slice(i, i + BATCH_SIZE));
+    }
 
-    switch (operation) {
-      case 'delete':
-        console.log('🗑️ Executing bulk delete...');
-        const { data: deletedData, error: deleteError } = await supabaseClient
-          .from('products')
-          .delete()
-          .in('id', productIds)
-          .select('id, name');
+    console.log(`📦 Processing ${batches.length} batches of up to ${BATCH_SIZE} products each`);
 
-        if (deleteError) {
-          console.error('❌ Delete error:', deleteError);
-          throw deleteError;
+    let totalAffectedRows = 0;
+    const allResults = [];
+    let batchIndex = 0;
+
+    for (const batch of batches) {
+      batchIndex++;
+      console.log(`🔄 Processing batch ${batchIndex}/${batches.length} with ${batch.length} products`);
+
+      let batchResult;
+      let batchAffectedRows = 0;
+
+      try {
+        switch (operation) {
+          case 'delete':
+            console.log(`🗑️ Executing batch delete for ${batch.length} products...`);
+            const { data: deletedData, error: deleteError } = await supabaseClient
+              .from('products')
+              .delete()
+              .in('id', batch)
+              .select('id, name');
+
+            if (deleteError) {
+              console.error(`❌ Delete error in batch ${batchIndex}:`, deleteError);
+              throw deleteError;
+            }
+
+            batchResult = deletedData;
+            batchAffectedRows = deletedData?.length || 0;
+            console.log(`✅ Batch ${batchIndex}: Successfully deleted ${batchAffectedRows} products`);
+            break;
+
+          case 'activate':
+            console.log(`👁️ Executing batch activate for ${batch.length} products...`);
+            const { data: activateData, error: activateError } = await supabaseClient
+              .from('products')
+              .update({ is_available: true })
+              .in('id', batch)
+              .select('id, name');
+
+            if (activateError) {
+              console.error(`❌ Activate error in batch ${batchIndex}:`, activateError);
+              throw activateError;
+            }
+
+            batchResult = activateData;
+            batchAffectedRows = activateData?.length || 0;
+            console.log(`✅ Batch ${batchIndex}: Successfully activated ${batchAffectedRows} products`);
+            break;
+
+          case 'deactivate':
+            console.log(`🚫 Executing batch deactivate for ${batch.length} products...`);
+            const { data: deactivateData, error: deactivateError } = await supabaseClient
+              .from('products')
+              .update({ is_available: false })
+              .in('id', batch)
+              .select('id, name');
+
+            if (deactivateError) {
+              console.error(`❌ Deactivate error in batch ${batchIndex}:`, deactivateError);
+              throw deactivateError;
+            }
+
+            batchResult = deactivateData;
+            batchAffectedRows = deactivateData?.length || 0;
+            console.log(`✅ Batch ${batchIndex}: Successfully deactivated ${batchAffectedRows} products`);
+            break;
+
+          default:
+            throw new Error(`Invalid operation: ${operation}`);
         }
 
-        result = deletedData;
-        affectedRows = deletedData?.length || 0;
-        console.log(`✅ Successfully deleted ${affectedRows} products`);
-        break;
-
-      case 'activate':
-        console.log('👁️ Executing bulk activate...');
-        const { data: activateData, error: activateError } = await supabaseClient
-          .from('products')
-          .update({ is_available: true })
-          .in('id', productIds)
-          .select('id, name');
-
-        if (activateError) {
-          console.error('❌ Activate error:', activateError);
-          throw activateError;
+        totalAffectedRows += batchAffectedRows;
+        if (batchResult) {
+          allResults.push(...batchResult);
         }
 
-        result = activateData;
-        affectedRows = activateData?.length || 0;
-        console.log(`✅ Successfully activated ${affectedRows} products`);
-        break;
-
-      case 'deactivate':
-        console.log('🚫 Executing bulk deactivate...');
-        const { data: deactivateData, error: deactivateError } = await supabaseClient
-          .from('products')
-          .update({ is_available: false })
-          .in('id', productIds)
-          .select('id, name');
-
-        if (deactivateError) {
-          console.error('❌ Deactivate error:', deactivateError);
-          throw deactivateError;
-        }
-
-        result = deactivateData;
-        affectedRows = deactivateData?.length || 0;
-        console.log(`✅ Successfully deactivated ${affectedRows} products`);
-        break;
-
-      default:
-        throw new Error(`Invalid operation: ${operation}`);
+      } catch (batchError) {
+        console.error(`💥 Error in batch ${batchIndex}:`, batchError);
+        // En caso de error en un lote, aún reportamos los lotes exitosos anteriores
+        throw new Error(`Batch ${batchIndex} failed: ${batchError.message}. ${totalAffectedRows} products were processed successfully before this error.`);
+      }
     }
 
     console.log(`🎉 Bulk ${operation} operation completed successfully`);
+    console.log(`📊 Total processed: ${totalAffectedRows} products across ${batches.length} batches`);
 
     return new Response(
       JSON.stringify({
         success: true,
         operation,
-        affectedRows,
-        data: result
+        affectedRows: totalAffectedRows,
+        totalBatches: batches.length,
+        batchSize: BATCH_SIZE,
+        data: allResults
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
