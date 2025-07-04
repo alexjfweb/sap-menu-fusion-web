@@ -142,6 +142,14 @@ const EnhancedBulkActionsModal = ({
                 Eliminar productos ({selectedCount})
               </Button>
             </div>
+            
+            {selectedCount > 50 && (
+              <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  <strong>Operación grande:</strong> Se procesarán {selectedCount} productos en grupos de 50 para mayor estabilidad.
+                </p>
+              </div>
+            )}
           </div>
         )}
 

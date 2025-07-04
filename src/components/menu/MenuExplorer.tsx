@@ -33,6 +33,32 @@ const MenuExplorer = ({
 
   const colors = customization || defaultColors;
 
+  // Ordenar categorías según el orden especificado
+  const sortedCategories = React.useMemo(() => {
+    const categoryOrder = ['Platos principales', 'Platos ejecutivos', 'Platos especiales'];
+    
+    return [...categories].sort((a, b) => {
+      const indexA = categoryOrder.indexOf(a.name);
+      const indexB = categoryOrder.indexOf(b.name);
+      
+      // Si ambas categorías están en el orden predefinido
+      if (indexA !== -1 && indexB !== -1) {
+        return indexA - indexB;
+      }
+      
+      // Si solo una está en el orden predefinido, esa va primero
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      
+      // Si ninguna está en el orden predefinido, usar sort_order o nombre
+      if (a.sort_order !== b.sort_order) {
+        return (a.sort_order || 0) - (b.sort_order || 0);
+      }
+      
+      return a.name.localeCompare(b.name);
+    });
+  }, [categories]);
+
   return (
     <Card 
       className="w-full"
@@ -78,11 +104,11 @@ const MenuExplorer = ({
                 color: selectedCategory === 'all' ? colors.button_text_color : colors.text_color
               }}
             >
-              {categories.length}
+              {sortedCategories.length}
             </Badge>
           </Button>
           
-          {categories.map((category) => (
+          {sortedCategories.map((category) => (
             <Button
               key={category.id}
               variant={selectedCategory === category.id ? 'default' : 'outline'}

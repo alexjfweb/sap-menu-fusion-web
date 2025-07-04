@@ -22,7 +22,7 @@ interface ProductManagementProps {
   onBack?: () => void;
 }
 
-const PRODUCTS_PER_PAGE = 24; // Mostrar 24 productos por página (4x6 grid)
+const PRODUCTS_PER_PAGE = 100; // Aumentado de 24 a 100 productos por página
 
 const ProductManagement = ({ onBack }: ProductManagementProps) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -144,10 +144,10 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     console.log(`🔄 Iniciando operación masiva: ${operation}`);
     console.log(`📋 Total productos seleccionados:`, selectedIds.length);
 
-    if (selectedIds.length > 50) {
+    if (selectedIds.length > 100) {
       toast({
         title: "Demasiados productos",
-        description: "Por favor selecciona máximo 50 productos a la vez para mayor estabilidad.",
+        description: "Por favor selecciona máximo 100 productos a la vez para mayor estabilidad.",
         variant: "destructive",
       });
       return;
@@ -156,7 +156,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     setIsDeleting(true);
     
     try {
-      const CHUNK_SIZE = 20;
+      const CHUNK_SIZE = 50;
       const chunks = [];
       for (let i = 0; i < selectedIds.length; i += CHUNK_SIZE) {
         chunks.push(selectedIds.slice(i, i + CHUNK_SIZE));
@@ -389,7 +389,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
           <div>
             <h2 className="text-2xl font-bold">Gestión de Productos</h2>
             <p className="text-muted-foreground">
-              Administra el menú del restaurante • Paginación optimizada para mejor rendimiento
+              Administra el menú del restaurante • Hasta 100 productos por página para operaciones eficientes
             </p>
           </div>
 
@@ -441,13 +441,13 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
                 {selectedCount > 0 && (
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">
-                      Máx. 50 por operación
+                      Máx. 100 por operación
                     </span>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setShowBulkModal(true)}
-                      disabled={selectedCount > 50}
+                      disabled={selectedCount > 100}
                     >
                       Acciones en lote
                     </Button>
@@ -457,7 +457,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
             {paginatedProducts?.map((product) => (
               <Card key={product.id} className="group hover:shadow-lg transition-shadow">
                 <CardHeader className="pb-3">

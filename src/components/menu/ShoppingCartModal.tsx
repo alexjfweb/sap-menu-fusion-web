@@ -2,13 +2,13 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Trash2, Plus, Minus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import PaymentModal from './PaymentModal';
+import CartItemDeleteModal from './CartItemDeleteModal';
 
 interface ShoppingCartModalProps {
   isOpen: boolean;
@@ -21,11 +21,18 @@ interface ShoppingCartModalProps {
 
 const ShoppingCartModal = ({ isOpen, onClose, cartItems, sessionId, onRefetchCart, totalPrice }: ShoppingCartModalProps) => {
   const [showPayment, setShowPayment] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
   const updateQuantity = async (itemId: string, newQuantity: number) => {
     if (newQuantity <= 0) {
-      await removeItem(itemId);
+      const item = cartItems.find(item => item.id === itemId);
+      if (item) {
+        setItemToDelete(item);
+        setShowDeleteModal(true);
+      }
       return;
     }
 
@@ -47,28 +54,40 @@ const ShoppingCartModal = ({ isOpen, onClose, cartItems, sessionId, onRefetchCar
     }
   };
 
-  const removeItem = async (itemId: string) => {
+  const handleDeleteItem = (item: any) => {
+    setItemToDelete(item);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteItem = async () => {
+    if (!itemToDelete) return;
+
+    setIsDeleting(true);
     try {
       const { error } = await supabase
         .from('cart_items')
         .delete()
-        .eq('id', itemId);
+        .eq('id', itemToDelete.id);
 
       if (error) throw error;
       
       toast({
         title: "Producto eliminado",
-        description: "Producto eliminado del carrito",
+        description: "Producto eliminado del carrito correctamente",
       });
       
       onRefetchCart();
+      setShowDeleteModal(false);
+      setItemToDelete(null);
     } catch (error) {
       console.error('Error removing item:', error);
       toast({
         title: "Error",
-        description: "No se pudo eliminar el producto",
+        description: "No se pudo eliminar el producto del carrito",
         variant: "destructive",
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -158,7 +177,7 @@ const ShoppingCartModal = ({ isOpen, onClose, cartItems, sessionId, onRefetchCar
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => removeItem(item.id)}
+                      onClick={() => handleDeleteItem(item)}
                       className="text-destructive hover:text-destructive"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -207,6 +226,18 @@ const ShoppingCartModal = ({ isOpen, onClose, cartItems, sessionId, onRefetchCar
           }}
         />
       )}
+
+      <CartItemDeleteModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setItemToDelete(null);
+        }}
+        onConfirm={confirmDeleteItem}
+        itemName={itemToDelete?.products?.name || ''}
+        itemQuantity={itemToDelete?.quantity || 0}
+        isLoading={isDeleting}
+      />
     </>
   );
 };
