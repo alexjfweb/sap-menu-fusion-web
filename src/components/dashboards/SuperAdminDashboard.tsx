@@ -37,6 +37,10 @@ import DatabaseTestPanel from '../DatabaseTestPanel';
 import PaymentReminderManagement from '../payment-reminders/PaymentReminderManagement';
 import UserPermissionValidator from '../UserPermissionValidator';
 import AccountVerification from '../AccountVerification';
+import SuperAdminPanel from '../SuperAdminPanel';
+import PaymentConfiguration from '../PaymentConfiguration';
+import SubscriptionPlansManagement from '../subscriptions/SubscriptionPlansManagement';
+import WhatsappConfiguration from '../whatsapp/WhatsappConfiguration';
 
 const SuperAdminDashboard = () => {
   const { profile, signOut } = useAuth();
@@ -47,6 +51,79 @@ const SuperAdminDashboard = () => {
   };
 
   // Si hay una sección activa, mostrar ese componente
+  if (activeSection === 'superadmin-panel') {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="mb-6">
+          <Button variant="outline" onClick={handleBackToDashboard}>
+            ← Volver al Dashboard
+          </Button>
+        </div>
+        <SuperAdminPanel />
+      </div>
+    );
+  }
+
+  if (activeSection === 'payments') {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="mb-6">
+          <Button variant="outline" onClick={handleBackToDashboard}>
+            ← Volver al Dashboard
+          </Button>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Gestión de Configuración de Pagos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PaymentConfiguration />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (activeSection === 'subscriptions') {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="mb-6">
+          <Button variant="outline" onClick={handleBackToDashboard}>
+            ← Volver al Dashboard
+          </Button>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Gestión de Planes de Suscripción</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SubscriptionPlansManagement />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (activeSection === 'whatsapp') {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="mb-6">
+          <Button variant="outline" onClick={handleBackToDashboard}>
+            ← Volver al Dashboard
+          </Button>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Configuración de WhatsApp Business API</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <WhatsappConfiguration />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (activeSection === 'validator') {
     return (
       <div className="min-h-screen bg-background p-6">
@@ -115,10 +192,6 @@ const SuperAdminDashboard = () => {
 
   if (activeSection === 'maintenance') {
     return <MaintenanceTools onBack={handleBackToDashboard} />;
-  }
-
-  if (activeSection === 'subscriptions') {
-    return <SubscriptionManagement onBack={handleBackToDashboard} />;
   }
 
   if (activeSection === 'payment-reminders') {
@@ -205,7 +278,91 @@ const SuperAdminDashboard = () => {
 
         {/* Management Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Verificación de Cuentas - NUEVA SECCIÓN */}
+          {/* Panel de Super Administrador - NUEVA SECCIÓN */}
+          <Card className="hover:shadow-lg transition-shadow duration-300 border-red-200">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Shield className="h-5 w-5 text-red-600" />
+                <span>Panel de Super Admin</span>
+              </CardTitle>
+              <CardDescription>
+                Gestión avanzada de usuarios super administradores
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('superadmin-panel')}
+              >
+                Acceder al Panel
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Configuración de Pagos - CORREGIDA */}
+          <Card className="hover:shadow-lg transition-shadow duration-300 border-purple-200">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <CreditCard className="h-5 w-5 text-purple-600" />
+                <span>Configuración de Pagos</span>
+              </CardTitle>
+              <CardDescription>
+                Administra métodos de pago y configuraciones
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('payments')}
+              >
+                Gestionar Pagos
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Planes de Suscripción - CORREGIDA */}
+          <Card className="hover:shadow-lg transition-shadow duration-300 border-yellow-200">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Package className="h-5 w-5 text-yellow-600" />
+                <span>Planes de Suscripción</span>
+              </CardTitle>
+              <CardDescription>
+                Gestiona planes y suscripciones de usuarios
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('subscriptions')}
+              >
+                Gestionar Suscripciones
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* WhatsApp Business API - CORREGIDA */}
+          <Card className="hover:shadow-lg transition-shadow duration-300 border-emerald-200">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Settings className="h-5 w-5 text-emerald-600" />
+                <span>WhatsApp Business API</span>
+              </CardTitle>
+              <CardDescription>
+                Configura integración con WhatsApp Business
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('whatsapp')}
+              >
+                Configurar WhatsApp
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Verificación de Cuentas */}
           <Card className="hover:shadow-lg transition-shadow duration-300 border-green-200">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
@@ -226,7 +383,7 @@ const SuperAdminDashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Validador de Permisos - NUEVA SECCIÓN */}
+          {/* Validador de Permisos */}
           <Card className="hover:shadow-lg transition-shadow duration-300 border-blue-200">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,11 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSuperAdminAuth } from '@/hooks/useSuperAdminAuth';
 import { Eye, EyeOff, UserCheck, UserX, Key, Mail, Shield } from 'lucide-react';
 
-// Componentes dinámicos con manejo seguro de errores
-const PaymentConfiguration = React.lazy(() => import('./PaymentConfiguration').catch(() => ({ default: () => <div>Error cargando Configuración de Pagos</div> })));
-const SubscriptionPlansManagement = React.lazy(() => import('./subscriptions/SubscriptionPlansManagement').catch(() => ({ default: () => <div>Error cargando Planes de Suscripción</div> })));
-const WhatsappConfiguration = React.lazy(() => import('./whatsapp/WhatsappConfiguration').catch(() => ({ default: () => <div>Error cargando WhatsApp Configuration</div> })));
-
 const SuperAdminPanel = () => {
   const [selectedEmail, setSelectedEmail] = useState<string>('');
   const [newPassword, setNewPassword] = useState('');
@@ -22,7 +18,6 @@ const SuperAdminPanel = () => {
   const [userStatuses, setUserStatuses] = useState<{ [email: string]: any }>({});
   const [mode, setMode] = useState<'check' | 'reset' | 'create'>('check');
   const [fullName, setFullName] = useState('');
-  const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState('verification');
 
   const { loading, checkUserExists, resetPassword, updatePassword, createSuperAdmin } = useSuperAdminAuth();
@@ -31,7 +26,6 @@ const SuperAdminPanel = () => {
 
   useEffect(() => {
     console.log('🔧 SuperAdminPanel montándose...');
-    setMounted(true);
     
     const checkAllUsers = async () => {
       try {
@@ -54,11 +48,6 @@ const SuperAdminPanel = () => {
     };
 
     checkAllUsers();
-
-    return () => {
-      console.log('🔧 SuperAdminPanel desmontándose...');
-      setMounted(false);
-    };
   }, [checkUserExists]);
 
   const handleCheckUser = async () => {
@@ -152,33 +141,6 @@ const SuperAdminPanel = () => {
     }
   };
 
-  // Componente de carga seguro
-  const SafeLoadingSpinner = ({ message }: { message: string }) => (
-    <div className="flex items-center justify-center p-8">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-4"></div>
-      <p className="text-muted-foreground">{message}</p>
-    </div>
-  );
-
-  // Componente wrapper seguro para evitar errores de DOM
-  const SafeTabContent = ({ value, isActive, children }: { value: string, isActive: boolean, children: React.ReactNode }) => {
-    if (!mounted || !isActive) return null;
-    
-    return (
-      <TabsContent value={value} className="space-y-6">
-        {children}
-      </TabsContent>
-    );
-  };
-
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
-        <SafeLoadingSpinner message="Cargando Panel de Super Administrador..." />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -193,30 +155,19 @@ const SuperAdminPanel = () => {
           </p>
         </div>
 
-        {/* Debug info */}
-        <div className="text-xs text-muted-foreground text-center">
-          Tab activa: {activeTab} | Estado: {mounted ? 'Montado' : 'No montado'}
-        </div>
-
         {/* Tabs Navigation */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8">
+          <TabsList className="grid w-full grid-cols-2 mb-8">
             <TabsTrigger value="verification" className="text-sm">
               Verificación
             </TabsTrigger>
             <TabsTrigger value="management" className="text-sm">
-              Usuarios
-            </TabsTrigger>
-            <TabsTrigger value="payments" className="text-sm">
-              Pagos
-            </TabsTrigger>
-            <TabsTrigger value="subscriptions" className="text-sm">
-              Suscripciones
+              Gestión de Usuarios
             </TabsTrigger>
           </TabsList>
 
           {/* Verificación Tab */}
-          <SafeTabContent value="verification" isActive={activeTab === 'verification'}>
+          <TabsContent value="verification" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -261,10 +212,10 @@ const SuperAdminPanel = () => {
                 })}
               </CardContent>
             </Card>
-          </SafeTabContent>
+          </TabsContent>
 
           {/* Management Tab */}
-          <SafeTabContent value="management" isActive={activeTab === 'management'}>
+          <TabsContent value="management" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -413,49 +364,7 @@ const SuperAdminPanel = () => {
                 )}
               </CardContent>
             </Card>
-          </SafeTabContent>
-
-          {/* Payments Tab */}
-          <SafeTabContent value="payments" isActive={activeTab === 'payments'}>
-            <Card>
-              <CardHeader>
-                <CardTitle>Gestión de Configuración de Pagos</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
-                  <p className="text-sm text-blue-800">
-                    🔧 <strong>Estado:</strong> Cargando Configuración de Pagos...
-                  </p>
-                </div>
-                <React.Suspense 
-                  fallback={<SafeLoadingSpinner message="Cargando configuración de pagos..." />}
-                >
-                  <PaymentConfiguration />
-                </React.Suspense>
-              </CardContent>
-            </Card>
-          </SafeTabContent>
-
-          {/* Subscriptions Tab */}
-          <SafeTabContent value="subscriptions" isActive={activeTab === 'subscriptions'}>
-            <Card>
-              <CardHeader>
-                <CardTitle>Gestión de Planes de Suscripción</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded">
-                  <p className="text-sm text-green-800">
-                    🔧 <strong>Estado:</strong> Cargando Planes de Suscripción...
-                  </p>
-                </div>
-                <React.Suspense 
-                  fallback={<SafeLoadingSpinner message="Cargando planes de suscripción..." />}
-                >
-                  <SubscriptionPlansManagement />
-                </React.Suspense>
-              </CardContent>
-            </Card>
-          </SafeTabContent>
+          </TabsContent>
         </Tabs>
       </div>
     </div>
