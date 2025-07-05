@@ -14,6 +14,7 @@ import DeleteProductModal from './DeleteProductModal';
 import EnhancedBulkActionsModal from './EnhancedBulkActionsModal';
 import ProductPagination from './ProductPagination';
 import { Tables } from '@/integrations/supabase/types';
+import { sortProductsByStandardizedCategories, sortCategoriesByStandardOrder } from '@/lib/categoryUtils';
 
 type Product = Tables<'products'>;
 type Category = Tables<'categories'>;
@@ -29,37 +30,6 @@ interface ProductManagementProps {
 
 const PRODUCTS_PER_PAGE = 100;
 
-// Función para ordenar productos por categoría y luego alfabéticamente
-const sortProductsByCategory = (products: ProductWithPartialCategory[], categories: Category[]) => {
-  const categoryOrder = ['Platos principales', 'Platos ejecutivos', 'Platos especiales'];
-  
-  return products.sort((a, b) => {
-    const categoryA = a.categories?.name || '';
-    const categoryB = b.categories?.name || '';
-    
-    // Primero ordenar por categoría según el orden predefinido
-    const indexA = categoryOrder.indexOf(categoryA);
-    const indexB = categoryOrder.indexOf(categoryB);
-    
-    if (indexA !== -1 && indexB !== -1) {
-      if (indexA !== indexB) {
-        return indexA - indexB;
-      }
-    } else if (indexA !== -1) {
-      return -1;
-    } else if (indexB !== -1) {
-      return 1;
-    }
-    
-    // Si están en la misma categoría o ambas fuera del orden predefinido, ordenar alfabéticamente
-    if (categoryA === categoryB) {
-      return a.name.localeCompare(b.name);
-    }
-    
-    return categoryA.localeCompare(categoryB);
-  });
-};
-
 const ProductManagement = ({ onBack }: ProductManagementProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -72,6 +42,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -119,32 +90,13 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     },
   });
 
-  // Ordenar categorías según el orden establecido
+  // Ordenar categorías según el orden establecido usando la utilidad centralizada
   const sortedCategories = React.useMemo(() => {
     if (!categories) return [];
-    
-    const categoryOrder = ['Platos principales', 'Platos ejecutivos', 'Platos especiales'];
-    
-    return [...categories].sort((a, b) => {
-      const indexA = categoryOrder.indexOf(a.name);
-      const indexB = categoryOrder.indexOf(b.name);
-      
-      if (indexA !== -1 && indexB !== -1) {
-        return indexA - indexB;
-      }
-      
-      if (indexA !== -1) return -1;
-      if (indexB !== -1) return 1;
-      
-      if (a.sort_order !== b.sort_order) {
-        return (a.sort_order || 0) - (b.sort_order || 0);
-      }
-      
-      return a.name.localeCompare(b.name);
-    });
+    return sortCategoriesByStandardOrder(categories);
   }, [categories]);
 
-  // Aplicar ordenamiento por categoría y alfabético a los productos filtrados
+  // Aplicar ordenamiento por categoría y alfabético a los productos filtrados usando la utilidad centralizada
   const sortedAndFilteredProducts = React.useMemo(() => {
     if (!products || !categories) return [];
     
@@ -156,7 +108,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
       return matchesSearch && matchesCategory;
     });
     
-    return sortProductsByCategory(filtered, categories);
+    return sortProductsByStandardizedCategories(filtered, categories);
   }, [products, categories, searchTerm, selectedCategory]);
 
   const totalProducts = sortedAndFilteredProducts?.length || 0;
@@ -170,6 +122,53 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     setCurrentPage(1);
     setSelectedProducts(new Set());
   }, [searchTerm, selectedCategory]);
+
+  // Función mejorada para refrescar datos de forma robusta
+  const refreshProductData = async (maxRetries = 3): Promise<boolean> => {
+    setIsRefreshing(true);
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🔄 Intento ${attempt}/${maxRetries} - Refrescando datos de productos...`);
+        
+        // Invalidar queries y esperar refetch
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['products'] }),
+          queryClient.invalidateQueries({ queryKey: ['categories'] })
+        ]);
+        
+        // Esperar un poco para que se procesen las invalidaciones
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Refetch explícito con timeout
+        const refetchPromise = refetchProducts();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout')), 5000)
+        );
+        
+        await Promise.race([refetchPromise, timeoutPromise]);
+        
+        console.log('✅ Datos refrescados exitosamente');
+        setIsRefreshing(false);
+        return true;
+        
+      } catch (error) {
+        console.warn(`⚠️ Intento ${attempt} falló:`, error);
+        
+        if (attempt === maxRetries) {
+          console.error('❌ Todos los intentos de refetch fallaron');
+          setIsRefreshing(false);
+          return false;
+        }
+        
+        // Esperar antes del siguiente intento
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
+    }
+    
+    setIsRefreshing(false);
+    return false;
+  };
 
   const checkProductDependencies = async (productId: string) => {
     try {
@@ -312,7 +311,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
       });
 
       setSelectedProducts(new Set());
-      refetchProducts();
+      await refreshProductData();
       setShowBulkModal(false);
 
     } catch (error) {
@@ -354,7 +353,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
         description: `${product.name} ${!product.is_available ? 'activado' : 'desactivado'} correctamente`,
       });
 
-      refetchProducts();
+      await refreshProductData();
     } catch (error) {
       console.error('❌ Error updating product:', error);
       toast({
@@ -428,7 +427,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
         description: `${productToDelete.name} eliminado correctamente`,
       });
 
-      refetchProducts();
+      await refreshProductData();
       setShowDeleteModal(false);
       setProductToDelete(null);
     } catch (error) {
@@ -456,32 +455,42 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
   };
 
   const handleSaveProduct = async () => {
-    console.log('💾 Producto guardado, refrescando lista...');
+    console.log('💾 Producto guardado, iniciando refesco robusto...');
     
     try {
-      // Invalidar queries para forzar refetch inmediato
-      await queryClient.invalidateQueries({ queryKey: ['products'] });
-      await queryClient.invalidateQueries({ queryKey: ['categories'] });
+      // Refrescar datos de forma robusta
+      const refreshSuccess = await refreshProductData();
       
-      // Refrescar datos de forma asíncrona
-      await refetchProducts();
-      
-      handleCloseForm();
-      
-      toast({
-        title: "Éxito",
-        description: editingProduct ? "Producto actualizado correctamente" : "Producto creado correctamente",
-      });
-      
-      console.log('✅ Producto guardado y lista actualizada');
+      if (refreshSuccess) {
+        handleCloseForm();
+        
+        toast({
+          title: "Éxito",
+          description: editingProduct ? "Producto actualizado correctamente" : "Producto creado correctamente",
+        });
+        
+        console.log('✅ Producto guardado y lista actualizada exitosamente');
+      } else {
+        toast({
+          title: "Advertencia",
+          description: "El producto se guardó, pero hubo problemas actualizando la lista. Refresca la página si no ves los cambios.",
+          variant: "destructive",
+        });
+        
+        // Cerrar formulario de todos modos
+        handleCloseForm();
+      }
       
     } catch (error) {
-      console.error('❌ Error refrescando productos:', error);
+      console.error('❌ Error en handleSaveProduct:', error);
       toast({
         title: "Advertencia",
         description: "El producto se guardó, pero puede que tengas que recargar para verlo en la lista.",
         variant: "destructive",
       });
+      
+      // Cerrar formulario de todos modos
+      handleCloseForm();
     }
   };
 
@@ -517,6 +526,9 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
               <div className="flex items-center space-x-2">
                 <ChefHat className="h-8 w-8 text-primary" />
                 <h1 className="text-2xl font-bold">Gestión de Productos</h1>
+                {isRefreshing && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                )}
               </div>
             </div>
             <div className="flex items-center space-x-2">

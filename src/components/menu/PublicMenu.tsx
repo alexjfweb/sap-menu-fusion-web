@@ -15,6 +15,7 @@ import ReservationModal from './ReservationModal';
 import BusinessInfoDisplay from './BusinessInfoDisplay';
 import { usePublicMenuCustomization, getDefaultCustomization } from '@/hooks/useMenuCustomization';
 import { Tables } from '@/integrations/supabase/types';
+import { sortProductsByStandardizedCategories, sortCategoriesByStandardOrder } from '@/lib/categoryUtils';
 
 type Product = Tables<'products'>;
 type Category = Tables<'categories'>;
@@ -32,7 +33,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   const [sessionId, setSessionId] = useState<string>('');
   const { toast } = useToast();
 
-  // Generate or get session ID for cart
   useEffect(() => {
     try {
       let storedSessionId = '';
@@ -62,7 +62,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }
   }, []);
 
-  // Fetch customization with optimized debugging
   const { 
     data: customization, 
     isLoading: customizationLoading,
@@ -70,7 +69,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     refetch: refetchCustomization
   } = usePublicMenuCustomization();
   
-  // Apply colors with clear debugging
   const colors = React.useMemo(() => {
     const defaults = getDefaultCustomization();
     
@@ -107,7 +105,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     return defaults;
   }, [customization, customizationLoading, customizationError]);
 
-  // Fetch business info
   const { 
     data: businessInfo, 
     isLoading: businessInfoLoading, 
@@ -141,7 +138,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     staleTime: 10 * 60 * 1000,
   });
 
-  // Fetch categories with custom ordering
   const { 
     data: categories, 
     isLoading: categoriesLoading, 
@@ -165,29 +161,9 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
           throw new Error(`Failed to fetch categories: ${error.message}`);
         }
         
-        // Orden personalizado: platos principales, platos ejecutivos, platos especiales, otros
-        const customOrder = ['platos principales', 'platos ejecutivos', 'platos especiales'];
-        const sortedCategories = data?.sort((a, b) => {
-          const aName = a.name.toLowerCase();
-          const bName = b.name.toLowerCase();
-          
-          const aIndex = customOrder.findIndex(order => aName.includes(order));
-          const bIndex = customOrder.findIndex(order => bName.includes(order));
-          
-          // Si ambos están en el orden personalizado
-          if (aIndex !== -1 && bIndex !== -1) {
-            return aIndex - bIndex;
-          }
-          
-          // Si solo uno está en el orden personalizado, el que está va primero
-          if (aIndex !== -1) return -1;
-          if (bIndex !== -1) return 1;
-          
-          // Si ninguno está en el orden personalizado, orden alfabético
-          return aName.localeCompare(bName);
-        }) || [];
+        const sortedCategories = sortCategoriesByStandardOrder(data || []);
         
-        console.log(`Successfully fetched ${sortedCategories.length} categories with custom order`);
+        console.log(`Successfully fetched ${sortedCategories.length} categories with standardized order`);
         return sortedCategories;
       } catch (error) {
         console.error('Categories fetch error:', error);
@@ -198,7 +174,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch products
   const { 
     data: products, 
     isLoading: productsLoading, 
@@ -240,7 +215,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Load cart items
   const { data: cartData, refetch: refetchCart } = useQuery({
     queryKey: ['cart-items', sessionId],
     queryFn: async () => {
@@ -287,10 +261,16 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }
   }, [cartData]);
 
-  const filteredProducts = products?.filter(product => {
-    if (selectedCategory === 'all') return true;
-    return product.category_id === selectedCategory;
-  });
+  const filteredProducts = React.useMemo(() => {
+    if (!products) return [];
+    
+    const filtered = products.filter(product => {
+      if (selectedCategory === 'all') return true;
+      return product.category_id === selectedCategory;
+    });
+    
+    return sortProductsByStandardizedCategories(filtered, categories);
+  }, [products, selectedCategory, categories]);
 
   const addToCart = async (product: Product, quantity: number = 1, specialInstructions?: string) => {
     if (!sessionId) {
@@ -365,7 +345,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   console.log('🎯 [RENDER] Current colors:', colors);
   console.log('🎯 [RENDER] Button color will be:', colors.button_bg_color);
 
-  // Show loading
   if (isLoading) {
     return (
       <div 
@@ -383,7 +362,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     );
   }
 
-  // Show error state
   if (hasError) {
     console.error('Menu loading error:', { productsError, categoriesError });
     
@@ -431,7 +409,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     );
   }
 
-  // Show no products state
   if (!products || products.length === 0) {
     console.warn('No products found');
     
@@ -497,7 +474,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
       className="min-h-screen"
       style={{ backgroundColor: colors.menu_bg_color }}
     >
-      {/* Header */}
       <header 
         className="border-b backdrop-blur sticky top-0 z-50"
         style={{ 
@@ -526,7 +502,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
                 >
                   Menú del Restaurante
                 </h1>
-                {/* Debug info - solo mostrar en development */}
                 {process.env.NODE_ENV === 'development' && (
                   <div className="flex flex-col text-xs">
                     <Badge variant="outline" className="mb-1">
@@ -586,15 +561,12 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="space-y-6">
-          {/* Business Info Display */}
           {businessInfo && !businessInfoLoading && (
             <BusinessInfoDisplay businessInfo={businessInfo} />
           )}
 
-          {/* Menu Explorer */}
           <MenuExplorer
             categories={categories || []}
             selectedCategory={selectedCategory}
@@ -602,7 +574,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
             customization={colors}
           />
 
-          {/* Products Grid */}
           {filteredProducts && filteredProducts.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredProducts.map((product) => (
@@ -742,7 +713,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         </div>
       </main>
 
-      {/* Modals */}
       {showCart && (
         <ShoppingCartModal
           isOpen={showCart}

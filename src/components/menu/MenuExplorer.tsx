@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { ChefHat, Grid3X3 } from 'lucide-react';
 import { Tables } from '@/integrations/supabase/types';
+import { sortCategoriesByStandardOrder } from '@/lib/categoryUtils';
 
 type Category = Tables<'categories'>;
 type MenuCustomization = Tables<'menu_customization'>;
@@ -33,30 +34,9 @@ const MenuExplorer = ({
 
   const colors = customization || defaultColors;
 
-  // Ordenar categorías según el orden especificado - MISMO ORDEN QUE EN PRODUCTMANAGEMENT
+  // Ordenar categorías según el orden establecido usando la utilidad centralizada
   const sortedCategories = React.useMemo(() => {
-    const categoryOrder = ['Platos principales', 'Platos ejecutivos', 'Platos especiales'];
-    
-    return [...categories].sort((a, b) => {
-      const indexA = categoryOrder.indexOf(a.name);
-      const indexB = categoryOrder.indexOf(b.name);
-      
-      // Si ambas categorías están en el orden predefinido
-      if (indexA !== -1 && indexB !== -1) {
-        return indexA - indexB;
-      }
-      
-      // Si solo una está en el orden predefinido, esa va primero
-      if (indexA !== -1) return -1;
-      if (indexB !== -1) return 1;
-      
-      // Si ninguna está en el orden predefinido, usar sort_order o nombre
-      if (a.sort_order !== b.sort_order) {
-        return (a.sort_order || 0) - (b.sort_order || 0);
-      }
-      
-      return a.name.localeCompare(b.name);
-    });
+    return sortCategoriesByStandardOrder(categories);
   }, [categories]);
 
   return (
