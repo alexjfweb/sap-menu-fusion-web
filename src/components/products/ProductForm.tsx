@@ -30,6 +30,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
   const { toast } = useToast();
   const { uploadFile, uploading } = useFileUpload();
   const [loading, setLoading] = useState(false);
+  const [confirmingCreation, setConfirmingCreation] = useState(false);
   const [uploadMethod, setUploadMethod] = useState<'pc' | 'url'>('pc');
   const [imageUrl, setImageUrl] = useState('');
   const [formData, setFormData] = useState({
@@ -92,6 +93,42 @@ const ProductForm: React.FC<ProductFormProps> = ({
     }
   };
 
+  // Función para confirmar que el producto se creó correctamente
+  const confirmProductCreation = async (productName: string, maxRetries = 5): Promise<boolean> => {
+    console.log('🔍 Confirmando creación del producto:', productName);
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('id, name')
+          .eq('name', productName)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (error) {
+          console.error(`❌ Error en intento ${attempt} de confirmación:`, error);
+          if (attempt === maxRetries) throw error;
+        } else if (data && data.length > 0) {
+          console.log('✅ Producto confirmado en la base de datos:', data[0]);
+          return true;
+        }
+
+        // Esperar antes del siguiente intento
+        if (attempt < maxRetries) {
+          const delay = Math.min(1000 * attempt, 3000); // Incrementar delay hasta 3s
+          console.log(`⏳ Esperando ${delay}ms antes del siguiente intento...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      } catch (error) {
+        console.error(`❌ Error en confirmación intento ${attempt}:`, error);
+        if (attempt === maxRetries) throw error;
+      }
+    }
+
+    return false;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -137,7 +174,22 @@ const ProductForm: React.FC<ProductFormProps> = ({
         throw error;
       }
 
-      console.log('✅ Producto guardado exitosamente');
+      console.log('✅ Producto guardado exitosamente en la base de datos');
+
+      // Para productos nuevos, confirmar que se creó correctamente antes de continuar
+      if (!product) {
+        console.log('🔍 Iniciando confirmación de creación...');
+        setConfirmingCreation(true);
+        
+        const confirmed = await confirmProductCreation(formData.name);
+        
+        if (!confirmed) {
+          throw new Error('No se pudo confirmar la creación del producto en la base de datos');
+        }
+        
+        console.log('✅ Creación del producto confirmada exitosamente');
+        setConfirmingCreation(false);
+      }
       
       toast({
         title: product ? "Producto actualizado" : "Producto creado",
@@ -149,6 +201,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
       
     } catch (error) {
       console.error('❌ Error saving product:', error);
+      setConfirmingCreation(false);
       toast({
         title: "Error",
         description: `No se pudo ${product ? 'actualizar' : 'crear'} el producto`,
@@ -423,8 +476,10 @@ const ProductForm: React.FC<ProductFormProps> = ({
               <Button type="button" variant="outline" onClick={onCancel}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={loading || uploading}>
-                {loading ? 'Guardando...' : (product ? 'Actualizar' : 'Crear')}
+              <Button type="submit" disabled={loading || uploading || confirmingCreation}>
+                {loading ? 'Guardando...' 
+                  : confirmingCreation ? 'Confirmando creación...'
+                  : (product ? 'Actualizar' : 'Crear')}
               </Button>
             </div>
           </form>

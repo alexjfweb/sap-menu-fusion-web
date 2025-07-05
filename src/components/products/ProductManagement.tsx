@@ -123,9 +123,46 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     setSelectedProducts(new Set());
   }, [searchTerm, selectedCategory]);
 
-  // Función mejorada para refrescar datos de forma robusta
-  const refreshProductData = async (maxRetries = 3): Promise<boolean> => {
+  // Función mejorada para refrescar datos de forma robusta con cache optimista
+  const refreshProductData = async (newProductName?: string, maxRetries = 5): Promise<boolean> => {
     setIsRefreshing(true);
+    
+    // PASO 1: Cache optimista - si tenemos el nombre del nuevo producto, agregarlo temporalmente
+    let optimisticProduct: ProductWithPartialCategory | null = null;
+    if (newProductName && !editingProduct) {
+      optimisticProduct = {
+        id: 'temp-' + Date.now(),
+        name: newProductName,
+        description: 'Producto recién creado...',
+        price: 0,
+        category_id: null,
+        product_type: 'plato' as any,
+        is_available: true,
+        preparation_time: 15,
+        calories: null,
+        is_vegetarian: false,
+        is_vegan: false,
+        is_gluten_free: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        image_url: null,
+        ingredients: null,
+        allergens: null,
+        categories: null
+      };
+
+      // Actualizar cache optimista
+      queryClient.setQueryData(['products'], (oldData: ProductWithPartialCategory[] | undefined) => {
+        if (!oldData) return [optimisticProduct!];
+        return [optimisticProduct!, ...oldData];
+      });
+
+      console.log('✨ Cache optimista aplicado para:', newProductName);
+    }
+
+    // PASO 2: Delay estratégico para asegurar propagación en la base de datos
+    console.log('⏳ Esperando propagación de datos...');
+    await new Promise(resolve => setTimeout(resolve, 800));
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -138,15 +175,30 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
         ]);
         
         // Esperar un poco para que se procesen las invalidaciones
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 200));
         
         // Refetch explícito con timeout
         const refetchPromise = refetchProducts();
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout')), 5000)
+          setTimeout(() => reject(new Error('Timeout')), 8000)
         );
         
-        await Promise.race([refetchPromise, timeoutPromise]);
+        const result = await Promise.race([refetchPromise, timeoutPromise]);
+        
+        // PASO 3: Verificar que el nuevo producto aparezca en la lista
+        if (newProductName && !editingProduct) {
+          const { data: verificationData } = await supabase
+            .from('products')
+            .select('id, name')
+            .eq('name', newProductName)
+            .limit(1);
+
+          if (!verificationData || verificationData.length === 0) {
+            throw new Error(`Producto "${newProductName}" no encontrado en refetch`);
+          }
+
+          console.log('✅ Nuevo producto verificado en refetch:', verificationData[0]);
+        }
         
         console.log('✅ Datos refrescados exitosamente');
         setIsRefreshing(false);
@@ -157,12 +209,23 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
         
         if (attempt === maxRetries) {
           console.error('❌ Todos los intentos de refetch fallaron');
+          
+          // Limpiar cache optimista si falló
+          if (optimisticProduct) {
+            queryClient.setQueryData(['products'], (oldData: ProductWithPartialCategory[] | undefined) => {
+              if (!oldData) return [];
+              return oldData.filter(p => p.id !== optimisticProduct!.id);
+            });
+            console.log('🧹 Cache optimista limpiado debido a fallo');
+          }
+          
           setIsRefreshing(false);
           return false;
         }
         
-        // Esperar antes del siguiente intento
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        // Esperar antes del siguiente intento con backoff exponencial
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
     
@@ -458,15 +521,18 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     console.log('💾 Producto guardado, iniciando refesco robusto...');
     
     try {
-      // Refrescar datos de forma robusta
-      const refreshSuccess = await refreshProductData();
+      // Para productos nuevos, usar el nombre del producto para la verificación optimista
+      const productName = editingProduct ? undefined : 'Nuevo Producto';
+      
+      // Refrescar datos de forma robusta con cache optimista
+      const refreshSuccess = await refreshProductData(productName);
       
       if (refreshSuccess) {
         handleCloseForm();
         
         toast({
           title: "Éxito",
-          description: editingProduct ? "Producto actualizado correctamente" : "Producto creado correctamente",
+          description: editingProduct ? "Producto actualizado correctamente" : "Producto creado correctamente y visible en la lista",
         });
         
         console.log('✅ Producto guardado y lista actualizada exitosamente');
