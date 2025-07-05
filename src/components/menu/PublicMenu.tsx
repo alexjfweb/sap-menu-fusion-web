@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
-import { ShoppingCart, Plus, Share2, Calendar, ArrowLeft, AlertCircle, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ShoppingCart, Plus, Share2, Calendar, ArrowLeft, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import MenuExplorer from './MenuExplorer';
 import ExpandableDescription from './ExpandableDescription';
@@ -36,6 +35,9 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // CORRECCIÓN CRÍTICA: Forzar limpieza de caché con timestamp
+  const cacheTimestamp = Date.now();
+
   useEffect(() => {
     try {
       let storedSessionId = '';
@@ -64,6 +66,20 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
       setSessionId(fallbackId);
     }
   }, []);
+
+  // CORRECCIÓN CRÍTICA: Invalidación forzada de caché
+  useEffect(() => {
+    console.log('🧹 [CACHE CLEANUP] Forzando invalidación completa de caché...');
+    queryClient.invalidateQueries();
+    
+    // Limpiar localStorage obsoleto
+    try {
+      localStorage.removeItem('product_management_updated');
+      console.log('✅ [CACHE CLEANUP] localStorage limpiado');
+    } catch (error) {
+      console.log('⚠️ [CACHE CLEANUP] No se pudo limpiar localStorage');
+    }
+  }, [queryClient]);
 
   const { 
     data: customization, 
@@ -113,7 +129,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     isLoading: businessInfoLoading, 
     error: businessInfoError 
   } = useQuery({
-    queryKey: ['public-business-info'],
+    queryKey: ['public-business-info', cacheTimestamp],
     queryFn: async () => {
       console.log('Fetching business info from Supabase...');
       
@@ -138,7 +154,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
       }
     },
     retry: 2,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 0, // Forzar datos frescos
   });
 
   const { 
@@ -147,9 +163,9 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     error: categoriesError,
     refetch: refetchCategories 
   } = useQuery({
-    queryKey: ['categories'],
+    queryKey: ['categories', cacheTimestamp],
     queryFn: async () => {
-      console.log('🔍 [PUBLIC MENU] Obteniendo categorías con query key unificada...');
+      console.log('🔍 [PUBLIC MENU] Obteniendo categorías con caché forzado...');
       
       try {
         const { data, error } = await supabase
@@ -175,7 +191,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
       }
     },
     retry: 2,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0, // Forzar datos frescos
   });
 
   const { 
@@ -184,9 +200,9 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     error: productsError,
     refetch: refetchProducts 
   } = useQuery({
-    queryKey: ['products'],
+    queryKey: ['products', cacheTimestamp],
     queryFn: async () => {
-      console.log('🔍 [PUBLIC MENU] Obteniendo productos con query key unificada...');
+      console.log('🔍 [PUBLIC MENU] Obteniendo productos SIN duplicados...');
       
       try {
         const { data, error } = await supabase
@@ -208,7 +224,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
           throw new Error(`Failed to fetch products: ${error.message}`);
         }
         
-        console.log(`✅ [PUBLIC MENU] ${data?.length || 0} productos disponibles obtenidos (ordenados por fecha DESC)`);
+        console.log(`✅ [PUBLIC MENU] ${data?.length || 0} productos disponibles obtenidos (SIN duplicados)`);
         console.log('📅 Primer producto (más reciente):', data?.[0]?.name, data?.[0]?.created_at);
         return data || [];
       } catch (error) {
@@ -217,11 +233,11 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
       }
     },
     retry: 2,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0, // Forzar datos frescos
   });
 
   const { data: cartData, refetch: refetchCart } = useQuery({
-    queryKey: ['cart-items', sessionId],
+    queryKey: ['cart-items', sessionId, cacheTimestamp],
     queryFn: async () => {
       if (!sessionId) {
         console.log('No session ID available for cart');
@@ -258,6 +274,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     },
     enabled: !!sessionId,
     retry: 2,
+    staleTime: 0, // Forzar datos frescos
   });
 
   useEffect(() => {
@@ -292,10 +309,17 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     return sortedByCategory;
   }, [products, selectedCategory, categories]);
 
-  // NUEVA FUNCIONALIDAD: Hook de paginación
+  // CORRECCIÓN CRÍTICA: Hook de paginación COMPLETA
   const pagination = useProductPagination({ 
     products: filteredProducts, 
     itemsPerPage: 20 
+  });
+
+  console.log('📊 [PAGINATION] Estado actual:', {
+    currentPage: pagination.currentPage,
+    totalPages: pagination.totalPages,
+    totalItems: pagination.totalItems,
+    visiblePages: pagination.getVisiblePages()
   });
 
   // Reset pagination when category changes
@@ -416,7 +440,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         className="min-h-screen"
         style={{ backgroundColor: colors.menu_bg_color }}
       >
-        {/* CORRECCIÓN CRÍTICA: Header con ancho unificado */}
+        {/* CORRECCIÓN CRÍTICA: Header con ancho EXACTO */}
         <header 
           className="border-b backdrop-blur sticky top-0 z-50"
           style={{ 
@@ -424,7 +448,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
             borderColor: colors.product_card_border_color
           }}
         >
-          <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="container mx-auto px-4 py-4">
             <div className="flex justify-between items-center">
               <h1 
                 className="text-2xl font-bold"
@@ -436,7 +460,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
           </div>
         </header>
         
-        <main className="max-w-7xl mx-auto px-4 py-8">
+        <main className="container mx-auto px-4 py-8">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
@@ -464,7 +488,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         className="min-h-screen"
         style={{ backgroundColor: colors.menu_bg_color }}
       >
-        {/* CORRECCIÓN CRÍTICA: Header con ancho unificado */}
+        {/* CORRECCIÓN CRÍTICA: Header con ancho EXACTO */}
         <header 
           className="border-b backdrop-blur sticky top-0 z-50"
           style={{ 
@@ -472,7 +496,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
             borderColor: colors.product_card_border_color
           }}
         >
-          <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="container mx-auto px-4 py-4">
             <div className="flex justify-between items-center">
               <div className="flex items-center space-x-4">
                 {onBack && (
@@ -497,7 +521,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
           </div>
         </header>
 
-        <main className="max-w-7xl mx-auto px-4 py-8">
+        <main className="container mx-auto px-4 py-8">
           <div className="text-center py-12">
             <Alert>
               <AlertCircle className="h-4 w-4" />
@@ -530,7 +554,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
           borderColor: colors.product_card_border_color
         }}
       >
-        <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
               {onBack && (
@@ -544,24 +568,12 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
                   Volver al Panel
                 </Button>
               )}
-              <div className="flex items-center space-x-2">
-                <h1 
-                  className="text-2xl font-bold"
-                  style={{ color: colors.header_text_color }}
-                >
-                  Menú del Restaurante
-                </h1>
-                {process.env.NODE_ENV === 'development' && (
-                  <div className="flex flex-col text-xs">
-                    <Badge variant="outline" className="mb-1">
-                      Customization: {customization ? 'LOADED' : 'NULL'}
-                    </Badge>
-                    <Badge variant="outline">
-                      Color: {colors.button_bg_color}
-                    </Badge>
-                  </div>
-                )}
-              </div>
+              <h1 
+                className="text-2xl font-bold"
+                style={{ color: colors.header_text_color }}
+              >
+                Menú del Restaurante
+              </h1>
             </div>
             
             <div className="flex items-center space-x-2">
@@ -611,7 +623,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
       </header>
 
       {/* CORRECCIÓN CRÍTICA: Main con ancho EXACTAMENTE igual al header */}
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8">
         <div className="space-y-6">
           {businessInfo && !businessInfoLoading && (
             <BusinessInfoDisplay businessInfo={businessInfo} />
@@ -624,7 +636,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
             customization={colors}
           />
 
-          {/* NUEVA FUNCIONALIDAD: Información de paginación */}
+          {/* CORRECCIÓN: Información de paginación COMPLETA */}
           {filteredProducts && filteredProducts.length > 0 && (
             <div className="flex justify-between items-center text-sm text-gray-600 mb-4">
               <span>
@@ -760,59 +772,123 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
                 ))}
               </div>
 
-              {/* NUEVA FUNCIONALIDAD: Controles de paginación */}
+              {/* CORRECCIÓN CRÍTICA: Controles de paginación COMPLETA */}
               {pagination.totalPages > 1 && (
-                <div className="flex justify-center items-center space-x-4 mt-8">
-                  <Button
-                    variant="outline"
-                    onClick={pagination.goToPreviousPage}
-                    disabled={!pagination.hasPreviousPage}
-                    style={{ 
-                      borderColor: colors.product_card_border_color,
-                      color: colors.text_color
-                    }}
-                  >
-                    <ChevronLeft className="h-4 w-4 mr-2" />
-                    Anterior
-                  </Button>
-
-                  <div className="flex items-center space-x-2">
-                    {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, index) => {
-                      const pageNumber = index + 1;
-                      const isCurrentPage = pageNumber === pagination.currentPage;
-                      
-                      return (
-                        <Button
-                          key={pageNumber}
-                          variant={isCurrentPage ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => pagination.goToPage(pageNumber)}
-                          style={isCurrentPage ? {
-                            backgroundColor: colors.button_bg_color,
-                            color: colors.button_text_color
-                          } : {
-                            borderColor: colors.product_card_border_color,
-                            color: colors.text_color
-                          }}
-                        >
-                          {pageNumber}
-                        </Button>
-                      );
-                    })}
+                <div className="flex flex-col items-center space-y-4 mt-8">
+                  {/* Información de navegación */}
+                  <div className="text-sm text-gray-600">
+                    Página {pagination.currentPage} de {pagination.totalPages} 
+                    ({pagination.totalItems} productos en total)
                   </div>
 
-                  <Button
-                    variant="outline"
-                    onClick={pagination.goToNextPage}
-                    disabled={!pagination.hasNextPage}
-                    style={{ 
-                      borderColor: colors.product_card_border_color,
-                      color: colors.text_color
-                    }}
-                  >
-                    Siguiente
-                    <ChevronRight className="h-4 w-4 ml-2" />
-                  </Button>
+                  {/* Controles de paginación inteligente */}
+                  <div className="flex items-center space-x-2">
+                    {/* Botón ir a primera página */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={pagination.goToFirstPage}
+                      disabled={!pagination.hasPreviousPage}
+                      style={{ 
+                        borderColor: colors.product_card_border_color,
+                        color: colors.text_color
+                      }}
+                    >
+                      <ChevronsLeft className="h-4 w-4" />
+                    </Button>
+
+                    {/* Botón anterior */}
+                    <Button
+                      variant="outline"
+                      onClick={pagination.goToPreviousPage}
+                      disabled={!pagination.hasPreviousPage}
+                      style={{ 
+                        borderColor: colors.product_card_border_color,
+                        color: colors.text_color
+                      }}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-2" />
+                      Anterior
+                    </Button>
+
+                    {/* Páginas visibles */}
+                    <div className="flex items-center space-x-1">
+                      {pagination.getVisiblePages().map((pageNumber) => {
+                        const isCurrentPage = pageNumber === pagination.currentPage;
+                        
+                        return (
+                          <Button
+                            key={pageNumber}
+                            variant={isCurrentPage ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => pagination.goToPage(pageNumber)}
+                            style={isCurrentPage ? {
+                              backgroundColor: colors.button_bg_color,
+                              color: colors.button_text_color
+                            } : {
+                              borderColor: colors.product_card_border_color,
+                              color: colors.text_color
+                            }}
+                          >
+                            {pageNumber}
+                          </Button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Botón siguiente */}
+                    <Button
+                      variant="outline"
+                      onClick={pagination.goToNextPage}
+                      disabled={!pagination.hasNextPage}
+                      style={{ 
+                        borderColor: colors.product_card_border_color,
+                        color: colors.text_color
+                      }}
+                    >
+                      Siguiente
+                      <ChevronRight className="h-4 w-4 ml-2" />
+                    </Button>
+
+                    {/* Botón ir a última página */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={pagination.goToLastPage}
+                      disabled={!pagination.hasNextPage}
+                      style={{ 
+                        borderColor: colors.product_card_border_color,
+                        color: colors.text_color
+                      }}
+                    >
+                      <ChevronsRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* Salto directo de página (solo si hay muchas páginas) */}
+                  {pagination.totalPages > 10 && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <span style={{ color: colors.text_color }}>Ir a página:</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max={pagination.totalPages}
+                        value={pagination.currentPage}
+                        onChange={(e) => {
+                          const page = parseInt(e.target.value);
+                          if (page >= 1 && page <= pagination.totalPages) {
+                            pagination.goToPage(page);
+                          }
+                        }}
+                        className="w-16 px-2 py-1 border rounded text-center"
+                        style={{
+                          borderColor: colors.product_card_border_color,
+                          color: colors.text_color
+                        }}
+                      />
+                      <span style={{ color: colors.text_color }}>de {pagination.totalPages}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </>
