@@ -10,12 +10,24 @@ import { RefreshCw, User, AlertCircle, LogOut, Shield } from 'lucide-react';
 const Dashboard = () => {
   const { profile, loading, user, signOut } = useAuth();
 
+  console.log('🖥️ Dashboard: Estado actual:', {
+    loading,
+    hasUser: !!user,
+    hasProfile: !!profile,
+    userEmail: user?.email,
+    profileRole: profile?.role
+  });
+
   if (loading) {
+    console.log('⏳ Dashboard: Mostrando estado de carga');
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Cargando dashboard...</p>
+          <p className="text-xs text-muted-foreground mt-2">
+            {user ? `Usuario: ${user.email}` : 'Verificando autenticación...'}
+          </p>
         </div>
       </div>
     );
@@ -23,6 +35,7 @@ const Dashboard = () => {
 
   // If user exists but profile doesn't, show error with retry option
   if (user && !profile) {
+    console.log('⚠️ Dashboard: Usuario sin perfil detectado');
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
@@ -33,7 +46,10 @@ const Dashboard = () => {
           </p>
           <div className="space-y-3">
             <Button 
-              onClick={() => window.location.reload()} 
+              onClick={() => {
+                console.log('🔄 Recargando página para reintentar...');
+                window.location.reload();
+              }} 
               className="w-full"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
@@ -41,7 +57,10 @@ const Dashboard = () => {
             </Button>
             <Button 
               variant="outline" 
-              onClick={signOut}
+              onClick={() => {
+                console.log('🚪 Cerrando sesión para intentar de nuevo...');
+                signOut();
+              }}
               className="w-full"
             >
               <LogOut className="h-4 w-4 mr-2" />
@@ -53,7 +72,7 @@ const Dashboard = () => {
             <p>Usuario: {user.email}</p>
             <p>ID: {user.id}</p>
             {/* Mensaje especial para usuarios super admin */}
-            {(user.email === 'alexjfweb@gmail.com' || user.email === 'superadmin@gmail.com') && (
+            {(user.email === 'alexjfweb@gmail.com' || user.email === 'superadmin@gmail.com' || user.email === 'allseosoporte@gmail.com') && (
               <div className="mt-2 p-2 bg-blue-100 border border-blue-300 rounded text-blue-800">
                 <div className="flex items-center gap-2">
                   <Shield className="h-4 w-4" />
@@ -75,6 +94,11 @@ const Dashboard = () => {
 
   // If no user at all, redirect to auth
   if (!user) {
+    console.log('🔄 Dashboard: Sin usuario, redirigiendo a auth');
+    setTimeout(() => {
+      window.location.href = '/auth';
+    }, 100);
+    
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -85,14 +109,17 @@ const Dashboard = () => {
   }
 
   const renderDashboard = () => {
+    console.log('🎯 Dashboard: Renderizando dashboard para rol:', profile?.role);
+    
     // Verificación especial de acceso para Super Administradores
     if (profile?.role === 'superadmin') {
-      // Log adicional para super admins
       console.log('🚀 Renderizando dashboard de Super Administrador para:', user.email);
       return <SuperAdminDashboard />;
     } else if (profile?.role === 'admin') {
+      console.log('🔧 Renderizando dashboard de Administrador para:', user.email);
       return <AdminDashboard />;
     } else {
+      console.log('👤 Renderizando dashboard de Empleado para:', user.email);
       return <EmpleadoDashboard />;
     }
   };

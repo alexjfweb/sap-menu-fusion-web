@@ -6,6 +6,8 @@ import React from 'react';
 const DataInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Ya no ejecutamos useInitialData() - sistema completamente deshabilitado
   console.log('🚫 Sistema de inicialización automática deshabilitado para evitar duplicados');
+  console.log('✅ DataInitializer: Renderizando children sin procesamiento adicional');
+  
   return <>{children}</>;
 };
 

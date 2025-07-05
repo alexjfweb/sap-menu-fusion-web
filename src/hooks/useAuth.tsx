@@ -27,12 +27,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let mounted = true;
+    console.log('🔄 AuthProvider: Inicializando sistema de autenticación');
     
     // Set up auth state listener FIRST
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
+      if (!mounted) {
+        console.log('⚠️ AuthProvider: Componente desmontado, ignorando evento');
+        return;
+      }
       
       console.log('🔐 Auth state change event:', event, session?.user?.email || 'No session');
       
@@ -41,17 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
       
       if (event === 'SIGNED_IN' && session?.user) {
-        // Log detalles del usuario para usuarios especiales
-        if (session.user.email === 'alexjfweb@gmail.com' || session.user.email === 'superadmin@gmail.com' || session.user.email === 'allseosoporte@gmail.com') {
-          console.log('👑 Usuario especial detectado:', {
-            email: session.user.email,
-            id: session.user.id,
-            created_at: session.user.created_at,
-            last_sign_in_at: session.user.last_sign_in_at,
-            user_metadata: session.user.user_metadata
-          });
-        }
-        
+        console.log('✅ Usuario autenticado:', session.user.email);
         // Defer profile fetching to prevent deadlocks
         setTimeout(() => {
           if (mounted) {
@@ -59,6 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }, 100);
       } else if (event === 'SIGNED_OUT' || !session) {
+        console.log('🚪 Usuario desconectado');
         if (mounted) {
           setProfile(null);
           setLoading(false);
@@ -69,6 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // THEN check for existing session using safe method
     const initializeAuth = async () => {
       try {
+        console.log('🔍 Verificando sesión existente...');
         const { data, error } = await supabase.auth.getSession();
         
         if (!mounted) return;
@@ -79,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
 
-        console.log('🔍 Initial session check:', data.session?.user?.email || 'No session');
+        console.log('🔍 Sesión inicial:', data.session?.user?.email || 'No session');
         setSession(data.session);
         setUser(data.session?.user ?? null);
         
@@ -89,7 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setLoading(false);
         }
       } catch (error) {
-        console.error('❌ Error initializing auth:', error);
+        console.error('❌ Error inicializando auth:', error);
         if (mounted) {
           setLoading(false);
         }
@@ -99,6 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initializeAuth();
 
     return () => {
+      console.log('🧹 AuthProvider: Limpiando listeners');
       mounted = false;
       subscription.unsubscribe();
     };
@@ -106,13 +103,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchOrCreateProfile = async (user: User) => {
     try {
-      console.log('👤 Fetching profile for user:', user.id, user.email);
+      console.log('👤 Obteniendo perfil para usuario:', user.id, user.email);
       
-      const { data, error } = await supabase
+      // Add timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000);
+      });
+
+      const profilePromise = supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .maybeSingle();
+
+      const { data, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
 
       if (error && error.code !== 'PGRST116') {
         console.error('❌ Error fetching profile:', error);
@@ -122,21 +126,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (!data) {
-        console.log('📝 Profile not found, creating new profile for user:', user.email);
+        console.log('📝 Perfil no encontrado, creando nuevo perfil para:', user.email);
         await createProfile(user);
       } else {
-        console.log('✅ Profile found:', {
+        console.log('✅ Perfil encontrado:', {
           email: data.email,
           role: data.role,
-          is_active: data.is_active,
-          created_at: data.created_at
+          is_active: data.is_active
         });
         
         // Check if we need to update the role for special emails
         await updateRoleIfNeeded(user, data);
       }
     } catch (error) {
-      console.error('❌ Unexpected error fetching profile:', error);
+      console.error('❌ Error inesperado obteniendo perfil:', error);
       setProfile(null);
       setLoading(false);
     }
@@ -144,7 +147,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateRoleIfNeeded = async (user: User, existingProfile: Profile) => {
     try {
-      // Determine the correct role based on email - ACTUALIZADO PARA allseosoporte@gmail.com
+      // Determine the correct role based on email
       let expectedRole: 'empleado' | 'admin' | 'superadmin' = 'empleado';
       if (user.email === 'alexjfweb@gmail.com' || user.email === 'superadmin@gmail.com' || user.email === 'allseosoporte@gmail.com') {
         expectedRole = 'superadmin';
@@ -154,7 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // If the role needs to be updated
       if (existingProfile.role !== expectedRole) {
-        console.log(`🔄 Updating role for ${user.email} from ${existingProfile.role} to ${expectedRole}`);
+        console.log(`🔄 Actualizando rol para ${user.email} de ${existingProfile.role} a ${expectedRole}`);
         
         const { data, error } = await supabase
           .from('profiles')
@@ -164,31 +167,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .single();
 
         if (error) {
-          console.error('❌ Error updating profile role:', error);
+          console.error('❌ Error actualizando rol:', error);
           setProfile(existingProfile);
         } else {
-          console.log('✅ Role updated successfully:', data);
+          console.log('✅ Rol actualizado exitosamente:', data);
           setProfile(data);
         }
       } else {
-        console.log('✅ Role is already correct:', existingProfile.role);
-        
-        // Log información adicional para usuarios especiales
-        if (user.email === 'alexjfweb@gmail.com' || user.email === 'superadmin@gmail.com' || user.email === 'allseosoporte@gmail.com') {
-          console.log('👑 Usuario especial - Estado del perfil:', {
-            email: existingProfile.email,
-            role: existingProfile.role,
-            is_active: existingProfile.is_active,
-            full_name: existingProfile.full_name,
-            created_at: existingProfile.created_at,
-            updated_at: existingProfile.updated_at
-          });
-        }
-        
+        console.log('✅ Rol ya es correcto:', existingProfile.role);
         setProfile(existingProfile);
       }
     } catch (error) {
-      console.error('❌ Error updating role:', error);
+      console.error('❌ Error actualizando rol:', error);
       setProfile(existingProfile);
     } finally {
       setLoading(false);
@@ -197,7 +187,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const createProfile = async (user: User) => {
     try {
-      console.log('📝 Creating profile for user:', user.email);
+      console.log('📝 Creando perfil para usuario:', user.email);
       
       // Extract name from user metadata or use email
       const fullName = user.user_metadata?.full_name || 
@@ -205,7 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                       user.email?.split('@')[0] || 
                       'Usuario';
 
-      // Set role based on email - ACTUALIZADO PARA allseosoporte@gmail.com
+      // Set role based on email
       let role: 'empleado' | 'admin' | 'superadmin' = 'empleado';
       if (user.email === 'alexjfweb@gmail.com' || user.email === 'superadmin@gmail.com' || user.email === 'allseosoporte@gmail.com') {
         role = 'superadmin';
@@ -213,7 +203,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role = 'admin';
       }
       
-      console.log('👑 Assigning role:', role, 'to user:', user.email);
+      console.log('👑 Asignando rol:', role, 'a usuario:', user.email);
 
       const { data, error } = await supabase
         .from('profiles')
@@ -228,14 +218,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error) {
-        console.error('❌ Error creating profile:', error);
+        console.error('❌ Error creando perfil:', error);
         setProfile(null);
       } else {
-        console.log('✅ Profile created successfully:', data);
+        console.log('✅ Perfil creado exitosamente:', data);
         setProfile(data);
       }
     } catch (error) {
-      console.error('❌ Unexpected error creating profile:', error);
+      console.error('❌ Error inesperado creando perfil:', error);
       setProfile(null);
     } finally {
       setLoading(false);
@@ -244,7 +234,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
-      console.log('🚪 Signing out user');
+      console.log('🚪 Cerrando sesión de usuario');
       
       // Clean up auth state first
       cleanupAuthState();
@@ -253,7 +243,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         await supabase.auth.signOut({ scope: 'global' });
       } catch (signOutError) {
-        console.log('⚠️ Error during sign out:', signOutError);
+        console.log('⚠️ Error durante cierre de sesión:', signOutError);
         // Continue with cleanup even if sign out fails
       }
       
@@ -267,7 +257,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         window.location.href = '/auth';
       }, 100);
     } catch (error) {
-      console.error('❌ Error signing out:', error);
+      console.error('❌ Error cerrando sesión:', error);
       // Force reload anyway
       setTimeout(() => {
         window.location.href = '/auth';
