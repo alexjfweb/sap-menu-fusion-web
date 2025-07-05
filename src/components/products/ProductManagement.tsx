@@ -199,9 +199,9 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
         // Esperar procesamiento de invalidaciones
         await new Promise(resolve => setTimeout(resolve, 400));
         
-        // Refetch explícito con timeout aumentado
+        // Refetch explícito con timeout aumentado y tipado correcto
         const refetchPromise = refetchProducts();
-        const timeoutPromise = new Promise((_, reject) => 
+        const timeoutPromise = new Promise<never>((_, reject) => 
           setTimeout(() => reject(new Error('Timeout en refetch')), 10000)
         );
         
@@ -209,8 +209,8 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
         
         // PASO 3: Verificación crítica - buscar el producto en los datos refrescados
         if (newProductName && !editingProduct) {
-          // Verificar directamente en los datos devueltos por el refetch
-          const freshData = result.data as ProductWithPartialCategory[];
+          // Verificar directamente en los datos devueltos por el refetch - FIX CRÍTICO DEL TIPADO
+          const freshData = result.data as ProductWithPartialCategory[] | undefined;
           const foundProduct = freshData?.find(p => p.name === newProductName);
           
           if (!foundProduct) {
@@ -801,7 +801,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDeleteProduct(product)}
-                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive flex items-center justify-center"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
