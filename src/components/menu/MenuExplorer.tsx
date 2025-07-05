@@ -33,7 +33,7 @@ const MenuExplorer = ({
 
   const colors = customization || defaultColors;
 
-  // Ordenar categorías según el orden especificado
+  // Ordenar categorías según el orden especificado - MISMO ORDEN QUE EN PRODUCTMANAGEMENT
   const sortedCategories = React.useMemo(() => {
     const categoryOrder = ['Platos principales', 'Platos ejecutivos', 'Platos especiales'];
     

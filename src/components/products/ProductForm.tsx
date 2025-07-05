@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -98,6 +97,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
     setLoading(true);
 
     try {
+      console.log('💾 Guardando producto...', product ? 'Actualización' : 'Creación');
+      
       const productData = {
         name: formData.name,
         description: formData.description || null,
@@ -118,27 +119,36 @@ const ProductForm: React.FC<ProductFormProps> = ({
       let error;
       if (product) {
         // Actualizar producto existente
+        console.log('🔄 Actualizando producto existente:', product.id);
         ({ error } = await supabase
           .from('products')
           .update(productData)
           .eq('id', product.id));
       } else {
         // Crear nuevo producto
+        console.log('➕ Creando nuevo producto');
         ({ error } = await supabase
           .from('products')
           .insert([productData]));
       }
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error guardando producto:', error);
+        throw error;
+      }
 
+      console.log('✅ Producto guardado exitosamente');
+      
       toast({
         title: product ? "Producto actualizado" : "Producto creado",
         description: `${formData.name} ${product ? 'actualizado' : 'creado'} correctamente`,
       });
 
+      // Llamar onSave que manejará el refetch y cierre del modal
       onSave();
+      
     } catch (error) {
-      console.error('Error saving product:', error);
+      console.error('❌ Error saving product:', error);
       toast({
         title: "Error",
         description: `No se pudo ${product ? 'actualizar' : 'crear'} el producto`,
@@ -195,11 +205,9 @@ const ProductForm: React.FC<ProductFormProps> = ({
               />
             </div>
 
-            {/* Sección de imagen */}
             <div className="space-y-4">
               <Label>Imagen del Producto</Label>
               
-              {/* Selector de método de subida */}
               <div className="flex gap-2">
                 <Button
                   type="button"
@@ -223,7 +231,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
                 </Button>
               </div>
 
-              {/* Método de subida desde PC */}
               {uploadMethod === 'pc' && (
                 <div className="space-y-2">
                   <div className="border-2 border-dashed border-border rounded-lg p-4">
@@ -243,7 +250,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
                 </div>
               )}
 
-              {/* Método de subida por URL */}
               {uploadMethod === 'url' && (
                 <div className="space-y-2">
                   <div className="flex gap-2">
@@ -265,7 +271,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
                 </div>
               )}
 
-              {/* Vista previa de la imagen */}
               {formData.image_url && (
                 <div className="space-y-2">
                   <Label>Vista previa:</Label>
@@ -419,7 +424,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                 Cancelar
               </Button>
               <Button type="submit" disabled={loading || uploading}>
-                {loading || uploading ? 'Guardando...' : (product ? 'Actualizar' : 'Crear')}
+                {loading ? 'Guardando...' : (product ? 'Actualizar' : 'Crear')}
               </Button>
             </div>
           </form>

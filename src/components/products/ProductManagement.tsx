@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +24,37 @@ interface ProductManagementProps {
 
 const PRODUCTS_PER_PAGE = 100;
 
+// Función para ordenar productos por categoría y luego alfabéticamente
+const sortProductsByCategory = (products: (Product & { categories?: Category | null })[], categories: Category[]) => {
+  const categoryOrder = ['Platos principales', 'Platos ejecutivos', 'Platos especiales'];
+  
+  return products.sort((a, b) => {
+    const categoryA = a.categories?.name || '';
+    const categoryB = b.categories?.name || '';
+    
+    // Primero ordenar por categoría según el orden predefinido
+    const indexA = categoryOrder.indexOf(categoryA);
+    const indexB = categoryOrder.indexOf(categoryB);
+    
+    if (indexA !== -1 && indexB !== -1) {
+      if (indexA !== indexB) {
+        return indexA - indexB;
+      }
+    } else if (indexA !== -1) {
+      return -1;
+    } else if (indexB !== -1) {
+      return 1;
+    }
+    
+    // Si están en la misma categoría o ambas fuera del orden predefinido, ordenar alfabéticamente
+    if (categoryA === categoryB) {
+      return a.name.localeCompare(b.name);
+    }
+    
+    return categoryA.localeCompare(categoryB);
+  });
+};
+
 const ProductManagement = ({ onBack }: ProductManagementProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -38,6 +68,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: products, isLoading: productsLoading, refetch: refetchProducts } = useQuery({
     queryKey: ['products'],
@@ -108,17 +139,24 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     });
   }, [categories]);
 
-  const filteredProducts = products?.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || product.category_id === selectedCategory;
+  // Aplicar ordenamiento por categoría y alfabético a los productos filtrados
+  const sortedAndFilteredProducts = React.useMemo(() => {
+    if (!products || !categories) return [];
     
-    return matchesSearch && matchesCategory;
-  });
+    const filtered = products.filter(product => {
+      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           product.description?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = selectedCategory === 'all' || product.category_id === selectedCategory;
+      
+      return matchesSearch && matchesCategory;
+    });
+    
+    return sortProductsByCategory(filtered, categories);
+  }, [products, categories, searchTerm, selectedCategory]);
 
-  const totalProducts = filteredProducts?.length || 0;
+  const totalProducts = sortedAndFilteredProducts?.length || 0;
   const totalPages = Math.ceil(totalProducts / PRODUCTS_PER_PAGE);
-  const paginatedProducts = filteredProducts?.slice(
+  const paginatedProducts = sortedAndFilteredProducts?.slice(
     (currentPage - 1) * PRODUCTS_PER_PAGE,
     currentPage * PRODUCTS_PER_PAGE
   );
@@ -128,7 +166,6 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     setSelectedProducts(new Set());
   }, [searchTerm, selectedCategory]);
 
-  // Función para verificar si un producto tiene dependencias
   const checkProductDependencies = async (productId: string) => {
     try {
       // Verificar si existe en order_items
@@ -415,15 +452,32 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
 
   const handleSaveProduct = async () => {
     console.log('💾 Producto guardado, refrescando lista...');
-    handleCloseForm();
     
-    // Refrescar inmediatamente y mostrar feedback
-    await refetchProducts();
-    
-    toast({
-      title: "Éxito",
-      description: editingProduct ? "Producto actualizado correctamente" : "Producto creado correctamente",
-    });
+    try {
+      // Invalidar queries para forzar refetch inmediato
+      await queryClient.invalidateQueries({ queryKey: ['products'] });
+      await queryClient.invalidateQueries({ queryKey: ['categories'] });
+      
+      // Refrescar datos de forma asíncrona
+      await refetchProducts();
+      
+      handleCloseForm();
+      
+      toast({
+        title: "Éxito",
+        description: editingProduct ? "Producto actualizado correctamente" : "Producto creado correctamente",
+      });
+      
+      console.log('✅ Producto guardado y lista actualizada');
+      
+    } catch (error) {
+      console.error('❌ Error refrescando productos:', error);
+      toast({
+        title: "Advertencia",
+        description: "El producto se guardó, pero puede que tengas que recargar para verlo en la lista.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (showPublicMenu) {
