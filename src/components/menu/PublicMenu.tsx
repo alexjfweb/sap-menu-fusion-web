@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -153,7 +152,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     },
     retry: 1,
     staleTime: 0,
-    cacheTime: 0,
+    gcTime: 0,
   });
 
   const { 
@@ -188,7 +187,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     },
     retry: 1,
     staleTime: 0,
-    cacheTime: 0,
+    gcTime: 0,
   });
 
   const { 
@@ -253,7 +252,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     },
     retry: 1,
     staleTime: 0,
-    cacheTime: 0,
+    gcTime: 0,
   });
 
   const { data: cartData, refetch: refetchCart } = useQuery({
@@ -295,7 +294,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     enabled: !!sessionId,
     retry: 1,
     staleTime: 0,
-    cacheTime: 0,
+    gcTime: 0,
   });
 
   useEffect(() => {
