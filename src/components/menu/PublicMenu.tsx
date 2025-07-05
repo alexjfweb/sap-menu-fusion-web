@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,8 +36,11 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // CORRECCIÓN CRÍTICA: Forzar limpieza de caché con timestamp
-  const cacheTimestamp = Date.now();
+  // CORRECCIÓN CRÍTICA: Forzar cache busting con timestamp único
+  const [forceRefresh, setForceRefresh] = useState(0);
+  const cacheKey = `cache_${Date.now()}_${forceRefresh}`;
+
+  console.log('🚀 [PUBLIC MENU] Iniciando con cache key:', cacheKey);
 
   useEffect(() => {
     try {
@@ -57,27 +61,32 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         }
       }
       
-      console.log('Using session ID:', storedSessionId);
       setSessionId(storedSessionId);
     } catch (error) {
       console.error('Error setting up session:', error);
       const fallbackId = 'fallback_' + Date.now();
-      console.log('Using fallback session ID:', fallbackId);
       setSessionId(fallbackId);
     }
   }, []);
 
-  // CORRECCIÓN CRÍTICA: Invalidación forzada de caché
+  // CORRECCIÓN CRÍTICA: Invalidación completa de cache al montar
   useEffect(() => {
-    console.log('🧹 [CACHE CLEANUP] Forzando invalidación completa de caché...');
-    queryClient.invalidateQueries();
+    console.log('🧹 [CACHE] Invalidando cache completo...');
+    queryClient.clear();
     
     // Limpiar localStorage obsoleto
     try {
-      localStorage.removeItem('product_management_updated');
-      console.log('✅ [CACHE CLEANUP] localStorage limpiado');
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('product') || key.includes('cache') || key.startsWith('sb-'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+      console.log('✅ [CACHE] localStorage limpiado:', keysToRemove.length, 'keys removidas');
     } catch (error) {
-      console.log('⚠️ [CACHE CLEANUP] No se pudo limpiar localStorage');
+      console.log('⚠️ [CACHE] No se pudo limpiar localStorage');
     }
   }, [queryClient]);
 
@@ -90,11 +99,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   
   const colors = React.useMemo(() => {
     const defaults = getDefaultCustomization();
-    
-    console.log('🎨 [COLORS] ===================');
-    console.log('🎨 [COLORS] Customization data:', customization);
-    console.log('🎨 [COLORS] Is loading:', customizationLoading);
-    console.log('🎨 [COLORS] Error:', customizationError);
     
     if (customization) {
       const appliedColors = {
@@ -114,13 +118,9 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         shadow_color: customization.shadow_color || defaults.shadow_color,
         social_links_color: customization.social_links_color || defaults.social_links_color,
       };
-      console.log('✅ [COLORS] Applied CUSTOM colors:', appliedColors);
-      console.log('🎨 [COLORS] ===================');
       return appliedColors;
     }
     
-    console.log('⚪ [COLORS] Using DEFAULT colors');
-    console.log('🎨 [COLORS] ===================');
     return defaults;
   }, [customization, customizationLoading, customizationError]);
 
@@ -129,9 +129,9 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     isLoading: businessInfoLoading, 
     error: businessInfoError 
   } = useQuery({
-    queryKey: ['public-business-info', cacheTimestamp],
+    queryKey: ['public-business-info', cacheKey],
     queryFn: async () => {
-      console.log('Fetching business info from Supabase...');
+      console.log('📋 [BUSINESS INFO] Obteniendo información del negocio...');
       
       try {
         const { data, error } = await supabase
@@ -139,22 +139,21 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
           .select('*')
           .single();
         
-        console.log('Business info query result:', { data, error });
-        
         if (error) {
-          console.error('Error fetching business info:', error);
+          console.error('❌ [BUSINESS INFO] Error:', error);
           throw new Error(`Failed to fetch business info: ${error.message}`);
         }
         
-        console.log('Successfully fetched business info');
+        console.log('✅ [BUSINESS INFO] Obtenida correctamente');
         return data;
       } catch (error) {
-        console.error('Business info fetch error:', error);
+        console.error('❌ [BUSINESS INFO] Error crítico:', error);
         throw error;
       }
     },
-    retry: 2,
-    staleTime: 0, // Forzar datos frescos
+    retry: 1,
+    staleTime: 0,
+    cacheTime: 0,
   });
 
   const { 
@@ -163,9 +162,9 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     error: categoriesError,
     refetch: refetchCategories 
   } = useQuery({
-    queryKey: ['categories', cacheTimestamp],
+    queryKey: ['categories-public', cacheKey],
     queryFn: async () => {
-      console.log('🔍 [PUBLIC MENU] Obteniendo categorías con caché forzado...');
+      console.log('🏷️ [CATEGORIES] Obteniendo categorías...');
       
       try {
         const { data, error } = await supabase
@@ -174,24 +173,22 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
           .eq('is_active', true)
           .order('sort_order');
         
-        console.log('Categories query result:', { data, error });
-        
         if (error) {
-          console.error('Error fetching categories:', error);
+          console.error('❌ [CATEGORIES] Error:', error);
           throw new Error(`Failed to fetch categories: ${error.message}`);
         }
         
         const sortedCategories = sortCategoriesByStandardOrder(data || []);
-        
-        console.log(`✅ [PUBLIC MENU] ${sortedCategories.length} categorías obtenidas con orden estandarizado`);
+        console.log(`✅ [CATEGORIES] ${sortedCategories.length} categorías obtenidas`);
         return sortedCategories;
       } catch (error) {
-        console.error('Categories fetch error:', error);
+        console.error('❌ [CATEGORIES] Error crítico:', error);
         throw error;
       }
     },
-    retry: 2,
-    staleTime: 0, // Forzar datos frescos
+    retry: 1,
+    staleTime: 0,
+    cacheTime: 0,
   });
 
   const { 
@@ -200,51 +197,74 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     error: productsError,
     refetch: refetchProducts 
   } = useQuery({
-    queryKey: ['products', cacheTimestamp],
+    queryKey: ['products-public-clean', cacheKey],
     queryFn: async () => {
-      console.log('🔍 [PUBLIC MENU] Obteniendo productos SIN duplicados...');
+      console.log('🍽️ [PRODUCTS] Obteniendo productos LIMPIOS (sin duplicados)...');
       
       try {
+        // CORRECCIÓN CRÍTICA: Query optimizada para evitar duplicados
         const { data, error } = await supabase
           .from('products')
           .select(`
-            *,
+            id,
+            name,
+            description,
+            price,
+            image_url,
+            category_id,
+            is_available,
+            is_vegetarian,
+            is_vegan,
+            is_gluten_free,
+            created_at,
             categories (
               id,
               name
             )
           `)
           .eq('is_available', true)
-          .order('created_at', { ascending: false });
-        
-        console.log('Products query result:', { data, error });
+          .order('name') // Ordenar por nombre para detectar duplicados
+          .limit(200); // Límite para evitar sobrecarga
         
         if (error) {
-          console.error('Error fetching products:', error);
+          console.error('❌ [PRODUCTS] Error en query:', error);
           throw new Error(`Failed to fetch products: ${error.message}`);
         }
         
-        console.log(`✅ [PUBLIC MENU] ${data?.length || 0} productos disponibles obtenidos (SIN duplicados)`);
-        console.log('📅 Primer producto (más reciente):', data?.[0]?.name, data?.[0]?.created_at);
-        return data || [];
+        // CORRECCIÓN CRÍTICA: Filtrar duplicados en el cliente como fallback
+        const uniqueProducts = [];
+        const seenNames = new Set();
+        
+        for (const product of data || []) {
+          if (!seenNames.has(product.name.toLowerCase())) {
+            seenNames.add(product.name.toLowerCase());
+            uniqueProducts.push(product);
+          } else {
+            console.log('⚠️ [PRODUCTS] Duplicado detectado y eliminado:', product.name);
+          }
+        }
+        
+        console.log(`✅ [PRODUCTS] ${uniqueProducts.length} productos únicos obtenidos (${(data?.length || 0) - uniqueProducts.length} duplicados filtrados)`);
+        return uniqueProducts;
       } catch (error) {
-        console.error('Products fetch error:', error);
+        console.error('❌ [PRODUCTS] Error crítico:', error);
         throw error;
       }
     },
-    retry: 2,
-    staleTime: 0, // Forzar datos frescos
+    retry: 1,
+    staleTime: 0,
+    cacheTime: 0,
   });
 
   const { data: cartData, refetch: refetchCart } = useQuery({
-    queryKey: ['cart-items', sessionId, cacheTimestamp],
+    queryKey: ['cart-items-public', sessionId, cacheKey],
     queryFn: async () => {
       if (!sessionId) {
-        console.log('No session ID available for cart');
+        console.log('⚠️ [CART] No session ID disponible');
         return [];
       }
       
-      console.log('Fetching cart items for session:', sessionId);
+      console.log('🛒 [CART] Obteniendo items del carrito...');
       
       try {
         const { data, error } = await supabase
@@ -261,20 +281,21 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
           .eq('session_id', sessionId);
         
         if (error) {
-          console.error('Error fetching cart items:', error);
+          console.error('❌ [CART] Error:', error);
           return [];
         }
         
-        console.log(`Successfully fetched ${data?.length || 0} cart items`);
+        console.log(`✅ [CART] ${data?.length || 0} items obtenidos`);
         return data || [];
       } catch (error) {
-        console.error('Cart items fetch error:', error);
+        console.error('❌ [CART] Error crítico:', error);
         return [];
       }
     },
     enabled: !!sessionId,
-    retry: 2,
-    staleTime: 0, // Forzar datos frescos
+    retry: 1,
+    staleTime: 0,
+    cacheTime: 0,
   });
 
   useEffect(() => {
@@ -283,11 +304,11 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }
   }, [cartData]);
 
-  // CORRECCIÓN: Productos filtrados con ordenamiento mejorado
+  // Productos filtrados con ordenamiento
   const filteredProducts = React.useMemo(() => {
     if (!products) return [];
     
-    console.log('🔄 [PUBLIC MENU] Procesando productos filtrados...');
+    console.log('🔄 [FILTER] Procesando productos filtrados...');
     console.log('📊 Total productos disponibles:', products.length);
     console.log('🎯 Categoría seleccionada:', selectedCategory);
     
@@ -299,27 +320,17 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     console.log('✅ Productos después del filtro:', filtered.length);
     
     if (selectedCategory === 'all') {
-      console.log('📅 Manteniendo orden cronológico para "Todas las categorías"');
-      return filtered;
+      return filtered.sort((a, b) => a.name.localeCompare(b.name));
     }
     
     const sortedByCategory = sortProductsByStandardizedCategories(filtered, categories);
-    console.log('🏷️ Productos ordenados por categoría específica:', sortedByCategory.length);
-    
     return sortedByCategory;
   }, [products, selectedCategory, categories]);
 
-  // CORRECCIÓN CRÍTICA: Hook de paginación COMPLETA
+  // Hook de paginación
   const pagination = useProductPagination({ 
     products: filteredProducts, 
-    itemsPerPage: 20 
-  });
-
-  console.log('📊 [PAGINATION] Estado actual:', {
-    currentPage: pagination.currentPage,
-    totalPages: pagination.totalPages,
-    totalItems: pagination.totalItems,
-    visiblePages: pagination.getVisiblePages()
+    itemsPerPage: 12 // Reducir items por página para mejor rendimiento
   });
 
   // Reset pagination when category changes
@@ -338,7 +349,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }
 
     try {
-      console.log('Adding to cart:', { product: product.name, quantity, sessionId });
+      console.log('🛒 [CART] Agregando producto:', product.name);
       
       const { error } = await supabase
         .from('cart_items')
@@ -350,7 +361,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         });
 
       if (error) {
-        console.error('Error adding to cart:', error);
+        console.error('❌ [CART] Error agregando:', error);
         throw error;
       }
 
@@ -361,7 +372,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
 
       refetchCart();
     } catch (error) {
-      console.error('Error adding to cart:', error);
+      console.error('❌ [CART] Error crítico:', error);
       toast({
         title: "Error",
         description: "No se pudo agregar el producto al carrito",
@@ -388,59 +399,70 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   };
 
   const handleRetry = () => {
-    console.log('🔄 [PUBLIC MENU] Reintentar obtener datos...');
+    console.log('🔄 [RETRY] Forzando actualización completa...');
+    setForceRefresh(prev => prev + 1);
+    queryClient.clear();
     refetchProducts();
     refetchCategories();
     refetchCustomization();
   };
 
-  // Sistema de invalidación global
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'product_management_updated') {
-        console.log('🔄 [PUBLIC MENU] Detectado cambio desde ProductManagement, invalidando cache...');
-        queryClient.invalidateQueries({ queryKey: ['products'] });
-        queryClient.invalidateQueries({ queryKey: ['categories'] });
-        localStorage.removeItem('product_management_updated');
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, [queryClient]);
-
   const isLoading = productsLoading || categoriesLoading;
   const hasError = productsError || categoriesError;
 
-  console.log('🎯 [RENDER] Current colors:', colors);
-  console.log('🎯 [RENDER] Button color will be:', colors.button_bg_color);
+  console.log('🎯 [RENDER] Estado actual:', {
+    isLoading,
+    hasError,
+    productsCount: products?.length || 0,
+    categoriesCount: categories?.length || 0,
+    filteredCount: filteredProducts?.length || 0
+  });
 
   if (isLoading) {
+    console.log('⏳ [RENDER] Mostrando estado de carga...');
     return (
       <div 
         className="min-h-screen flex items-center justify-center"
         style={{ backgroundColor: colors.menu_bg_color }}
       >
-        <div className="text-center">
+        <div className="text-center space-y-4">
           <div 
-            className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4"
+            className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto"
             style={{ borderColor: colors.button_bg_color }}
           ></div>
-          <p style={{ color: colors.text_color }}>Cargando menú...</p>
+          <div>
+            <p style={{ color: colors.text_color }} className="text-lg font-medium">
+              Cargando menú...
+            </p>
+            <p style={{ color: colors.product_description_color }} className="text-sm">
+              Obteniendo la información más reciente
+            </p>
+          </div>
+          <Button 
+            onClick={handleRetry}
+            variant="outline"
+            size="sm"
+            style={{ 
+              borderColor: colors.product_card_border_color,
+              color: colors.text_color
+            }}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Forzar actualización
+          </Button>
         </div>
       </div>
     );
   }
 
   if (hasError) {
-    console.error('Menu loading error:', { productsError, categoriesError });
+    console.error('❌ [RENDER] Error crítico detectado:', { productsError, categoriesError });
     
     return (
       <div 
         className="min-h-screen"
         style={{ backgroundColor: colors.menu_bg_color }}
       >
-        {/* CORRECCIÓN CRÍTICA: Header con ancho EXACTO */}
         <header 
           className="border-b backdrop-blur sticky top-0 z-50"
           style={{ 
@@ -450,12 +472,25 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         >
           <div className="container mx-auto px-4 py-4">
             <div className="flex justify-between items-center">
-              <h1 
-                className="text-2xl font-bold"
-                style={{ color: colors.header_text_color }}
-              >
-                Menú del Restaurante
-              </h1>
+              <div className="flex items-center space-x-4">
+                {onBack && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={onBack}
+                    style={{ color: colors.header_text_color }}
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Volver al Panel
+                  </Button>
+                )}
+                <h1 
+                  className="text-2xl font-bold"
+                  style={{ color: colors.header_text_color }}
+                >
+                  Menú del Restaurante
+                </h1>
+              </div>
             </div>
           </div>
         </header>
@@ -464,14 +499,24 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              <div className="space-y-2">
-                <p>Error al cargar el menú. Por favor, intenta nuevamente.</p>
-                {productsError && <div className="text-sm">Error de productos: {productsError.message}</div>}
-                {categoriesError && <div className="text-sm">Error de categorías: {categoriesError.message}</div>}
-                <Button onClick={handleRetry} size="sm" className="mt-2">
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Reintentar
-                </Button>
+              <div className="space-y-3">
+                <p className="font-medium">Error crítico al cargar el menú</p>
+                <div className="text-sm space-y-1">
+                  {productsError && <div>• Error de productos: {productsError.message}</div>}
+                  {categoriesError && <div>• Error de categorías: {categoriesError.message}</div>}
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleRetry} size="sm">
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Reintentar carga
+                  </Button>
+                  {onBack && (
+                    <Button onClick={onBack} variant="outline" size="sm">
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      Volver al panel
+                    </Button>
+                  )}
+                </div>
               </div>
             </AlertDescription>
           </Alert>
@@ -481,14 +526,13 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   }
 
   if (!products || products.length === 0) {
-    console.warn('No products found');
+    console.warn('⚠️ [RENDER] No hay productos disponibles');
     
     return (
       <div 
         className="min-h-screen"
         style={{ backgroundColor: colors.menu_bg_color }}
       >
-        {/* CORRECCIÓN CRÍTICA: Header con ancho EXACTO */}
         <header 
           className="border-b backdrop-blur sticky top-0 z-50"
           style={{ 
@@ -526,12 +570,21 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                <div className="space-y-2">
-                  <p>No hay productos disponibles en este momento.</p>
-                  <Button onClick={handleRetry} size="sm">
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Actualizar menú
-                  </Button>
+                <div className="space-y-3">
+                  <p className="font-medium">No hay productos disponibles</p>
+                  <p className="text-sm">El menú podría estar actualizándose o no tener productos configurados.</p>
+                  <div className="flex justify-center gap-2">
+                    <Button onClick={handleRetry} size="sm">
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Actualizar menú
+                    </Button>
+                    {onBack && (
+                      <Button onClick={onBack} variant="outline" size="sm">
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Volver al panel
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </AlertDescription>
             </Alert>
@@ -541,12 +594,14 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     );
   }
 
+  console.log('✅ [RENDER] Renderizando menú completo con', products.length, 'productos');
+
   return (
     <div 
       className="min-h-screen"
       style={{ backgroundColor: colors.menu_bg_color }}
     >
-      {/* CORRECCIÓN CRÍTICA: Header con ancho EXACTAMENTE igual al contenido */}
+      {/* Header optimizado */}
       <header 
         className="border-b backdrop-blur sticky top-0 z-50"
         style={{ 
@@ -580,6 +635,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
               <Button 
                 variant="outline" 
                 onClick={() => setShowShare(true)}
+                size="sm"
                 style={{ 
                   borderColor: colors.button_bg_color,
                   color: colors.button_bg_color
@@ -592,6 +648,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
               <Button 
                 variant="outline" 
                 onClick={() => setShowReservation(true)}
+                size="sm"
                 style={{ 
                   borderColor: colors.button_bg_color,
                   color: colors.button_bg_color
@@ -604,6 +661,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
               <Button 
                 onClick={() => setShowCart(true)}
                 className="relative"
+                size="sm"
                 style={{ 
                   backgroundColor: colors.button_bg_color,
                   color: colors.button_text_color
@@ -622,7 +680,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         </div>
       </header>
 
-      {/* CORRECCIÓN CRÍTICA: Main con ancho EXACTAMENTE igual al header */}
+      {/* Main content optimizado */}
       <main className="container mx-auto px-4 py-8">
         <div className="space-y-6">
           {businessInfo && !businessInfoLoading && (
@@ -636,25 +694,36 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
             customization={colors}
           />
 
-          {/* CORRECCIÓN: Información de paginación COMPLETA */}
+          {/* Información de paginación mejorada */}
           {filteredProducts && filteredProducts.length > 0 && (
-            <div className="flex justify-between items-center text-sm text-gray-600 mb-4">
-              <span>
+            <div className="flex justify-between items-center text-sm mb-4">
+              <span style={{ color: colors.product_description_color }}>
                 Mostrando {pagination.startItem} - {pagination.endItem} de {pagination.totalItems} productos
               </span>
-              <span>
-                Página {pagination.currentPage} de {pagination.totalPages}
-              </span>
+              <div className="flex items-center gap-2">
+                <span style={{ color: colors.product_description_color }}>
+                  Página {pagination.currentPage} de {pagination.totalPages}
+                </span>
+                <Button
+                  onClick={handleRetry}
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2"
+                  style={{ color: colors.product_description_color }}
+                >
+                  <RefreshCw className="h-3 w-3" />
+                </Button>
+              </div>
             </div>
           )}
 
-          {/* CORRECCIÓN: Usar productos paginados en lugar de todos los productos */}
+          {/* Grid de productos optimizado */}
           {pagination.paginatedProducts && pagination.paginatedProducts.length > 0 ? (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {pagination.paginatedProducts.map((product) => (
                   <Card 
-                    key={product.id} 
+                    key={`${product.id}-${product.name}`}
                     className="group hover:shadow-lg transition-shadow"
                     style={{ 
                       backgroundColor: colors.product_card_bg_color,
@@ -772,18 +841,15 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
                 ))}
               </div>
 
-              {/* CORRECCIÓN CRÍTICA: Controles de paginación COMPLETA */}
+              {/* Controles de paginación optimizados */}
               {pagination.totalPages > 1 && (
                 <div className="flex flex-col items-center space-y-4 mt-8">
-                  {/* Información de navegación */}
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm" style={{ color: colors.product_description_color }}>
                     Página {pagination.currentPage} de {pagination.totalPages} 
                     ({pagination.totalItems} productos en total)
                   </div>
 
-                  {/* Controles de paginación inteligente */}
                   <div className="flex items-center space-x-2">
-                    {/* Botón ir a primera página */}
                     <Button
                       variant="outline"
                       size="sm"
@@ -797,7 +863,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
                       <ChevronsLeft className="h-4 w-4" />
                     </Button>
 
-                    {/* Botón anterior */}
                     <Button
                       variant="outline"
                       onClick={pagination.goToPreviousPage}
@@ -811,7 +876,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
                       Anterior
                     </Button>
 
-                    {/* Páginas visibles */}
                     <div className="flex items-center space-x-1">
                       {pagination.getVisiblePages().map((pageNumber) => {
                         const isCurrentPage = pageNumber === pagination.currentPage;
@@ -836,7 +900,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
                       })}
                     </div>
 
-                    {/* Botón siguiente */}
                     <Button
                       variant="outline"
                       onClick={pagination.goToNextPage}
@@ -850,7 +913,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
                       <ChevronRight className="h-4 w-4 ml-2" />
                     </Button>
 
-                    {/* Botón ir a última página */}
                     <Button
                       variant="outline"
                       size="sm"
@@ -864,31 +926,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
                       <ChevronsRight className="h-4 w-4" />
                     </Button>
                   </div>
-
-                  {/* Salto directo de página (solo si hay muchas páginas) */}
-                  {pagination.totalPages > 10 && (
-                    <div className="flex items-center space-x-2 text-sm">
-                      <span style={{ color: colors.text_color }}>Ir a página:</span>
-                      <input
-                        type="number"
-                        min="1"
-                        max={pagination.totalPages}
-                        value={pagination.currentPage}
-                        onChange={(e) => {
-                          const page = parseInt(e.target.value);
-                          if (page >= 1 && page <= pagination.totalPages) {
-                            pagination.goToPage(page);
-                          }
-                        }}
-                        className="w-16 px-2 py-1 border rounded text-center"
-                        style={{
-                          borderColor: colors.product_card_border_color,
-                          color: colors.text_color
-                        }}
-                      />
-                      <span style={{ color: colors.text_color }}>de {pagination.totalPages}</span>
-                    </div>
-                  )}
                 </div>
               )}
             </>
@@ -897,11 +934,17 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  <div className="space-y-2">
-                    <p>No se encontraron productos en esta categoría.</p>
-                    <Button onClick={() => setSelectedCategory('all')} size="sm">
-                      Ver todos los productos
-                    </Button>
+                  <div className="space-y-3">
+                    <p className="font-medium">No se encontraron productos en esta categoría</p>
+                    <div className="flex justify-center gap-2">
+                      <Button onClick={() => setSelectedCategory('all')} size="sm">
+                        Ver todos los productos
+                      </Button>
+                      <Button onClick={handleRetry} variant="outline" size="sm">
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Actualizar
+                      </Button>
+                    </div>
                   </div>
                 </AlertDescription>
               </Alert>
@@ -910,6 +953,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         </div>
       </main>
 
+      {/* Modales */}
       {showCart && (
         <ShoppingCartModal
           isOpen={showCart}

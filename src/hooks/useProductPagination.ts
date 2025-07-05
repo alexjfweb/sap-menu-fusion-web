@@ -26,89 +26,130 @@ interface PaginationResult {
 
 export const useProductPagination = ({ 
   products, 
-  itemsPerPage = 20 
+  itemsPerPage = 12 
 }: UseProductPaginationProps): PaginationResult => {
-  // Para esta implementación crítica, usaremos paginación del lado del cliente
-  // manteniendo un número fijo de productos por página para optimizar rendimiento
+  // CORRECCIÓN CRÍTICA: Hook optimizado para paginación estable
   const [currentPage, setCurrentPage] = React.useState(1);
   
-  const totalItems = products?.length || 0;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  // CORRECCIÓN: Cálculos más seguros
+  const totalItems = Array.isArray(products) ? products.length : 0;
+  const totalPages = totalItems > 0 ? Math.ceil(totalItems / itemsPerPage) : 1;
   
+  // CORRECCIÓN: Productos paginados con validación
   const paginatedProducts = useMemo(() => {
-    if (!products || products.length === 0) return [];
+    if (!Array.isArray(products) || products.length === 0) {
+      console.log('📄 [PAGINATION] No hay productos para paginar');
+      return [];
+    }
     
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     
-    return products.slice(startIndex, endIndex);
-  }, [products, currentPage, itemsPerPage]);
+    const paginated = products.slice(startIndex, endIndex);
+    
+    console.log(`📄 [PAGINATION] Página ${currentPage}/${totalPages}: ${paginated.length} productos (${startIndex}-${Math.min(endIndex, totalItems)})`);
+    
+    return paginated;
+  }, [products, currentPage, itemsPerPage, totalItems, totalPages]);
 
+  // CORRECCIÓN: Cálculos de rango más seguros
   const startItem = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(currentPage * itemsPerPage, totalItems);
   
   const hasNextPage = currentPage < totalPages;
   const hasPreviousPage = currentPage > 1;
 
-  const goToPage = (page: number) => {
-    if (page >= 1 && page <= totalPages) {
+  // CORRECCIÓN: Funciones de navegación más robustas
+  const goToPage = React.useCallback((page: number) => {
+    if (page >= 1 && page <= totalPages && page !== currentPage) {
+      console.log(`📄 [PAGINATION] Navegando a página ${page}`);
       setCurrentPage(page);
     }
-  };
+  }, [totalPages, currentPage]);
 
-  const goToNextPage = () => {
+  const goToNextPage = React.useCallback(() => {
     if (hasNextPage) {
+      console.log(`📄 [PAGINATION] Siguiente página: ${currentPage + 1}`);
       setCurrentPage(currentPage + 1);
     }
-  };
+  }, [hasNextPage, currentPage]);
 
-  const goToPreviousPage = () => {
+  const goToPreviousPage = React.useCallback(() => {
     if (hasPreviousPage) {
+      console.log(`📄 [PAGINATION] Página anterior: ${currentPage - 1}`);
       setCurrentPage(currentPage - 1);
     }
-  };
+  }, [hasPreviousPage, currentPage]);
 
-  const goToFirstPage = () => {
+  const goToFirstPage = React.useCallback(() => {
+    if (currentPage !== 1) {
+      console.log('📄 [PAGINATION] Yendo a primera página');
+      setCurrentPage(1);
+    }
+  }, [currentPage]);
+
+  const goToLastPage = React.useCallback(() => {
+    if (currentPage !== totalPages) {
+      console.log(`📄 [PAGINATION] Yendo a última página: ${totalPages}`);
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const resetToFirstPage = React.useCallback(() => {
+    console.log('📄 [PAGINATION] Reset a primera página');
     setCurrentPage(1);
-  };
+  }, []);
 
-  const goToLastPage = () => {
-    setCurrentPage(totalPages);
-  };
-
-  const resetToFirstPage = () => {
-    setCurrentPage(1);
-  };
-
-  const getVisiblePages = (): number[] => {
-    const delta = 2; // Número de páginas a mostrar a cada lado de la página actual
+  // CORRECCIÓN: Páginas visibles optimizadas
+  const getVisiblePages = React.useCallback((): number[] => {
+    if (totalPages <= 1) return [1];
+    
+    const delta = 2;
     const range = [];
     const rangeWithDots = [];
 
+    // Calcular rango de páginas visibles
     for (let i = Math.max(2, currentPage - delta); 
          i <= Math.min(totalPages - 1, currentPage + delta); 
          i++) {
       range.push(i);
     }
 
+    // Agregar primera página si no está en el rango
     if (currentPage - delta > 2) {
       rangeWithDots.push(1, '...' as any);
     } else {
       rangeWithDots.push(1);
     }
 
+    // Agregar páginas del rango
     rangeWithDots.push(...range);
 
+    // Agregar última página si no está en el rango
     if (currentPage + delta < totalPages - 1) {
       rangeWithDots.push('...' as any, totalPages);
     } else if (totalPages > 1) {
       rangeWithDots.push(totalPages);
     }
 
-    return rangeWithDots.filter((page, index, arr) => 
+    // Filtrar duplicados y mantener solo números
+    const visiblePages = rangeWithDots.filter((page, index, arr) => 
       arr.indexOf(page) === index && typeof page === 'number'
     ) as number[];
-  };
+
+    console.log(`📄 [PAGINATION] Páginas visibles: [${visiblePages.join(', ')}]`);
+    return visiblePages;
+  }, [currentPage, totalPages]);
+
+  // CORRECCIÓN: Reset automático si la página actual es inválida
+  React.useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      console.log(`📄 [PAGINATION] Página ${currentPage} inválida, reseteando a página 1`);
+      setCurrentPage(1);
+    }
+  }, [totalPages, currentPage]);
+
+  console.log(`📄 [PAGINATION] Estado actual: página ${currentPage}/${totalPages}, ${totalItems} items, ${paginatedProducts.length} mostrados`);
 
   return {
     currentPage,

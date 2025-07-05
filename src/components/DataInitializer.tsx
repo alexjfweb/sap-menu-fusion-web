@@ -1,12 +1,12 @@
 
 import React from 'react';
 
-// CORRECCIÓN CRÍTICA: Sistema de inicialización automática DESHABILITADO
-// Se elimina completamente para evitar creación masiva de productos duplicados
+// CORRECCIÓN DEFINITIVA: Sistema de inicialización completamente DESHABILITADO
+// Para prevenir cualquier creación automática de productos duplicados
 const DataInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Ya no ejecutamos useInitialData() - sistema completamente deshabilitado
-  console.log('🚫 Sistema de inicialización automática deshabilitado para evitar duplicados');
-  console.log('✅ DataInitializer: Renderizando children sin procesamiento adicional');
+  console.log('🚫 [DATA INIT] Sistema de inicialización automática COMPLETAMENTE DESHABILITADO');
+  console.log('✅ [DATA INIT] Renderizando children sin procesamiento adicional');
+  console.log('🛡️ [DATA INIT] Protección anti-duplicados activada');
   
   return <>{children}</>;
 };
