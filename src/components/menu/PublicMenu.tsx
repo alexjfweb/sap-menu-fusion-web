@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
-import { ShoppingCart, Plus, Share2, Calendar, ArrowLeft, AlertCircle, RefreshCw } from 'lucide-react';
+import { ShoppingCart, Plus, Share2, Calendar, ArrowLeft, AlertCircle, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import MenuExplorer from './MenuExplorer';
 import ExpandableDescription from './ExpandableDescription';
@@ -15,6 +15,7 @@ import ShareModal from './ShareModal';
 import ReservationModal from './ReservationModal';
 import BusinessInfoDisplay from './BusinessInfoDisplay';
 import { usePublicMenuCustomization, getDefaultCustomization } from '@/hooks/useMenuCustomization';
+import { useProductPagination } from '@/hooks/useProductPagination';
 import { Tables } from '@/integrations/supabase/types';
 import { sortProductsByStandardizedCategories, sortCategoriesByStandardOrder } from '@/lib/categoryUtils';
 
@@ -140,14 +141,13 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     staleTime: 10 * 60 * 1000,
   });
 
-  // CORRECCIÓN CRÍTICA: Usar la misma query key que ProductManagement para compartir cache
   const { 
     data: categories, 
     isLoading: categoriesLoading, 
     error: categoriesError,
     refetch: refetchCategories 
   } = useQuery({
-    queryKey: ['categories'], // ✅ Unificado con ProductManagement
+    queryKey: ['categories'],
     queryFn: async () => {
       console.log('🔍 [PUBLIC MENU] Obteniendo categorías con query key unificada...');
       
@@ -178,14 +178,13 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     staleTime: 5 * 60 * 1000,
   });
 
-  // CORRECCIÓN CRÍTICA: Usar la misma query key y ordenamiento que ProductManagement
   const { 
     data: products, 
     isLoading: productsLoading, 
     error: productsError,
     refetch: refetchProducts 
   } = useQuery({
-    queryKey: ['products'], // ✅ Unificado con ProductManagement
+    queryKey: ['products'],
     queryFn: async () => {
       console.log('🔍 [PUBLIC MENU] Obteniendo productos con query key unificada...');
       
@@ -199,8 +198,8 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
               name
             )
           `)
-          .eq('is_available', true) // Solo productos disponibles para menú público
-          .order('created_at', { ascending: false }); // ✅ MISMO ORDEN que ProductManagement
+          .eq('is_available', true)
+          .order('created_at', { ascending: false });
         
         console.log('Products query result:', { data, error });
         
@@ -267,7 +266,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }
   }, [cartData]);
 
-  // CORRECCIÓN: Mantener productos recientes primero, aplicar filtro de categoría y luego ordenar por categorías
+  // CORRECCIÓN: Productos filtrados con ordenamiento mejorado
   const filteredProducts = React.useMemo(() => {
     if (!products) return [];
     
@@ -275,7 +274,6 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     console.log('📊 Total productos disponibles:', products.length);
     console.log('🎯 Categoría seleccionada:', selectedCategory);
     
-    // PASO 1: Filtrar por categoría manteniendo orden cronológico
     const filtered = products.filter(product => {
       if (selectedCategory === 'all') return true;
       return product.category_id === selectedCategory;
@@ -283,20 +281,27 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     
     console.log('✅ Productos después del filtro:', filtered.length);
     
-    // PASO 2: Si no hay filtros específicos, mantener orden cronológico
-    // Si hay filtros, aplicar ordenamiento por categorías como secundario
     if (selectedCategory === 'all') {
-      // Mostrar todos los productos manteniendo orden cronológico (más recientes primero)
       console.log('📅 Manteniendo orden cronológico para "Todas las categorías"');
       return filtered;
     }
     
-    // Para categoría específica, aplicar ordenamiento por categorías pero mantener productos recientes primero dentro de cada categoría
     const sortedByCategory = sortProductsByStandardizedCategories(filtered, categories);
     console.log('🏷️ Productos ordenados por categoría específica:', sortedByCategory.length);
     
     return sortedByCategory;
   }, [products, selectedCategory, categories]);
+
+  // NUEVA FUNCIONALIDAD: Hook de paginación
+  const pagination = useProductPagination({ 
+    products: filteredProducts, 
+    itemsPerPage: 20 
+  });
+
+  // Reset pagination when category changes
+  useEffect(() => {
+    pagination.resetToFirstPage();
+  }, [selectedCategory]);
 
   const addToCart = async (product: Product, quantity: number = 1, specialInstructions?: string) => {
     if (!sessionId) {
@@ -365,14 +370,13 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     refetchCustomization();
   };
 
-  // SISTEMA DE INVALIDACIÓN GLOBAL - Escuchar cambios en ProductManagement
+  // Sistema de invalidación global
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'product_management_updated') {
         console.log('🔄 [PUBLIC MENU] Detectado cambio desde ProductManagement, invalidando cache...');
         queryClient.invalidateQueries({ queryKey: ['products'] });
         queryClient.invalidateQueries({ queryKey: ['categories'] });
-        // Limpiar el flag
         localStorage.removeItem('product_management_updated');
       }
     };
@@ -412,6 +416,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         className="min-h-screen"
         style={{ backgroundColor: colors.menu_bg_color }}
       >
+        {/* CORRECCIÓN CRÍTICA: Header con ancho unificado */}
         <header 
           className="border-b backdrop-blur sticky top-0 z-50"
           style={{ 
@@ -419,7 +424,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
             borderColor: colors.product_card_border_color
           }}
         >
-          <div className="container mx-auto px-4 py-4">
+          <div className="max-w-7xl mx-auto px-4 py-4">
             <div className="flex justify-between items-center">
               <h1 
                 className="text-2xl font-bold"
@@ -431,7 +436,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
           </div>
         </header>
         
-        <main className="container mx-auto px-4 py-8">
+        <main className="max-w-7xl mx-auto px-4 py-8">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
@@ -459,6 +464,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         className="min-h-screen"
         style={{ backgroundColor: colors.menu_bg_color }}
       >
+        {/* CORRECCIÓN CRÍTICA: Header con ancho unificado */}
         <header 
           className="border-b backdrop-blur sticky top-0 z-50"
           style={{ 
@@ -466,7 +472,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
             borderColor: colors.product_card_border_color
           }}
         >
-          <div className="container mx-auto px-4 py-4">
+          <div className="max-w-7xl mx-auto px-4 py-4">
             <div className="flex justify-between items-center">
               <div className="flex items-center space-x-4">
                 {onBack && (
@@ -491,7 +497,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
           </div>
         </header>
 
-        <main className="container mx-auto px-4 py-8">
+        <main className="max-w-7xl mx-auto px-4 py-8">
           <div className="text-center py-12">
             <Alert>
               <AlertCircle className="h-4 w-4" />
@@ -516,6 +522,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
       className="min-h-screen"
       style={{ backgroundColor: colors.menu_bg_color }}
     >
+      {/* CORRECCIÓN CRÍTICA: Header con ancho EXACTAMENTE igual al contenido */}
       <header 
         className="border-b backdrop-blur sticky top-0 z-50"
         style={{ 
@@ -523,7 +530,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
           borderColor: colors.product_card_border_color
         }}
       >
-        <div className="container mx-auto px-4 py-4">
+        <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
               {onBack && (
@@ -603,7 +610,8 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      {/* CORRECCIÓN CRÍTICA: Main con ancho EXACTAMENTE igual al header */}
+      <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="space-y-6">
           {businessInfo && !businessInfoLoading && (
             <BusinessInfoDisplay businessInfo={businessInfo} />
@@ -616,127 +624,198 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
             customization={colors}
           />
 
-          {filteredProducts && filteredProducts.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProducts.map((product) => (
-                <Card 
-                  key={product.id} 
-                  className="group hover:shadow-lg transition-shadow"
-                  style={{ 
-                    backgroundColor: colors.product_card_bg_color,
-                    borderColor: colors.product_card_border_color
-                  }}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle 
-                          className="text-lg"
-                          style={{ color: colors.product_name_color }}
-                        >
-                          {product.name}
-                        </CardTitle>
-                        <CardDescription 
-                          className="mt-1"
-                          style={{ color: colors.product_description_color }}
-                        >
-                          {(product as any).categories?.name}
-                        </CardDescription>
+          {/* NUEVA FUNCIONALIDAD: Información de paginación */}
+          {filteredProducts && filteredProducts.length > 0 && (
+            <div className="flex justify-between items-center text-sm text-gray-600 mb-4">
+              <span>
+                Mostrando {pagination.startItem} - {pagination.endItem} de {pagination.totalItems} productos
+              </span>
+              <span>
+                Página {pagination.currentPage} de {pagination.totalPages}
+              </span>
+            </div>
+          )}
+
+          {/* CORRECCIÓN: Usar productos paginados en lugar de todos los productos */}
+          {pagination.paginatedProducts && pagination.paginatedProducts.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {pagination.paginatedProducts.map((product) => (
+                  <Card 
+                    key={product.id} 
+                    className="group hover:shadow-lg transition-shadow"
+                    style={{ 
+                      backgroundColor: colors.product_card_bg_color,
+                      borderColor: colors.product_card_border_color
+                    }}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <CardTitle 
+                            className="text-lg"
+                            style={{ color: colors.product_name_color }}
+                          >
+                            {product.name}
+                          </CardTitle>
+                          <CardDescription 
+                            className="mt-1"
+                            style={{ color: colors.product_description_color }}
+                          >
+                            {(product as any).categories?.name}
+                          </CardDescription>
+                        </div>
                       </div>
-                    </div>
-                  </CardHeader>
-                  
-                  <CardContent>
-                    {product.image_url && (
-                      <img 
-                        src={product.image_url} 
-                        alt={product.name}
-                        className="w-full h-32 object-cover rounded-md mb-3"
-                        onError={(e) => {
-                          console.error('Error loading image:', product.image_url);
-                          (e.target as HTMLImageElement).style.display = 'none';
-                        }}
+                    </CardHeader>
+                    
+                    <CardContent>
+                      {product.image_url && (
+                        <img 
+                          src={product.image_url} 
+                          alt={product.name}
+                          className="w-full h-32 object-cover rounded-md mb-3"
+                          onError={(e) => {
+                            console.error('Error loading image:', product.image_url);
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      )}
+                      
+                      <ExpandableDescription 
+                        description={product.description || ''} 
+                        maxLength={80}
+                        textColor={colors.product_description_color}
                       />
-                    )}
-                    
-                    <ExpandableDescription 
-                      description={product.description || ''} 
-                      maxLength={80}
-                      textColor={colors.product_description_color}
-                    />
-                    
-                    <div className="flex items-center justify-between mb-3">
-                      <span 
-                        className="text-2xl font-bold"
-                        style={{ color: colors.product_price_color }}
-                      >
-                        {formatPrice(Number(product.price))}
-                      </span>
-                      <Badge 
-                        variant="default"
+                      
+                      <div className="flex items-center justify-between mb-3">
+                        <span 
+                          className="text-2xl font-bold"
+                          style={{ color: colors.product_price_color }}
+                        >
+                          {formatPrice(Number(product.price))}
+                        </span>
+                        <Badge 
+                          variant="default"
+                          style={{ 
+                            backgroundColor: colors.button_bg_color,
+                            color: colors.button_text_color
+                          }}
+                        >
+                          Disponible
+                        </Badge>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {product.is_vegetarian && (
+                          <Badge 
+                            variant="outline" 
+                            className="text-xs"
+                            style={{ 
+                              borderColor: colors.product_card_border_color,
+                              color: colors.text_color
+                            }}
+                          >
+                            Vegetariano
+                          </Badge>
+                        )}
+                        {product.is_vegan && (
+                          <Badge 
+                            variant="outline" 
+                            className="text-xs"
+                            style={{ 
+                              borderColor: colors.product_card_border_color,
+                              color: colors.text_color
+                            }}
+                          >
+                            Vegano
+                          </Badge>
+                        )}
+                        {product.is_gluten_free && (
+                          <Badge 
+                            variant="outline" 
+                            className="text-xs"
+                            style={{ 
+                              borderColor: colors.product_card_border_color,
+                              color: colors.text_color
+                            }}
+                          >
+                            Sin Gluten
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <Button 
+                        onClick={() => addToCart(product)}
+                        className="w-full"
                         style={{ 
                           backgroundColor: colors.button_bg_color,
                           color: colors.button_text_color
                         }}
                       >
-                        Disponible
-                      </Badge>
-                    </div>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Agregar al Carrito
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
 
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {product.is_vegetarian && (
-                        <Badge 
-                          variant="outline" 
-                          className="text-xs"
-                          style={{ 
+              {/* NUEVA FUNCIONALIDAD: Controles de paginación */}
+              {pagination.totalPages > 1 && (
+                <div className="flex justify-center items-center space-x-4 mt-8">
+                  <Button
+                    variant="outline"
+                    onClick={pagination.goToPreviousPage}
+                    disabled={!pagination.hasPreviousPage}
+                    style={{ 
+                      borderColor: colors.product_card_border_color,
+                      color: colors.text_color
+                    }}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-2" />
+                    Anterior
+                  </Button>
+
+                  <div className="flex items-center space-x-2">
+                    {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, index) => {
+                      const pageNumber = index + 1;
+                      const isCurrentPage = pageNumber === pagination.currentPage;
+                      
+                      return (
+                        <Button
+                          key={pageNumber}
+                          variant={isCurrentPage ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => pagination.goToPage(pageNumber)}
+                          style={isCurrentPage ? {
+                            backgroundColor: colors.button_bg_color,
+                            color: colors.button_text_color
+                          } : {
                             borderColor: colors.product_card_border_color,
                             color: colors.text_color
                           }}
                         >
-                          Vegetariano
-                        </Badge>
-                      )}
-                      {product.is_vegan && (
-                        <Badge 
-                          variant="outline" 
-                          className="text-xs"
-                          style={{ 
-                            borderColor: colors.product_card_border_color,
-                            color: colors.text_color
-                          }}
-                        >
-                          Vegano
-                        </Badge>
-                      )}
-                      {product.is_gluten_free && (
-                        <Badge 
-                          variant="outline" 
-                          className="text-xs"
-                          style={{ 
-                            borderColor: colors.product_card_border_color,
-                            color: colors.text_color
-                          }}
-                        >
-                          Sin Gluten
-                        </Badge>
-                      )}
-                    </div>
-                    
-                    <Button 
-                      onClick={() => addToCart(product)}
-                      className="w-full"
-                      style={{ 
-                        backgroundColor: colors.button_bg_color,
-                        color: colors.button_text_color
-                      }}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Agregar al Carrito
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                          {pageNumber}
+                        </Button>
+                      );
+                    })}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    onClick={pagination.goToNextPage}
+                    disabled={!pagination.hasNextPage}
+                    style={{ 
+                      borderColor: colors.product_card_border_color,
+                      color: colors.text_color
+                    }}
+                  >
+                    Siguiente
+                    <ChevronRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="text-center py-12">
               <Alert>

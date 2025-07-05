@@ -1,9 +1,11 @@
 
 import React from 'react';
-import { useInitialData } from '@/hooks/useInitialData';
 
+// CORRECCIÓN CRÍTICA: Sistema de inicialización automática DESHABILITADO
+// Se elimina completamente para evitar creación masiva de productos duplicados
 const DataInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  useInitialData();
+  // Ya no ejecutamos useInitialData() - sistema completamente deshabilitado
+  console.log('🚫 Sistema de inicialización automática deshabilitado para evitar duplicados');
   return <>{children}</>;
 };
 
