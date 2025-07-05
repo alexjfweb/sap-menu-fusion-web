@@ -1,27 +1,54 @@
 
-import { useState, useMemo } from 'react';
-import { Tables } from '@/integrations/supabase/types';
-
-type Product = Tables<'products'>;
+import { useMemo } from 'react';
 
 interface UseProductPaginationProps {
-  products: Product[];
+  products: any[];
   itemsPerPage?: number;
+}
+
+interface PaginationResult {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  paginatedProducts: any[];
+  startItem: number;
+  endItem: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  goToPage: (page: number) => void;
+  goToNextPage: () => void;
+  goToPreviousPage: () => void;
+  goToFirstPage: () => void;
+  goToLastPage: () => void;
+  resetToFirstPage: () => void;
+  getVisiblePages: () => number[];
 }
 
 export const useProductPagination = ({ 
   products, 
   itemsPerPage = 20 
-}: UseProductPaginationProps) => {
-  const [currentPage, setCurrentPage] = useState(1);
-
-  const totalPages = Math.ceil(products.length / itemsPerPage);
+}: UseProductPaginationProps): PaginationResult => {
+  // Para esta implementación crítica, usaremos paginación del lado del cliente
+  // manteniendo un número fijo de productos por página para optimizar rendimiento
+  const [currentPage, setCurrentPage] = React.useState(1);
+  
+  const totalItems = products?.length || 0;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
   
   const paginatedProducts = useMemo(() => {
+    if (!products || products.length === 0) return [];
+    
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
+    
     return products.slice(startIndex, endIndex);
   }, [products, currentPage, itemsPerPage]);
+
+  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+  
+  const hasNextPage = currentPage < totalPages;
+  const hasPreviousPage = currentPage > 1;
 
   const goToPage = (page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -30,13 +57,13 @@ export const useProductPagination = ({
   };
 
   const goToNextPage = () => {
-    if (currentPage < totalPages) {
+    if (hasNextPage) {
       setCurrentPage(currentPage + 1);
     }
   };
 
   const goToPreviousPage = () => {
-    if (currentPage > 1) {
+    if (hasPreviousPage) {
       setCurrentPage(currentPage - 1);
     }
   };
@@ -49,40 +76,49 @@ export const useProductPagination = ({
     setCurrentPage(totalPages);
   };
 
-  // Reset page when products change (e.g., when filtering by category)
   const resetToFirstPage = () => {
     setCurrentPage(1);
   };
 
-  // CORRECCIÓN CRÍTICA: Paginación inteligente sin limitación artificial
-  const getVisiblePages = () => {
-    const visiblePageCount = 7; // Mostrar hasta 7 páginas a la vez
-    const halfVisible = Math.floor(visiblePageCount / 2);
-    
-    if (totalPages <= visiblePageCount) {
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
+  const getVisiblePages = (): number[] => {
+    const delta = 2; // Número de páginas a mostrar a cada lado de la página actual
+    const range = [];
+    const rangeWithDots = [];
+
+    for (let i = Math.max(2, currentPage - delta); 
+         i <= Math.min(totalPages - 1, currentPage + delta); 
+         i++) {
+      range.push(i);
     }
 
-    let startPage = Math.max(1, currentPage - halfVisible);
-    let endPage = Math.min(totalPages, currentPage + halfVisible);
-
-    // Ajustar si estamos cerca del inicio
-    if (currentPage <= halfVisible) {
-      endPage = visiblePageCount;
-    }
-    
-    // Ajustar si estamos cerca del final
-    if (currentPage > totalPages - halfVisible) {
-      startPage = totalPages - visiblePageCount + 1;
+    if (currentPage - delta > 2) {
+      rangeWithDots.push(1, '...' as any);
+    } else {
+      rangeWithDots.push(1);
     }
 
-    return Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+    rangeWithDots.push(...range);
+
+    if (currentPage + delta < totalPages - 1) {
+      rangeWithDots.push('...' as any, totalPages);
+    } else if (totalPages > 1) {
+      rangeWithDots.push(totalPages);
+    }
+
+    return rangeWithDots.filter((page, index, arr) => 
+      arr.indexOf(page) === index && typeof page === 'number'
+    ) as number[];
   };
 
   return {
     currentPage,
     totalPages,
+    totalItems,
     paginatedProducts,
+    startItem,
+    endItem,
+    hasNextPage,
+    hasPreviousPage,
     goToPage,
     goToNextPage,
     goToPreviousPage,
@@ -90,10 +126,5 @@ export const useProductPagination = ({
     goToLastPage,
     resetToFirstPage,
     getVisiblePages,
-    hasNextPage: currentPage < totalPages,
-    hasPreviousPage: currentPage > 1,
-    totalItems: products.length,
-    startItem: (currentPage - 1) * itemsPerPage + 1,
-    endItem: Math.min(currentPage * itemsPerPage, products.length)
   };
 };
