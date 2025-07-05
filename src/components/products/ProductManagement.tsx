@@ -47,10 +47,11 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // CORRECCIÓN CRÍTICA: Query unificada con PublicMenu
   const { data: products, isLoading: productsLoading, refetch: refetchProducts } = useQuery({
-    queryKey: ['products'],
+    queryKey: ['products'], // ✅ Misma key que PublicMenu
     queryFn: async () => {
-      console.log('🔍 Obteniendo productos...');
+      console.log('🔍 [PRODUCT MANAGEMENT] Obteniendo productos...');
       const { data, error } = await supabase
         .from('products')
         .select(`
@@ -67,16 +68,17 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
         throw error;
       }
       
-      console.log('✅ Productos obtenidos:', data?.length || 0, 'productos');
+      console.log('✅ [PRODUCT MANAGEMENT] Productos obtenidos:', data?.length || 0, 'productos');
       console.log('📅 Primer producto (más reciente):', data?.[0]?.name, data?.[0]?.created_at);
       return data as ProductWithPartialCategory[];
     },
   });
 
+  // CORRECCIÓN CRÍTICA: Query unificada con PublicMenu
   const { data: categories } = useQuery({
-    queryKey: ['categories'],
+    queryKey: ['categories'], // ✅ Misma key que PublicMenu
     queryFn: async () => {
-      console.log('🔍 Obteniendo categorías...');
+      console.log('🔍 [PRODUCT MANAGEMENT] Obteniendo categorías...');
       const { data, error } = await supabase
         .from('categories')
         .select('*')
@@ -87,7 +89,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
         throw error;
       }
       
-      console.log('✅ Categorías obtenidas:', data?.length || 0, 'categorías');
+      console.log('✅ [PRODUCT MANAGEMENT] Categorías obtenidas:', data?.length || 0, 'categorías');
       return data;
     },
   });
@@ -145,6 +147,23 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     }, 5000);
   }, []);
 
+  // SISTEMA DE INVALIDACIÓN GLOBAL MEJORADO
+  const notifyPublicMenuUpdate = useCallback(() => {
+    try {
+      // Señal para que PublicMenu se actualice
+      localStorage.setItem('product_management_updated', Date.now().toString());
+      console.log('🔔 [PRODUCT MANAGEMENT] Notificación enviada a PublicMenu');
+      
+      // Forzar evento de storage para componentes en la misma pestaña
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'product_management_updated',
+        newValue: Date.now().toString()
+      }));
+    } catch (error) {
+      console.warn('⚠️ No se pudo notificar actualización via localStorage:', error);
+    }
+  }, []);
+
   // Función mejorada para refrescar datos con cache optimista mejorado
   const refreshProductData = async (newProductName?: string, maxRetries = 6): Promise<boolean> => {
     setIsRefreshing(true);
@@ -190,11 +209,14 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
       try {
         console.log(`🔄 Intento ${attempt}/${maxRetries} - Refrescando datos de productos...`);
         
-        // Invalidar queries y esperar refetch
+        // INVALIDACIÓN GLOBAL: Invalidar tanto productos como categorías
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['products'] }),
           queryClient.invalidateQueries({ queryKey: ['categories'] })
         ]);
+        
+        // Notificar a PublicMenu sobre la actualización
+        notifyPublicMenuUpdate();
         
         // Esperar procesamiento de invalidaciones
         await new Promise(resolve => setTimeout(resolve, 400));
@@ -245,7 +267,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
           }
         }
         
-        console.log('✅ Datos refrescados exitosamente');
+        console.log('✅ [PRODUCT MANAGEMENT] Datos refrescados exitosamente con invalidación global');
         setIsRefreshing(false);
         return true;
         
@@ -461,6 +483,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
         description: `${product.name} ${!product.is_available ? 'activado' : 'desactivado'} correctamente`,
       });
 
+      // INVALIDACIÓN GLOBAL: Refrescar datos y notificar a PublicMenu
       await refreshProductData();
     } catch (error) {
       console.error('❌ Error updating product:', error);

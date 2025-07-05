@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +33,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [sessionId, setSessionId] = useState<string>('');
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     try {
@@ -138,21 +140,23 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     staleTime: 10 * 60 * 1000,
   });
 
+  // CORRECCIÓN CRÍTICA: Usar la misma query key que ProductManagement para compartir cache
   const { 
     data: categories, 
     isLoading: categoriesLoading, 
     error: categoriesError,
     refetch: refetchCategories 
   } = useQuery({
-    queryKey: ['public-categories'],
+    queryKey: ['categories'], // ✅ Unificado con ProductManagement
     queryFn: async () => {
-      console.log('Fetching categories from Supabase...');
+      console.log('🔍 [PUBLIC MENU] Obteniendo categorías con query key unificada...');
       
       try {
         const { data, error } = await supabase
           .from('categories')
           .select('*')
-          .eq('is_active', true);
+          .eq('is_active', true)
+          .order('sort_order');
         
         console.log('Categories query result:', { data, error });
         
@@ -163,7 +167,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
         
         const sortedCategories = sortCategoriesByStandardOrder(data || []);
         
-        console.log(`Successfully fetched ${sortedCategories.length} categories with standardized order`);
+        console.log(`✅ [PUBLIC MENU] ${sortedCategories.length} categorías obtenidas con orden estandarizado`);
         return sortedCategories;
       } catch (error) {
         console.error('Categories fetch error:', error);
@@ -174,15 +178,16 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     staleTime: 5 * 60 * 1000,
   });
 
+  // CORRECCIÓN CRÍTICA: Usar la misma query key y ordenamiento que ProductManagement
   const { 
     data: products, 
     isLoading: productsLoading, 
     error: productsError,
     refetch: refetchProducts 
   } = useQuery({
-    queryKey: ['public-products'],
+    queryKey: ['products'], // ✅ Unificado con ProductManagement
     queryFn: async () => {
-      console.log('Fetching products from Supabase...');
+      console.log('🔍 [PUBLIC MENU] Obteniendo productos con query key unificada...');
       
       try {
         const { data, error } = await supabase
@@ -194,8 +199,8 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
               name
             )
           `)
-          .eq('is_available', true)
-          .order('name');
+          .eq('is_available', true) // Solo productos disponibles para menú público
+          .order('created_at', { ascending: false }); // ✅ MISMO ORDEN que ProductManagement
         
         console.log('Products query result:', { data, error });
         
@@ -204,7 +209,8 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
           throw new Error(`Failed to fetch products: ${error.message}`);
         }
         
-        console.log(`Successfully fetched ${data?.length || 0} products`);
+        console.log(`✅ [PUBLIC MENU] ${data?.length || 0} productos disponibles obtenidos (ordenados por fecha DESC)`);
+        console.log('📅 Primer producto (más reciente):', data?.[0]?.name, data?.[0]?.created_at);
         return data || [];
       } catch (error) {
         console.error('Products fetch error:', error);
@@ -261,15 +267,35 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }
   }, [cartData]);
 
+  // CORRECCIÓN: Mantener productos recientes primero, aplicar filtro de categoría y luego ordenar por categorías
   const filteredProducts = React.useMemo(() => {
     if (!products) return [];
     
+    console.log('🔄 [PUBLIC MENU] Procesando productos filtrados...');
+    console.log('📊 Total productos disponibles:', products.length);
+    console.log('🎯 Categoría seleccionada:', selectedCategory);
+    
+    // PASO 1: Filtrar por categoría manteniendo orden cronológico
     const filtered = products.filter(product => {
       if (selectedCategory === 'all') return true;
       return product.category_id === selectedCategory;
     });
     
-    return sortProductsByStandardizedCategories(filtered, categories);
+    console.log('✅ Productos después del filtro:', filtered.length);
+    
+    // PASO 2: Si no hay filtros específicos, mantener orden cronológico
+    // Si hay filtros, aplicar ordenamiento por categorías como secundario
+    if (selectedCategory === 'all') {
+      // Mostrar todos los productos manteniendo orden cronológico (más recientes primero)
+      console.log('📅 Manteniendo orden cronológico para "Todas las categorías"');
+      return filtered;
+    }
+    
+    // Para categoría específica, aplicar ordenamiento por categorías pero mantener productos recientes primero dentro de cada categoría
+    const sortedByCategory = sortProductsByStandardizedCategories(filtered, categories);
+    console.log('🏷️ Productos ordenados por categoría específica:', sortedByCategory.length);
+    
+    return sortedByCategory;
   }, [products, selectedCategory, categories]);
 
   const addToCart = async (product: Product, quantity: number = 1, specialInstructions?: string) => {
@@ -333,11 +359,27 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   };
 
   const handleRetry = () => {
-    console.log('Retrying to fetch data...');
+    console.log('🔄 [PUBLIC MENU] Reintentar obtener datos...');
     refetchProducts();
     refetchCategories();
     refetchCustomization();
   };
+
+  // SISTEMA DE INVALIDACIÓN GLOBAL - Escuchar cambios en ProductManagement
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'product_management_updated') {
+        console.log('🔄 [PUBLIC MENU] Detectado cambio desde ProductManagement, invalidando cache...');
+        queryClient.invalidateQueries({ queryKey: ['products'] });
+        queryClient.invalidateQueries({ queryKey: ['categories'] });
+        // Limpiar el flag
+        localStorage.removeItem('product_management_updated');
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [queryClient]);
 
   const isLoading = productsLoading || categoriesLoading;
   const hasError = productsError || categoriesError;
