@@ -616,9 +616,10 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
         
         console.log('✅ Producto guardado y lista actualizada exitosamente');
       } else {
+        // MEJORA CRÍTICA: Manejo de errores por constraint único
         toast({
-          title: "Advertencia",
-          description: "El producto se guardó, pero hubo problemas actualizando la lista. Ve a la primera página para verlo.",
+          title: "Producto guardado con advertencias",
+          description: "El producto se guardó pero puede que tengas que actualizar la página para verlo. Si el nombre ya existe, por favor elige uno diferente.",
           variant: "destructive",
         });
         
@@ -629,11 +630,22 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
       
     } catch (error) {
       console.error('❌ Error en handleSaveProduct:', error);
-      toast({
-        title: "Advertencia",
-        description: "El producto se guardó, pero puede que tengas que recargar para verlo en la lista.",
-        variant: "destructive",
-      });
+      
+      // MEJORA CRÍTICA: Detectar errores de constraint único
+      const errorMessage = error?.message || '';
+      if (errorMessage.includes('unique_product_name') || errorMessage.includes('already exists')) {
+        toast({
+          title: "Nombre duplicado",
+          description: "Ya existe un producto con ese nombre. Por favor, elige un nombre diferente.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Advertencia",
+          description: "El producto se guardó, pero puede que tengas que recargar para verlo en la lista.",
+          variant: "destructive",
+        });
+      }
       
       // Cerrar formulario de todos modos
       handleCloseForm();
