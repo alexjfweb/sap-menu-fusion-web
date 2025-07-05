@@ -18,6 +18,11 @@ import { Tables } from '@/integrations/supabase/types';
 type Product = Tables<'products'>;
 type Category = Tables<'categories'>;
 
+// Tipo específico para productos con categorías parciales (como viene de la consulta)
+type ProductWithPartialCategory = Product & { 
+  categories?: { id: string; name: string } | null 
+};
+
 interface ProductManagementProps {
   onBack?: () => void;
 }
@@ -25,7 +30,7 @@ interface ProductManagementProps {
 const PRODUCTS_PER_PAGE = 100;
 
 // Función para ordenar productos por categoría y luego alfabéticamente
-const sortProductsByCategory = (products: (Product & { categories?: Category | null })[], categories: Category[]) => {
+const sortProductsByCategory = (products: ProductWithPartialCategory[], categories: Category[]) => {
   const categoryOrder = ['Platos principales', 'Platos ejecutivos', 'Platos especiales'];
   
   return products.sort((a, b) => {
@@ -91,7 +96,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
       }
       
       console.log('✅ Productos obtenidos:', data?.length || 0, 'productos');
-      return data;
+      return data as ProductWithPartialCategory[];
     },
   });
 
@@ -618,7 +623,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
                       <div className="flex-1">
                         <CardTitle className="text-lg">{product.name}</CardTitle>
                         <CardDescription className="mt-1">
-                          {(product as any).categories?.name}
+                          {product.categories?.name}
                         </CardDescription>
                       </div>
                     </div>
