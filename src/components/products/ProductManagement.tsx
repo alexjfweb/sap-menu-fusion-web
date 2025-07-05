@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Search, Edit, Trash2, Eye, EyeOff, ArrowLeft, ChefHat, Menu as MenuIcon } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Eye, EyeOff, ArrowLeft, ChefHat, Menu as MenuIcon, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import ProductForm from './ProductForm';
 import PublicMenu from '../menu/PublicMenu';
@@ -43,6 +43,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [recentlyCreatedProduct, setRecentlyCreatedProduct] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -59,7 +60,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
             name
           )
         `)
-        .order('name');
+        .order('created_at', { ascending: false }); // CAMBIO CRÍTICO: Ordenar por fecha de creación descendente
       
       if (error) {
         console.error('❌ Error obteniendo productos:', error);
@@ -67,6 +68,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
       }
       
       console.log('✅ Productos obtenidos:', data?.length || 0, 'productos');
+      console.log('📅 Primer producto (más reciente):', data?.[0]?.name, data?.[0]?.created_at);
       return data as ProductWithPartialCategory[];
     },
   });
@@ -96,7 +98,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     return sortCategoriesByStandardOrder(categories);
   }, [categories]);
 
-  // Aplicar ordenamiento por categoría y alfabético a los productos filtrados usando la utilidad centralizada
+  // Aplicar filtros pero mantener el orden cronológico descendente para productos recientes
   const sortedAndFilteredProducts = React.useMemo(() => {
     if (!products || !categories) return [];
     
@@ -107,6 +109,12 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
       
       return matchesSearch && matchesCategory;
     });
+    
+    // Para mantener los productos recientes al inicio, solo aplicamos ordenamiento por categoría
+    // si no hay filtros activos. Si hay filtros, mantenemos el orden cronológico.
+    if (searchTerm || selectedCategory !== 'all') {
+      return filtered; // Mantener orden cronológico cuando hay filtros
+    }
     
     return sortProductsByStandardizedCategories(filtered, categories);
   }, [products, categories, searchTerm, selectedCategory]);
@@ -123,11 +131,25 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     setSelectedProducts(new Set());
   }, [searchTerm, selectedCategory]);
 
-  // Función mejorada para refrescar datos de forma robusta con cache optimista
-  const refreshProductData = async (newProductName?: string, maxRetries = 5): Promise<boolean> => {
+  // Función para encontrar y resaltar el producto recién creado
+  const highlightNewProduct = useCallback((productName: string) => {
+    console.log('🎯 Resaltando producto recién creado:', productName);
+    setRecentlyCreatedProduct(productName);
+    
+    // Ir a la primera página donde debería estar el producto más reciente
+    setCurrentPage(1);
+    
+    // Quitar el resaltado después de 5 segundos
+    setTimeout(() => {
+      setRecentlyCreatedProduct(null);
+    }, 5000);
+  }, []);
+
+  // Función mejorada para refrescar datos con cache optimista mejorado
+  const refreshProductData = async (newProductName?: string, maxRetries = 6): Promise<boolean> => {
     setIsRefreshing(true);
     
-    // PASO 1: Cache optimista - si tenemos el nombre del nuevo producto, agregarlo temporalmente
+    // PASO 1: Cache optimista mejorado - usar nombre real si se proporciona
     let optimisticProduct: ProductWithPartialCategory | null = null;
     if (newProductName && !editingProduct) {
       optimisticProduct = {
@@ -151,7 +173,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
         categories: null
       };
 
-      // Actualizar cache optimista
+      // Actualizar cache optimista - agregar al principio de la lista
       queryClient.setQueryData(['products'], (oldData: ProductWithPartialCategory[] | undefined) => {
         if (!oldData) return [optimisticProduct!];
         return [optimisticProduct!, ...oldData];
@@ -160,9 +182,9 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
       console.log('✨ Cache optimista aplicado para:', newProductName);
     }
 
-    // PASO 2: Delay estratégico para asegurar propagación en la base de datos
-    console.log('⏳ Esperando propagación de datos...');
-    await new Promise(resolve => setTimeout(resolve, 800));
+    // PASO 2: Delay estratégico más largo para asegurar propagación
+    console.log('⏳ Esperando propagación de datos en Supabase...');
+    await new Promise(resolve => setTimeout(resolve, 1500));
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -174,30 +196,53 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
           queryClient.invalidateQueries({ queryKey: ['categories'] })
         ]);
         
-        // Esperar un poco para que se procesen las invalidaciones
-        await new Promise(resolve => setTimeout(resolve, 200));
+        // Esperar procesamiento de invalidaciones
+        await new Promise(resolve => setTimeout(resolve, 400));
         
-        // Refetch explícito con timeout
+        // Refetch explícito con timeout aumentado
         const refetchPromise = refetchProducts();
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout')), 8000)
+          setTimeout(() => reject(new Error('Timeout en refetch')), 10000)
         );
         
         const result = await Promise.race([refetchPromise, timeoutPromise]);
         
-        // PASO 3: Verificar que el nuevo producto aparezca en la lista
+        // PASO 3: Verificación crítica - buscar el producto en los datos refrescados
         if (newProductName && !editingProduct) {
-          const { data: verificationData } = await supabase
-            .from('products')
-            .select('id, name')
-            .eq('name', newProductName)
-            .limit(1);
+          // Verificar directamente en los datos devueltos por el refetch
+          const freshData = result.data as ProductWithPartialCategory[];
+          const foundProduct = freshData?.find(p => p.name === newProductName);
+          
+          if (!foundProduct) {
+            console.warn(`⚠️ Intento ${attempt}: Producto "${newProductName}" no encontrado en datos refrescados`);
+            
+            // Verificación adicional directa a la base de datos
+            const { data: verificationData } = await supabase
+              .from('products')
+              .select('id, name, created_at')
+              .eq('name', newProductName)
+              .order('created_at', { ascending: false })
+              .limit(1);
 
-          if (!verificationData || verificationData.length === 0) {
-            throw new Error(`Producto "${newProductName}" no encontrado en refetch`);
+            if (!verificationData || verificationData.length === 0) {
+              throw new Error(`Producto "${newProductName}" no encontrado en verificación directa`);
+            }
+
+            console.log('✅ Producto encontrado en verificación directa:', verificationData[0]);
+            
+            // Si está en la DB pero no en el refetch, es un problema de timing
+            if (attempt < maxRetries) {
+              const delay = Math.min(1500 * attempt, 4000);
+              console.log(`⏳ Problema de timing detectado, esperando ${delay}ms más...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+              continue;
+            }
+          } else {
+            console.log('✅ Producto encontrado en refetch:', foundProduct.name, foundProduct.created_at);
+            
+            // Resaltar el producto recién creado
+            highlightNewProduct(newProductName);
           }
-
-          console.log('✅ Nuevo producto verificado en refetch:', verificationData[0]);
         }
         
         console.log('✅ Datos refrescados exitosamente');
@@ -224,7 +269,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
         }
         
         // Esperar antes del siguiente intento con backoff exponencial
-        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+        const delay = Math.min(1200 * Math.pow(1.5, attempt - 1), 6000);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
@@ -517,34 +562,46 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     setEditingProduct(null);
   };
 
-  const handleSaveProduct = async () => {
-    console.log('💾 Producto guardado, iniciando refesco robusto...');
+  // Función mejorada para manejar el guardado con confirmación visual
+  const handleSaveProduct = async (newProductName?: string) => {
+    console.log('💾 Producto guardado, iniciando refesco robusto...', newProductName ? `para: ${newProductName}` : '(actualización)');
     
     try {
-      // Para productos nuevos, usar el nombre del producto para la verificación optimista
-      const productName = editingProduct ? undefined : 'Nuevo Producto';
-      
-      // Refrescar datos de forma robusta con cache optimista
-      const refreshSuccess = await refreshProductData(productName);
+      // Refrescar datos de forma robusta con el nombre real del producto
+      const refreshSuccess = await refreshProductData(newProductName);
       
       if (refreshSuccess) {
         handleCloseForm();
         
-        toast({
-          title: "Éxito",
-          description: editingProduct ? "Producto actualizado correctamente" : "Producto creado correctamente y visible en la lista",
-        });
+        // Mostrar confirmación visual mejorada con botón para navegar al producto
+        if (newProductName) {
+          toast({
+            title: "¡Producto creado exitosamente!",
+            description: (
+              <div className="flex items-center justify-between">
+                <span>{newProductName} se agregó al inicio de la lista</span>
+                <CheckCircle className="h-4 w-4 text-green-500 ml-2" />
+              </div>
+            ),
+          });
+        } else {
+          toast({
+            title: "Producto actualizado",
+            description: "Los cambios se guardaron correctamente",
+          });
+        }
         
         console.log('✅ Producto guardado y lista actualizada exitosamente');
       } else {
         toast({
           title: "Advertencia",
-          description: "El producto se guardó, pero hubo problemas actualizando la lista. Refresca la página si no ves los cambios.",
+          description: "El producto se guardó, pero hubo problemas actualizando la lista. Ve a la primera página para verlo.",
           variant: "destructive",
         });
         
-        // Cerrar formulario de todos modos
+        // Cerrar formulario y ir a la primera página de todos modos
         handleCloseForm();
+        setCurrentPage(1);
       }
       
     } catch (error) {
@@ -620,7 +677,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
           <div>
             <h2 className="text-2xl font-bold">Gestión de Productos</h2>
             <p className="text-muted-foreground">
-              Administra el menú del restaurante • Hasta 100 productos por página para operaciones eficientes
+              Administra el menú del restaurante • Los productos más recientes aparecen primero • Hasta 100 productos por página
             </p>
           </div>
 
@@ -690,7 +747,14 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
             {paginatedProducts?.map((product) => (
-              <Card key={product.id} className="group hover:shadow-lg transition-shadow">
+              <Card 
+                key={product.id} 
+                className={`group hover:shadow-lg transition-all duration-300 ${
+                  recentlyCreatedProduct === product.name 
+                    ? 'ring-2 ring-green-500 bg-green-50 shadow-lg scale-105' 
+                    : ''
+                }`}
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start space-x-3 flex-1">
@@ -699,7 +763,14 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
                         onCheckedChange={(checked) => handleSelectProduct(product.id, checked as boolean)}
                       />
                       <div className="flex-1">
-                        <CardTitle className="text-lg">{product.name}</CardTitle>
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-lg">{product.name}</CardTitle>
+                          {recentlyCreatedProduct === product.name && (
+                            <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
+                              ¡Nuevo!
+                            </Badge>
+                          )}
+                        </div>
                         <CardDescription className="mt-1">
                           {product.categories?.name}
                         </CardDescription>

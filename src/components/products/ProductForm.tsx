@@ -17,7 +17,7 @@ type Category = Tables<'categories'>;
 interface ProductFormProps {
   product?: Product | null;
   categories: Category[];
-  onSave: () => void;
+  onSave: (productName?: string) => void;
   onCancel: () => void;
 }
 
@@ -93,15 +93,20 @@ const ProductForm: React.FC<ProductFormProps> = ({
     }
   };
 
-  // Función para confirmar que el producto se creó correctamente
-  const confirmProductCreation = async (productName: string, maxRetries = 5): Promise<boolean> => {
+  // Función mejorada para confirmar que el producto se creó correctamente
+  const confirmProductCreation = async (productName: string, maxRetries = 8): Promise<boolean> => {
     console.log('🔍 Confirmando creación del producto:', productName);
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
+        // Esperar antes de cada verificación (especialmente importante en el primer intento)
+        const delay = attempt === 1 ? 1200 : Math.min(800 * attempt, 3000);
+        console.log(`⏳ Esperando ${delay}ms antes de verificación ${attempt}...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+
         const { data, error } = await supabase
           .from('products')
-          .select('id, name')
+          .select('id, name, created_at')
           .eq('name', productName)
           .order('created_at', { ascending: false })
           .limit(1);
@@ -111,15 +116,12 @@ const ProductForm: React.FC<ProductFormProps> = ({
           if (attempt === maxRetries) throw error;
         } else if (data && data.length > 0) {
           console.log('✅ Producto confirmado en la base de datos:', data[0]);
+          console.log('📅 Fecha de creación:', data[0].created_at);
           return true;
+        } else {
+          console.log(`⚠️ Intento ${attempt}: Producto "${productName}" aún no encontrado`);
         }
 
-        // Esperar antes del siguiente intento
-        if (attempt < maxRetries) {
-          const delay = Math.min(1000 * attempt, 3000); // Incrementar delay hasta 3s
-          console.log(`⏳ Esperando ${delay}ms antes del siguiente intento...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
       } catch (error) {
         console.error(`❌ Error en confirmación intento ${attempt}:`, error);
         if (attempt === maxRetries) throw error;
@@ -163,7 +165,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
           .eq('id', product.id));
       } else {
         // Crear nuevo producto
-        console.log('➕ Creando nuevo producto');
+        console.log('➕ Creando nuevo producto con nombre:', formData.name);
         ({ error } = await supabase
           .from('products')
           .insert([productData]));
@@ -178,13 +180,13 @@ const ProductForm: React.FC<ProductFormProps> = ({
 
       // Para productos nuevos, confirmar que se creó correctamente antes de continuar
       if (!product) {
-        console.log('🔍 Iniciando confirmación de creación...');
+        console.log('🔍 Iniciando confirmación de creación para:', formData.name);
         setConfirmingCreation(true);
         
         const confirmed = await confirmProductCreation(formData.name);
         
         if (!confirmed) {
-          throw new Error('No se pudo confirmar la creación del producto en la base de datos');
+          throw new Error(`No se pudo confirmar la creación del producto "${formData.name}" en la base de datos después de varios intentos`);
         }
         
         console.log('✅ Creación del producto confirmada exitosamente');
@@ -196,15 +198,15 @@ const ProductForm: React.FC<ProductFormProps> = ({
         description: `${formData.name} ${product ? 'actualizado' : 'creado'} correctamente`,
       });
 
-      // Llamar onSave que manejará el refetch y cierre del modal
-      onSave();
+      // Pasar el nombre real del producto al onSave para cache optimista
+      onSave(product ? undefined : formData.name);
       
     } catch (error) {
       console.error('❌ Error saving product:', error);
       setConfirmingCreation(false);
       toast({
         title: "Error",
-        description: `No se pudo ${product ? 'actualizar' : 'crear'} el producto`,
+        description: `No se pudo ${product ? 'actualizar' : 'crear'} el producto: ${error.message}`,
         variant: "destructive",
       });
     } finally {
