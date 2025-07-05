@@ -1,5 +1,5 @@
 
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
 
 interface UseProductPaginationProps {
   products: any[];
