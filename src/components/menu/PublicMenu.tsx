@@ -8,7 +8,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { ShoppingCart, Plus, Share2, Calendar, ArrowLeft, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { useBusinessContext } from '@/hooks/useBusinessContext';
 import MenuExplorer from './MenuExplorer';
 import ExpandableDescription from './ExpandableDescription';
 import ShoppingCartModal from './ShoppingCartModal';
@@ -19,16 +18,18 @@ import { usePublicMenuCustomization, getDefaultCustomization } from '@/hooks/use
 import { useProductPagination } from '@/hooks/useProductPagination';
 import { Tables } from '@/integrations/supabase/types';
 import { sortProductsByStandardizedCategories, sortCategoriesByStandardOrder } from '@/lib/categoryUtils';
+import { useRestaurantContext, createRestaurantSlug, slugToBusinessName } from '@/hooks/useRestaurantContext';
+import { useUnifiedProducts } from '@/hooks/useUnifiedProducts';
 
 type Product = Tables<'products'>;
 type Category = Tables<'categories'>;
 
 interface PublicMenuProps {
   onBack?: () => void;
-  restaurantName?: string; // FASE 3: Soporte para URL amigable
+  restaurantSlug?: string; // Nuevo: slug del restaurante desde URL
 }
 
-const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
+const PublicMenu = ({ onBack, restaurantSlug }: PublicMenuProps) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showCart, setShowCart] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -38,78 +39,30 @@ const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { profile } = useAuth();
-  const { businessId: authBusinessId } = useBusinessContext(); // Business ID del usuario autenticado
 
-  console.log('🚀 [PUBLIC MENU] Iniciando con restaurantName:', restaurantName);
+  console.log('🚀 [PUBLIC MENU] Iniciando con restaurantSlug:', restaurantSlug);
 
-  // FASE 3: Determinar business_id desde URL o usuario autenticado
+  // FASE 1: Usar contexto unificado del restaurante
   const { 
-    data: targetBusinessInfo, 
-    isLoading: businessInfoLoading,
-    error: businessInfoError 
-  } = useQuery({
-    queryKey: ['target-business-info', restaurantName, authBusinessId],
-    queryFn: async () => {
-      console.log('🏢 [BUSINESS] Determinando negocio objetivo...');
-      
-      // Si hay restaurantName en URL, usar ese
-      if (restaurantName) {
-        console.log('🔍 Buscando por nombre de restaurante:', restaurantName);
-        const { data, error } = await supabase
-          .rpc('get_business_by_name', { restaurant_name: restaurantName });
-        
-        if (error) {
-          console.error('❌ Error buscando por nombre:', error);
-          throw error;
-        }
-        
-        if (!data) {
-          console.warn('⚠️ No se encontró restaurante con nombre:', restaurantName);
-          return null;
-        }
-        
-        // Obtener información completa del negocio
-        const { data: businessData, error: businessError } = await supabase
-          .rpc('get_business_by_id', { business_uuid: data });
-        
-        if (businessError) throw businessError;
-        
-        console.log('✅ Negocio encontrado por nombre:', businessData?.[0]?.business_name);
-        return businessData?.[0] || null;
-      }
-      
-      // Si hay usuario autenticado, usar su business_id
-      if (authBusinessId) {
-        console.log('👤 Usando business_id del usuario autenticado:', authBusinessId);
-        const { data: businessData, error } = await supabase
-          .rpc('get_business_by_id', { business_uuid: authBusinessId });
-        
-        if (error) throw error;
-        
-        console.log('✅ Negocio del usuario autenticado:', businessData?.[0]?.business_name);
-        return businessData?.[0] || null;
-      }
-      
-      // Fallback: primer negocio disponible
-      console.log('🔄 Fallback: usando primer negocio disponible');
-      const { data, error } = await supabase
-        .from('business_info')
-        .select('*')
-        .limit(1)
-        .single();
-      
-      if (error && error.code !== 'PGRST116') throw error;
-      
-      console.log('✅ Usando negocio por defecto:', data?.business_name);
-      return data;
-    },
-    enabled: isInitialized,
-    retry: 2,
-    staleTime: 1000 * 60 * 5,
-  });
+    data: restaurantInfo, 
+    isLoading: restaurantLoading,
+    error: restaurantError 
+  } = useRestaurantContext(restaurantSlug);
 
-  const targetBusinessId = targetBusinessInfo?.id;
+  const restaurantId = restaurantInfo?.id;
+  const restaurantName = restaurantInfo?.business_name;
+
+  // FASE 2: Usar productos unificados (mismo criterio que admin)
+  const { 
+    data: products, 
+    isLoading: productsLoading, 
+    error: productsError,
+    refetch: refetchProducts 
+  } = useUnifiedProducts({
+    businessId: restaurantId,
+    isPublic: true,
+    enabled: isInitialized && !!restaurantId
+  });
 
   // CORRECCIÓN CRÍTICA: Inicialización controlada
   useEffect(() => {
@@ -199,7 +152,7 @@ const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
     error: categoriesError,
     refetch: refetchCategories 
   } = useQuery({
-    queryKey: ['categories-public-v2'],
+    queryKey: ['categories-public-unified'],
     queryFn: async () => {
       console.log('🏷️ [CATEGORIES] Obteniendo categorías...');
       
@@ -224,71 +177,9 @@ const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
     staleTime: 1000 * 60 * 5,
   });
 
-  // FASE 2: Query corregida para productos del restaurante específico
-  const { 
-    data: products, 
-    isLoading: productsLoading, 
-    error: productsError,
-    refetch: refetchProducts 
-  } = useQuery({
-    queryKey: ['products-public-by-business-v3', targetBusinessId],
-    queryFn: async () => {
-      if (!targetBusinessId) {
-        console.warn('⚠️ [PRODUCTS] No hay targetBusinessId disponible');
-        return [];
-      }
-
-      console.log('🍽️ [PRODUCTS] Obteniendo productos del negocio:', targetBusinessId);
-      
-      try {
-        // CORRECCIÓN: Usar función SQL para obtener productos del negocio específico
-        const { data, error } = await supabase
-          .rpc('get_public_products_by_business', { business_uuid: targetBusinessId });
-        
-        if (error) {
-          console.error('❌ [PRODUCTS] Error en RPC:', error);
-          throw error;
-        }
-        
-        if (!data || data.length === 0) {
-          console.warn('⚠️ [PRODUCTS] No hay productos disponibles para el negocio');
-          return [];
-        }
-        
-        // Enriquecer con información de categorías
-        const enrichedProducts = await Promise.all(
-          data.map(async (product) => {
-            if (product.category_id) {
-              const { data: categoryData } = await supabase
-                .from('categories')
-                .select('id, name')
-                .eq('id', product.category_id)
-                .single();
-              
-              return {
-                ...product,
-                categories: categoryData
-              };
-            }
-            return product;
-          })
-        );
-        
-        console.log(`✅ [PRODUCTS] ${enrichedProducts.length} productos obtenidos para negocio ${targetBusinessId}`);
-        return enrichedProducts;
-      } catch (error) {
-        console.error('❌ [PRODUCTS] Error crítico:', error);
-        throw error;
-      }
-    },
-    enabled: isInitialized && !!targetBusinessId,
-    retry: 2,
-    staleTime: 1000 * 60 * 2,
-  });
-
   // CORRECCIÓN CRÍTICA: Query optimizada para carrito
   const { data: cartData, refetch: refetchCart } = useQuery({
-    queryKey: ['cart-items-public-v2', sessionId],
+    queryKey: ['cart-items-unified', sessionId],
     queryFn: async () => {
       if (!sessionId) {
         console.log('⚠️ [CART] No session ID disponible');
@@ -352,7 +243,7 @@ const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
       return filtered.sort((a, b) => a.name.localeCompare(b.name));
     }
     
-    // CORRECCIÓN: Usar category_id para encontrar la categoría correspondiente
+    // Usar category_id para encontrar la categoría correspondiente
     const productsWithCategories = filtered.map(product => {
       const category = categories?.find(cat => cat.id === product.category_id);
       return {
@@ -444,15 +335,15 @@ const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
   };
 
   // Estados de carga y error mejorados
-  const isLoading = !isInitialized || productsLoading || categoriesLoading || businessInfoLoading;
-  const hasError = productsError || categoriesError || businessInfoError;
+  const isLoading = !isInitialized || productsLoading || categoriesLoading || restaurantLoading;
+  const hasError = productsError || categoriesError || restaurantError;
 
   console.log('🎯 [RENDER] Estado actual:', {
     isInitialized,
     isLoading,
     hasError,
-    targetBusinessId,
-    businessName: targetBusinessInfo?.business_name,
+    restaurantId,
+    restaurantName,
     productsCount: products?.length || 0,
     categoriesCount: categories?.length || 0,
     filteredCount: filteredProducts?.length || 0
@@ -511,7 +402,7 @@ const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
 
   // CORRECCIÓN CRÍTICA: Manejo de errores mejorado
   if (hasError) {
-    console.error('❌ [RENDER] Error crítico detectado:', { productsError, categoriesError, businessInfoError });
+    console.error('❌ [RENDER] Error crítico detectado:', { productsError, categoriesError, restaurantError });
     
     return (
       <div 
@@ -543,7 +434,7 @@ const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
                   className="text-2xl font-bold"
                   style={{ color: colors.header_text_color }}
                 >
-                  {targetBusinessInfo?.business_name || 'Menú del Restaurante'}
+                  {restaurantName || 'Menú del Restaurante'}
                 </h1>
               </div>
             </div>
@@ -557,7 +448,7 @@ const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
               <div className="space-y-3">
                 <p className="font-medium">Error al cargar el menú del restaurante</p>
                 <div className="text-sm space-y-1">
-                  {businessInfoError && <div>• Información del negocio: {businessInfoError.message}</div>}
+                  {restaurantError && <div>• Información del negocio: {restaurantError.message}</div>}
                   {productsError && <div>• Productos: {productsError.message}</div>}
                   {categoriesError && <div>• Categorías: {categoriesError.message}</div>}
                 </div>
@@ -615,7 +506,7 @@ const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
                   className="text-2xl font-bold"
                   style={{ color: colors.header_text_color }}
                 >
-                  {targetBusinessInfo?.business_name || 'Menú del Restaurante'}
+                  {restaurantName || 'Menú del Restaurante'}
                 </h1>
               </div>
             </div>
@@ -630,8 +521,8 @@ const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
                 <div className="space-y-3">
                   <p className="font-medium">Menú en preparación</p>
                   <p className="text-sm">
-                    {targetBusinessInfo?.business_name 
-                      ? `${targetBusinessInfo.business_name} está preparando su delicioso menú para ti.`
+                    {restaurantName 
+                      ? `${restaurantName} está preparando su delicioso menú para ti.`
                       : 'Estamos preparando nuestro delicioso menú para ti.'
                     }
                   </p>
@@ -656,14 +547,18 @@ const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
     );
   }
 
-  console.log('✅ [RENDER] Renderizando menú completo del restaurante:', targetBusinessInfo?.business_name, 'con', products.length, 'productos');
+  console.log('✅ [RENDER] Renderizando menú completo del restaurante:', restaurantName, 'con', products.length, 'productos');
+
+  // FASE 3: Generar URL amigable para compartir
+  const friendlyUrl = restaurantName ? createRestaurantSlug(restaurantName) : '';
+  const currentUrl = window.location.origin + (friendlyUrl ? `/menu/${friendlyUrl}` : '/menu');
 
   return (
     <div 
       className="min-h-screen"
       style={{ backgroundColor: colors.menu_bg_color }}
     >
-      {/* Header optimizado con nombre del restaurante */}
+      {/* FASE 3: Header optimizado con nombre prominente del restaurante */}
       <header 
         className="border-b backdrop-blur sticky top-0 z-50"
         style={{ 
@@ -687,16 +582,24 @@ const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
               )}
               <div>
                 <h1 
-                  className="text-2xl font-bold"
+                  className="text-3xl font-bold"
                   style={{ color: colors.header_text_color }}
                 >
-                  {targetBusinessInfo?.business_name || 'Menú del Restaurante'}
+                  {restaurantName || 'Menú del Restaurante'}
                 </h1>
-                {restaurantName && (
-                  <p className="text-sm opacity-75" style={{ color: colors.header_text_color }}>
-                    URL: /{restaurantName}
+                {friendlyUrl && (
+                  <p className="text-sm opacity-75 mt-1" style={{ color: colors.header_text_color }}>
+                    📍 {currentUrl}
                   </p>
                 )}
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                    ✅ Menú Sincronizado
+                  </span>
+                  <span className="text-xs opacity-60" style={{ color: colors.header_text_color }}>
+                    {products.length} productos disponibles
+                  </span>
+                </div>
               </div>
             </div>
             
@@ -752,8 +655,8 @@ const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
       {/* Main content optimizado */}
       <main className="container mx-auto px-4 py-8">
         <div className="space-y-6">
-          {targetBusinessInfo && (
-            <BusinessInfoDisplay businessInfo={targetBusinessInfo} />
+          {restaurantInfo && (
+            <BusinessInfoDisplay businessInfo={restaurantInfo} />
           )}
 
           <MenuExplorer
@@ -767,7 +670,7 @@ const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
           {filteredProducts && filteredProducts.length > 0 && (
             <div className="flex justify-between items-center text-sm mb-4">
               <span style={{ color: colors.product_description_color }}>
-                Mostrando {pagination.startItem} - {pagination.endItem} de {pagination.totalItems} productos de {targetBusinessInfo?.business_name}
+                Mostrando {pagination.startItem} - {pagination.endItem} de {pagination.totalItems} productos de {restaurantName}
               </span>
               <div className="flex items-center gap-2">
                 <span style={{ color: colors.product_description_color }}>
@@ -791,7 +694,7 @@ const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {pagination.paginatedProducts.map((product) => {
-                  // CORRECCIÓN: Encontrar la categoría usando category_id
+                  // Encontrar la categoría usando category_id
                   const productCategory = categories?.find(cat => cat.id === product.category_id);
                   
                   return (
@@ -915,93 +818,94 @@ const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
                 })}
               </div>
 
-              {/* Controles de paginación optimizados */}
-              {pagination.totalPages > 1 && (
-                <div className="flex flex-col items-center space-y-4 mt-8">
-                  <div className="text-sm" style={{ color: colors.product_description_color }}>
-                    Página {pagination.currentPage} de {pagination.totalPages} 
-                    ({pagination.totalItems} productos en total)
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={pagination.goToFirstPage}
-                      disabled={!pagination.hasPreviousPage}
-                      style={{ 
-                        borderColor: colors.product_card_border_color,
-                        color: colors.text_color
-                      }}
-                    >
-                      <ChevronsLeft className="h-4 w-4" />
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      onClick={pagination.goToPreviousPage}
-                      disabled={!pagination.hasPreviousPage}
-                      style={{ 
-                        borderColor: colors.product_card_border_color,
-                        color: colors.text_color
-                      }}
-                    >
-                      <ChevronLeft className="h-4 w-4 mr-2" />
-                      Anterior
-                    </Button>
-
-                    <div className="flex items-center space-x-1">
-                      {pagination.getVisiblePages().map((pageNumber) => {
-                        const isCurrentPage = pageNumber === pagination.currentPage;
-                        
-                        return (
-                          <Button
-                            key={pageNumber}
-                            variant={isCurrentPage ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => pagination.goToPage(pageNumber)}
-                            style={isCurrentPage ? {
-                              backgroundColor: colors.button_bg_color,
-                              color: colors.button_text_color
-                            } : {
-                              borderColor: colors.product_card_border_color,
-                              color: colors.text_color
-                            }}
-                          >
-                            {pageNumber}
-                          </Button>
-                        );
-                      })}
+              {
+                pagination.totalPages > 1 && (
+                  <div className="flex flex-col items-center space-y-4 mt-8">
+                    <div className="text-sm" style={{ color: colors.product_description_color }}>
+                      Página {pagination.currentPage} de {pagination.totalPages} 
+                      ({pagination.totalItems} productos en total)
                     </div>
 
-                    <Button
-                      variant="outline"
-                      onClick={pagination.goToNextPage}
-                      disabled={!pagination.hasNextPage}
-                      style={{ 
-                        borderColor: colors.product_card_border_color,
-                        color: colors.text_color
-                      }}
-                    >
-                      Siguiente
-                      <ChevronRight className="h-4 w-4 ml-2" />
-                    </Button>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={pagination.goToFirstPage}
+                        disabled={!pagination.hasPreviousPage}
+                        style={{ 
+                          borderColor: colors.product_card_border_color,
+                          color: colors.text_color
+                        }}
+                      >
+                        <ChevronsLeft className="h-4 w-4" />
+                      </Button>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={pagination.goToLastPage}
-                      disabled={!pagination.hasNextPage}
-                      style={{ 
-                        borderColor: colors.product_card_border_color,
-                        color: colors.text_color
-                      }}
-                    >
-                      <ChevronsRight className="h-4 w-4" />
-                    </Button>
+                      <Button
+                        variant="outline"
+                        onClick={pagination.goToPreviousPage}
+                        disabled={!pagination.hasPreviousPage}
+                        style={{ 
+                          borderColor: colors.product_card_border_color,
+                          color: colors.text_color
+                        }}
+                      >
+                        <ChevronLeft className="h-4 w-4 mr-2" />
+                        Anterior
+                      </Button>
+
+                      <div className="flex items-center space-x-1">
+                        {pagination.getVisiblePages().map((pageNumber) => {
+                          const isCurrentPage = pageNumber === pagination.currentPage;
+                          
+                          return (
+                            <Button
+                              key={pageNumber}
+                              variant={isCurrentPage ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => pagination.goToPage(pageNumber)}
+                              style={isCurrentPage ? {
+                                backgroundColor: colors.button_bg_color,
+                                color: colors.button_text_color
+                              } : {
+                                borderColor: colors.product_card_border_color,
+                                color: colors.text_color
+                              }}
+                            >
+                              {pageNumber}
+                            </Button>
+                          );
+                        })}
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        onClick={pagination.goToNextPage}
+                        disabled={!pagination.hasNextPage}
+                        style={{ 
+                          borderColor: colors.product_card_border_color,
+                          color: colors.text_color
+                        }}
+                      >
+                        Siguiente
+                        <ChevronRight className="h-4 w-4 ml-2" />
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={pagination.goToLastPage}
+                        disabled={!pagination.hasNextPage}
+                        style={{ 
+                          borderColor: colors.product_card_border_color,
+                          color: colors.text_color
+                        }}
+                      >
+                        <ChevronsRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )
+              }
             </>
           ) : (
             <div className="text-center py-12">

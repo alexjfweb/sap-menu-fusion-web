@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ExternalLink, Menu, Share2, Eye, Globe, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useRestaurantContext, createRestaurantSlug } from '@/hooks/useRestaurantContext';
 
 interface QuickAccessMenuProps {
   onViewPublicMenu?: () => void;
@@ -13,9 +14,14 @@ interface QuickAccessMenuProps {
 const QuickAccessMenu = ({ onViewPublicMenu }: QuickAccessMenuProps) => {
   const { toast } = useToast();
   
-  // Generar la URL del menú público correctamente
+  // FASE 3: Usar contexto del restaurante para generar URL amigable
+  const { data: restaurantInfo, isLoading } = useRestaurantContext();
+  
+  // Generar URL amigable basada en el nombre del restaurante
+  const restaurantSlug = restaurantInfo ? createRestaurantSlug(restaurantInfo.business_name) : '';
   const baseUrl = window.location.origin;
-  const menuUrl = `${baseUrl}/menu`;
+  const friendlyUrl = restaurantSlug ? `${baseUrl}/menu/${restaurantSlug}` : `${baseUrl}/menu`;
+  const menuUrl = friendlyUrl; // Usar URL amigable como principal
   
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(menuUrl);
@@ -56,7 +62,7 @@ const QuickAccessMenu = ({ onViewPublicMenu }: QuickAccessMenuProps) => {
     // Mostrar notificación
     toast({
       title: 'Menú actualizado',
-      description: 'El cache del menú ha sido limpiado',
+      description: 'El cache del menú ha sido limpiado y sincronizado',
     });
     
     // Abrir menú después de limpiar cache
@@ -64,6 +70,19 @@ const QuickAccessMenu = ({ onViewPublicMenu }: QuickAccessMenuProps) => {
       handleViewInSameTab();
     }, 500);
   };
+
+  if (isLoading) {
+    return (
+      <Card className="bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
+        <CardContent className="flex items-center justify-center p-8">
+          <div className="text-center">
+            <Globe className="h-8 w-8 text-primary mx-auto mb-2 animate-pulse" />
+            <p className="text-sm text-muted-foreground">Cargando información del restaurante...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
@@ -73,19 +92,52 @@ const QuickAccessMenu = ({ onViewPublicMenu }: QuickAccessMenuProps) => {
             <Globe className="h-5 w-5 text-primary" />
             <CardTitle className="text-lg">Menú Público</CardTitle>
           </div>
-          <Badge variant="default" className="bg-green-100 text-green-800">
-            Activo
-          </Badge>
+          <div className="flex gap-2">
+            <Badge variant="default" className="bg-green-100 text-green-800">
+              ✅ Sincronizado
+            </Badge>
+            <Badge variant="default" className="bg-blue-100 text-blue-800">
+              Activo
+            </Badge>
+          </div>
         </div>
         <CardDescription>
-          Accede y gestiona tu menú público para clientes
+          {restaurantInfo 
+            ? `Menú público de ${restaurantInfo.business_name} - Accede y gestiona`
+            : 'Accede y gestiona tu menú público para clientes'
+          }
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="p-3 bg-muted rounded-md">
-          <p className="text-sm font-medium mb-1">URL del menú:</p>
-          <code className="text-xs break-all text-primary">{menuUrl}</code>
+          <p className="text-sm font-medium mb-1">
+            🌐 URL amigable del menú:
+          </p>
+          <code className="text-xs break-all text-primary font-mono bg-white p-1 rounded">
+            {menuUrl}
+          </code>
+          {restaurantSlug && (
+            <p className="text-xs text-muted-foreground mt-1">
+              💡 URL optimizada para SEO y fácil de recordar
+            </p>
+          )}
         </div>
+
+        {restaurantInfo && (
+          <div className="p-3 bg-blue-50 rounded-md">
+            <div className="flex items-center gap-2 mb-2">
+              <Badge variant="outline" className="text-xs">
+                🏪 {restaurantInfo.business_name}
+              </Badge>
+              <Badge variant="outline" className="text-xs">
+                🔄 Datos sincronizados
+              </Badge>
+            </div>
+            <p className="text-xs text-blue-700">
+              Los productos que gestiones aquí se mostrarán automáticamente en el menú público
+            </p>
+          </div>
+        )}
         
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
           <Button 
@@ -124,13 +176,14 @@ const QuickAccessMenu = ({ onViewPublicMenu }: QuickAccessMenuProps) => {
             size="sm"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
-            Actualizar
+            Sincronizar
           </Button>
         </div>
         
         <div className="text-xs text-muted-foreground space-y-1">
-          <p>💡 Comparte esta URL con tus clientes para que accedan a tu menú</p>
-          <p>🔄 Usa "Actualizar" si el menú no se carga correctamente</p>
+          <p>🔗 Comparte la URL amigable con tus clientes</p>
+          <p>🔄 Los cambios en productos se reflejan automáticamente</p>
+          <p>⚡ Usa "Sincronizar" si hay problemas de cache</p>
         </div>
       </CardContent>
     </Card>

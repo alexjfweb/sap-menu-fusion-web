@@ -1,13 +1,11 @@
+
 import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { useBusinessContext } from '@/hooks/useBusinessContext';
 import { 
   Plus, 
   Search, 
@@ -22,6 +20,10 @@ import {
 import ProductForm from './ProductForm';
 import DeleteProductModal from './DeleteProductModal';
 import { Tables } from '@/integrations/supabase/types';
+import { useRestaurantContext } from '@/hooks/useRestaurantContext';
+import { useUnifiedProducts, useInvalidateProducts } from '@/hooks/useUnifiedProducts';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 type Product = Tables<'products'>;
 type Category = Tables<'categories'>;
@@ -33,61 +35,37 @@ interface ProductManagementProps {
 const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
   const { toast } = useToast();
   const { profile } = useAuth();
-  const { businessId, businessName, isLoading: businessLoading } = useBusinessContext();
-  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
 
-  // FASE 2: Query corregida para productos del restaurante específico
-  const { data: products, isLoading: loadingProducts } = useQuery({
-    queryKey: ['products-by-business', businessId, profile?.id],
-    queryFn: async () => {
-      if (!profile?.id || !businessId) {
-        console.log('⚠️ No hay perfil de usuario o business_id, no se pueden cargar productos');
-        return [];
-      }
+  // FASE 1: Usar contexto unificado del restaurante
+  const { 
+    data: restaurantInfo, 
+    isLoading: restaurantLoading 
+  } = useRestaurantContext(); // Sin slug para vista admin
 
-      console.log('🔍 Cargando productos para business:', businessId, 'admin:', profile.id);
+  const restaurantId = restaurantInfo?.id;
+  const restaurantName = restaurantInfo?.business_name;
 
-      let query = supabase
-        .from('products')
-        .select(`
-          *,
-          categories (
-            id,
-            name
-          )
-        `)
-        .eq('business_id', businessId); // CORRECCIÓN: Filtrar por business_id
-
-      // Superadmin ve todos los productos del negocio
-      // Admin regular solo ve sus productos del negocio
-      if (profile.role !== 'superadmin') {
-        query = query.eq('created_by', profile.id);
-        console.log('👤 Admin regular: filtrando por created_by');
-      } else {
-        console.log('👑 Superadmin: viendo todos los productos del negocio');
-      }
-      
-      const { data, error } = await query.order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('❌ Error loading products:', error);
-        throw error;
-      }
-
-      console.log(`✅ Cargados ${data?.length || 0} productos para negocio ${businessId}`);
-      return data as Product[];
-    },
-    enabled: !!profile?.id && !!businessId,
+  // FASE 2: Usar productos unificados (mismo criterio que menú público)
+  const { 
+    data: products, 
+    isLoading: loadingProducts 
+  } = useUnifiedProducts({
+    businessId: restaurantId,
+    isPublic: false, // Vista admin
+    enabled: !!profile?.id && !!restaurantId
   });
+
+  // Hook para invalidar cache de forma sincronizada
+  const invalidateProducts = useInvalidateProducts();
 
   // Fetch categories
   const { data: categories } = useQuery({
-    queryKey: ['categories'],
+    queryKey: ['categories-admin-unified'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('categories')
@@ -115,13 +93,12 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
         .from('products')
         .update({ is_available: !product.is_available })
         .eq('id', product.id)
-        .eq('business_id', businessId); // Verificar business_id
+        .eq('business_id', restaurantId); // Verificar business_id
 
       if (error) throw error;
 
       // FASE 4: Invalidación de cache sincronizada
-      queryClient.invalidateQueries({ queryKey: ['products-by-business'] });
-      queryClient.invalidateQueries({ queryKey: ['products-public-optimized-v2'] });
+      invalidateProducts(restaurantId);
       
       toast({
         title: "Producto actualizado",
@@ -168,8 +145,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
 
   const handleFormSave = () => {
     // FASE 4: Invalidación sincronizada del cache
-    queryClient.invalidateQueries({ queryKey: ['products-by-business'] });
-    queryClient.invalidateQueries({ queryKey: ['products-public-optimized-v2'] });
+    invalidateProducts(restaurantId);
     setShowForm(false);
     setEditingProduct(null);
   };
@@ -180,20 +156,19 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!deletingProduct || !businessId) return;
+    if (!deletingProduct || !restaurantId) return;
 
     try {
       const { error } = await supabase
         .from('products')
         .delete()
         .eq('id', deletingProduct.id)
-        .eq('business_id', businessId); // Verificar business_id
+        .eq('business_id', restaurantId); // Verificar business_id
 
       if (error) throw error;
 
       // FASE 4: Invalidación sincronizada
-      queryClient.invalidateQueries({ queryKey: ['products-by-business'] });
-      queryClient.invalidateQueries({ queryKey: ['products-public-optimized-v2'] });
+      invalidateProducts(restaurantId);
       
       toast({
         title: "Producto eliminado",
@@ -212,7 +187,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
   };
 
   // Loading states
-  if (businessLoading || !businessId) {
+  if (restaurantLoading || !restaurantId) {
     return (
       <Card>
         <CardContent className="flex items-center justify-center p-8">
@@ -250,15 +225,23 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
             </Button>
           )}
           <div>
-            <h2 className="text-2xl font-bold">Gestión de Productos</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-2xl font-bold">Gestión de Productos</h2>
+              <Badge variant="default" className="bg-green-100 text-green-800">
+                ✅ Sincronizado
+              </Badge>
+            </div>
             <p className="text-muted-foreground">
-              {businessName ? `Restaurante: ${businessName}` : 'Administra tus productos'}
+              {restaurantName ? `Restaurante: ${restaurantName}` : 'Administra tus productos'}
             </p>
             <p className="text-xs text-muted-foreground">
               {profile.role === 'superadmin' 
-                ? 'Administra todos los productos del restaurante'
-                : 'Administra tus productos'
+                ? `Administra todos los productos del restaurante (${products?.length || 0} productos)`
+                : `Administra los productos del restaurante (${products?.length || 0} productos)`
               }
+            </p>
+            <p className="text-xs text-blue-600 mt-1">
+              🔄 Los cambios se reflejan automáticamente en el menú público
             </p>
           </div>
         </div>
@@ -354,6 +337,11 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
                   ) : (
                     <Badge variant="secondary">No disponible</Badge>
                   )}
+                  {profile.role === 'superadmin' && product.created_by !== profile.id && (
+                    <Badge variant="outline" className="text-xs">
+                      Otro admin
+                    </Badge>
+                  )}
                 </div>
               </div>
               <CardContent className="p-4">
@@ -405,7 +393,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
         <ProductForm
           product={editingProduct}
           categories={categories || []}
-          businessId={businessId}
+          businessId={restaurantId}
           onSave={handleFormSave}
           onCancel={handleFormCancel}
         />
