@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useFileUpload } from '@/hooks/useFileUpload';
+import { useAuth } from '@/hooks/useAuth';
 import { X, Upload, Image, Link } from 'lucide-react';
 import { Tables } from '@/integrations/supabase/types';
 
@@ -28,6 +29,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
   onCancel,
 }) => {
   const { toast } = useToast();
+  const { profile } = useAuth();
   const { uploadFile, uploading } = useFileUpload();
   const [loading, setLoading] = useState(false);
   const [confirmingCreation, setConfirmingCreation] = useState(false);
@@ -49,6 +51,32 @@ const ProductForm: React.FC<ProductFormProps> = ({
     allergens: '',
     image_url: '',
   });
+
+  useEffect(() => {
+    if (!profile || (profile.role !== 'admin' && profile.role !== 'superadmin')) {
+      console.error('❌ Usuario sin permisos intentando acceder al formulario de productos');
+      toast({
+        title: "Acceso denegado",
+        description: "Solo los administradores pueden crear o editar productos.",
+        variant: "destructive",
+      });
+      onCancel();
+      return;
+    }
+
+    if (product && product.created_by !== profile.id && profile.role !== 'superadmin') {
+      console.error('❌ Usuario intentando editar producto que no es suyo:', product.id);
+      toast({
+        title: "Acceso denegado",
+        description: "Solo puedes editar productos que has creado.",
+        variant: "destructive",
+      });
+      onCancel();
+      return;
+    }
+
+    console.log('✅ Usuario autorizado para', product ? 'editar' : 'crear', 'producto');
+  }, [profile, product, onCancel, toast]);
 
   useEffect(() => {
     if (product) {
@@ -93,21 +121,20 @@ const ProductForm: React.FC<ProductFormProps> = ({
     }
   };
 
-  // Función mejorada para confirmar que el producto se creó correctamente
-  const confirmProductCreation = async (productName: string, maxRetries = 8): Promise<boolean> => {
-    console.log('🔍 Confirmando creación del producto:', productName);
+  const confirmProductCreation = async (productName: string, adminId: string, maxRetries = 8): Promise<boolean> => {
+    console.log('🔍 Confirmando creación del producto:', productName, 'para admin:', adminId);
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        // Esperar antes de cada verificación (especialmente importante en el primer intento)
         const delay = attempt === 1 ? 1200 : Math.min(800 * attempt, 3000);
         console.log(`⏳ Esperando ${delay}ms antes de verificación ${attempt}...`);
         await new Promise(resolve => setTimeout(resolve, delay));
 
         const { data, error } = await supabase
           .from('products')
-          .select('id, name, created_at')
+          .select('id, name, created_at, created_by')
           .eq('name', productName)
+          .eq('created_by', adminId)
           .order('created_at', { ascending: false })
           .limit(1);
 
@@ -115,11 +142,11 @@ const ProductForm: React.FC<ProductFormProps> = ({
           console.error(`❌ Error en intento ${attempt} de confirmación:`, error);
           if (attempt === maxRetries) throw error;
         } else if (data && data.length > 0) {
-          console.log('✅ Producto confirmado en la base de datos:', data[0]);
+          console.log('✅ Producto confirmado en la base de datos para admin', adminId, ':', data[0]);
           console.log('📅 Fecha de creación:', data[0].created_at);
           return true;
         } else {
-          console.log(`⚠️ Intento ${attempt}: Producto "${productName}" aún no encontrado`);
+          console.log(`⚠️ Intento ${attempt}: Producto "${productName}" aún no encontrado para admin ${adminId}`);
         }
 
       } catch (error) {
@@ -133,10 +160,29 @@ const ProductForm: React.FC<ProductFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!profile || (profile.role !== 'admin' && profile.role !== 'superadmin')) {
+      toast({
+        title: "Acceso denegado",
+        description: "Solo los administradores pueden crear productos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (product && product.created_by !== profile.id && profile.role !== 'superadmin') {
+      toast({
+        title: "Acceso denegado",
+        description: "Solo puedes editar productos que has creado.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
-      console.log('💾 Guardando producto...', product ? 'Actualización' : 'Creación');
+      console.log('💾 Guardando producto...', product ? 'Actualización' : 'Creación', 'para admin:', profile.id);
       
       const productData = {
         name: formData.name,
@@ -153,40 +199,55 @@ const ProductForm: React.FC<ProductFormProps> = ({
         ingredients: formData.ingredients ? formData.ingredients.split(',').map(i => i.trim()) : null,
         allergens: formData.allergens ? formData.allergens.split(',').map(a => a.trim()) : null,
         image_url: formData.image_url || null,
+        created_by: profile.id,
       };
 
       let error;
       if (product) {
-        // Actualizar producto existente
-        console.log('🔄 Actualizando producto existente:', product.id);
-        ({ error } = await supabase
+        console.log('🔄 Actualizando producto existente:', product.id, 'para admin:', profile.id);
+        
+        const { data: updateData, error: updateError } = await supabase
           .from('products')
           .update(productData)
-          .eq('id', product.id));
+          .eq('id', product.id)
+          .eq('created_by', profile.id)
+          .select();
+
+        error = updateError;
+        
+        if (!error && (!updateData || updateData.length === 0)) {
+          throw new Error('No se pudo actualizar el producto. Verifica que tienes permisos para editarlo.');
+        }
       } else {
-        // Crear nuevo producto
-        console.log('➕ Creando nuevo producto con nombre:', formData.name);
-        ({ error } = await supabase
+        console.log('➕ Creando nuevo producto con nombre:', formData.name, 'para admin:', profile.id);
+        
+        const { error: insertError } = await supabase
           .from('products')
-          .insert([productData]));
+          .insert([productData]);
+        
+        error = insertError;
       }
 
       if (error) {
         console.error('❌ Error guardando producto:', error);
+        
+        if (error.code === '42501' || error.message.includes('policy')) {
+          throw new Error('No tienes permisos para realizar esta acción. Solo puedes gestionar productos que has creado.');
+        }
+        
         throw error;
       }
 
       console.log('✅ Producto guardado exitosamente en la base de datos');
 
-      // Para productos nuevos, confirmar que se creó correctamente antes de continuar
       if (!product) {
-        console.log('🔍 Iniciando confirmación de creación para:', formData.name);
+        console.log('🔍 Iniciando confirmación de creación para:', formData.name, 'admin:', profile.id);
         setConfirmingCreation(true);
         
-        const confirmed = await confirmProductCreation(formData.name);
+        const confirmed = await confirmProductCreation(formData.name, profile.id);
         
         if (!confirmed) {
-          throw new Error(`No se pudo confirmar la creación del producto "${formData.name}" en la base de datos después de varios intentos`);
+          throw new Error(`No se pudo confirmar la creación del producto "${formData.name}" para el administrador ${profile.id}`);
         }
         
         console.log('✅ Creación del producto confirmada exitosamente');
@@ -198,21 +259,33 @@ const ProductForm: React.FC<ProductFormProps> = ({
         description: `${formData.name} ${product ? 'actualizado' : 'creado'} correctamente`,
       });
 
-      // Pasar el nombre real del producto al onSave para cache optimista
       onSave(product ? undefined : formData.name);
       
     } catch (error) {
       console.error('❌ Error saving product:', error);
       setConfirmingCreation(false);
+      
+      let errorMessage = `No se pudo ${product ? 'actualizar' : 'crear'} el producto`;
+      
+      if (error.message.includes('permisos') || error.message.includes('policy')) {
+        errorMessage = "No tienes permisos para realizar esta acción";
+      } else if (error.message.includes('unique') || error.message.includes('already exists')) {
+        errorMessage = "Ya existe un producto con ese nombre";
+      }
+      
       toast({
         title: "Error",
-        description: `No se pudo ${product ? 'actualizar' : 'crear'} el producto: ${error.message}`,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
+
+  if (!profile || (profile.role !== 'admin' && profile.role !== 'superadmin')) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">

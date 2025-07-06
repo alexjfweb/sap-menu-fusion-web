@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, Search, Edit, Trash2, Eye, EyeOff, ArrowLeft, ChefHat, Menu as MenuIcon, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import ProductForm from './ProductForm';
 import PublicMenu from '../menu/PublicMenu';
 import DeleteProductModal from './DeleteProductModal';
@@ -31,6 +32,7 @@ interface ProductManagementProps {
 const PRODUCTS_PER_PAGE = 100;
 
 const ProductManagement = ({ onBack }: ProductManagementProps) => {
+  const { profile } = useAuth(); // Obtener perfil del usuario actual
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -47,11 +49,18 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // CORRECCIÓN CRÍTICA: Query unificada con PublicMenu
+  // CORRECCIÓN CRÍTICA: Query que SOLO obtiene productos del administrador actual
   const { data: products, isLoading: productsLoading, refetch: refetchProducts } = useQuery({
-    queryKey: ['products'], // ✅ Misma key que PublicMenu
+    queryKey: ['products', profile?.id], // ✅ Incluir profile.id en la key para separar por administrador
     queryFn: async () => {
-      console.log('🔍 [PRODUCT MANAGEMENT] Obteniendo productos...');
+      if (!profile?.id) {
+        console.warn('⚠️ [PRODUCT MANAGEMENT] No profile ID available');
+        return [];
+      }
+
+      console.log('🔍 [PRODUCT MANAGEMENT] Obteniendo productos SOLO del administrador:', profile.id);
+      
+      // FILTRO CRÍTICO: Solo productos creados por el administrador actual
       const { data, error } = await supabase
         .from('products')
         .select(`
@@ -61,22 +70,24 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
             name
           )
         `)
-        .order('created_at', { ascending: false }); // CAMBIO CRÍTICO: Ordenar por fecha de creación descendente
+        .eq('created_by', profile.id) // ✅ FILTRO OBLIGATORIO por administrador
+        .order('created_at', { ascending: false });
       
       if (error) {
-        console.error('❌ Error obteniendo productos:', error);
+        console.error('❌ Error obteniendo productos del administrador:', error);
         throw error;
       }
       
-      console.log('✅ [PRODUCT MANAGEMENT] Productos obtenidos:', data?.length || 0, 'productos');
-      console.log('📅 Primer producto (más reciente):', data?.[0]?.name, data?.[0]?.created_at);
+      console.log('✅ [PRODUCT MANAGEMENT] Productos obtenidos del admin', profile.id, ':', data?.length || 0, 'productos');
+      console.log('📅 Productos del administrador:', data?.map(p => ({ name: p.name, created_by: p.created_by })));
       return data as ProductWithPartialCategory[];
     },
+    enabled: !!profile?.id && (profile.role === 'admin' || profile.role === 'superadmin'), // Solo ejecutar si hay profile válido
   });
 
-  // CORRECCIÓN CRÍTICA: Query unificada con PublicMenu
+  // Query de categorías (sin cambios, las categorías son globales)
   const { data: categories } = useQuery({
-    queryKey: ['categories'], // ✅ Misma key que PublicMenu
+    queryKey: ['categories'],
     queryFn: async () => {
       console.log('🔍 [PRODUCT MANAGEMENT] Obteniendo categorías...');
       const { data, error } = await supabase
@@ -147,7 +158,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     }, 5000);
   }, []);
 
-  // SISTEMA DE INVALIDACIÓN GLOBAL MEJORADO
+  // SISTEMA DE INVALIDACIÓN MEJORADO - ahora específico por administrador
   const notifyPublicMenuUpdate = useCallback(() => {
     try {
       // Señal para que PublicMenu se actualice
@@ -166,6 +177,11 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
 
   // Función mejorada para refrescar datos con cache optimista mejorado
   const refreshProductData = async (newProductName?: string, maxRetries = 6): Promise<boolean> => {
+    if (!profile?.id) {
+      console.error('❌ No hay profile disponible para refrescar datos');
+      return false;
+    }
+
     setIsRefreshing(true);
     
     // PASO 1: Cache optimista mejorado - usar nombre real si se proporciona
@@ -189,11 +205,12 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
         image_url: null,
         ingredients: null,
         allergens: null,
+        created_by: profile.id, // ✅ Asignar al administrador actual
         categories: null
       };
 
       // Actualizar cache optimista - agregar al principio de la lista
-      queryClient.setQueryData(['products'], (oldData: ProductWithPartialCategory[] | undefined) => {
+      queryClient.setQueryData(['products', profile.id], (oldData: ProductWithPartialCategory[] | undefined) => {
         if (!oldData) return [optimisticProduct!];
         return [optimisticProduct!, ...oldData];
       });
@@ -207,11 +224,11 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`🔄 Intento ${attempt}/${maxRetries} - Refrescando datos de productos...`);
+        console.log(`🔄 Intento ${attempt}/${maxRetries} - Refrescando datos de productos del admin ${profile?.id}...`);
         
-        // INVALIDACIÓN GLOBAL: Invalidar tanto productos como categorías
+        // INVALIDACIÓN ESPECÍFICA: Solo invalidar productos del administrador actual
         await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ['products'] }),
+          queryClient.invalidateQueries({ queryKey: ['products', profile.id] }),
           queryClient.invalidateQueries({ queryKey: ['categories'] })
         ]);
         
@@ -231,26 +248,27 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
         
         // PASO 3: Verificación crítica - buscar el producto en los datos refrescados
         if (newProductName && !editingProduct) {
-          // Verificar directamente en los datos devueltos por el refetch - FIX CRÍTICO DEL TIPADO
+          // Verificar directamente en los datos devueltos por el refetch
           const freshData = result.data as ProductWithPartialCategory[] | undefined;
-          const foundProduct = freshData?.find(p => p.name === newProductName);
+          const foundProduct = freshData?.find(p => p.name === newProductName && p.created_by === profile.id); // ✅ Verificar que sea del admin actual
           
           if (!foundProduct) {
-            console.warn(`⚠️ Intento ${attempt}: Producto "${newProductName}" no encontrado en datos refrescados`);
+            console.warn(`⚠️ Intento ${attempt}: Producto "${newProductName}" no encontrado en datos refrescados del admin ${profile.id}`);
             
-            // Verificación adicional directa a la base de datos
+            // Verificación adicional directa a la base de datos con filtro por administrador
             const { data: verificationData } = await supabase
               .from('products')
-              .select('id, name, created_at')
+              .select('id, name, created_at, created_by')
               .eq('name', newProductName)
+              .eq('created_by', profile.id) // ✅ Verificar que sea del admin actual
               .order('created_at', { ascending: false })
               .limit(1);
 
             if (!verificationData || verificationData.length === 0) {
-              throw new Error(`Producto "${newProductName}" no encontrado en verificación directa`);
+              throw new Error(`Producto "${newProductName}" no encontrado para el administrador ${profile.id}`);
             }
 
-            console.log('✅ Producto encontrado en verificación directa:', verificationData[0]);
+            console.log('✅ Producto encontrado en verificación directa para admin', profile.id, ':', verificationData[0]);
             
             // Si está en la DB pero no en el refetch, es un problema de timing
             if (attempt < maxRetries) {
@@ -260,26 +278,26 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
               continue;
             }
           } else {
-            console.log('✅ Producto encontrado en refetch:', foundProduct.name, foundProduct.created_at);
+            console.log('✅ Producto encontrado en refetch para admin', profile.id, ':', foundProduct.name, foundProduct.created_at);
             
             // Resaltar el producto recién creado
             highlightNewProduct(newProductName);
           }
         }
         
-        console.log('✅ [PRODUCT MANAGEMENT] Datos refrescados exitosamente con invalidación global');
+        console.log('✅ [PRODUCT MANAGEMENT] Datos refrescados exitosamente para admin', profile.id);
         setIsRefreshing(false);
         return true;
         
       } catch (error) {
-        console.warn(`⚠️ Intento ${attempt} falló:`, error);
+        console.warn(`⚠️ Intento ${attempt} falló para admin ${profile?.id}:`, error);
         
         if (attempt === maxRetries) {
-          console.error('❌ Todos los intentos de refetch fallaron');
+          console.error('❌ Todos los intentos de refetch fallaron para admin', profile?.id);
           
           // Limpiar cache optimista si falló
           if (optimisticProduct) {
-            queryClient.setQueryData(['products'], (oldData: ProductWithPartialCategory[] | undefined) => {
+            queryClient.setQueryData(['products', profile.id], (oldData: ProductWithPartialCategory[] | undefined) => {
               if (!oldData) return [];
               return oldData.filter(p => p.id !== optimisticProduct!.id);
             });
@@ -365,7 +383,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     }
 
     const selectedIds = Array.from(selectedProducts);
-    console.log(`🔄 Iniciando operación masiva: ${operation}`);
+    console.log(`🔄 Iniciando operación masiva: ${operation} para admin ${profile?.id}`);
     console.log(`📋 Total productos seleccionados:`, selectedIds.length);
 
     if (selectedIds.length > 100) {
@@ -464,13 +482,29 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     performBulkOperation('deactivate', showProgress);
 
   const toggleProductAvailability = async (product: Product) => {
+    if (!profile?.id) {
+      console.error('❌ No hay profile disponible');
+      return;
+    }
+
+    // VERIFICACIÓN DE PROPIEDAD: Solo permitir editar productos propios
+    if (product.created_by !== profile.id && profile.role !== 'superadmin') {
+      toast({
+        title: "Acceso denegado",
+        description: "Solo puedes editar productos que has creado.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       console.log(`🔄 Cambiando disponibilidad de "${product.name}": ${product.is_available} → ${!product.is_available}`);
       
       const { error } = await supabase
         .from('products')
         .update({ is_available: !product.is_available })
-        .eq('id', product.id);
+        .eq('id', product.id)
+        .eq('created_by', profile.id); // ✅ Filtro adicional por seguridad
 
       if (error) {
         console.error('❌ Error actualizando disponibilidad:', error);
@@ -483,7 +517,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
         description: `${product.name} ${!product.is_available ? 'activado' : 'desactivado'} correctamente`,
       });
 
-      // INVALIDACIÓN GLOBAL: Refrescar datos y notificar a PublicMenu
+      // INVALIDACIÓN ESPECÍFICA: Refrescar datos del administrador actual
       await refreshProductData();
     } catch (error) {
       console.error('❌ Error updating product:', error);
@@ -496,6 +530,21 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
   };
 
   const handleDeleteProduct = async (product: Product) => {
+    if (!profile?.id) {
+      console.error('❌ No hay profile disponible');
+      return;
+    }
+
+    // VERIFICACIÓN DE PROPIEDAD: Solo permitir eliminar productos propios
+    if (product.created_by !== profile.id && profile.role !== 'superadmin') {
+      toast({
+        title: "Acceso denegado",
+        description: "Solo puedes eliminar productos que has creado.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     console.log('🔍 Verificando dependencias para:', product.name, product.id);
     
     // Verificar dependencias antes de mostrar el modal
@@ -521,7 +570,17 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
   };
 
   const confirmDeleteProduct = async () => {
-    if (!productToDelete) return;
+    if (!productToDelete || !profile?.id) return;
+
+    // VERIFICACIÓN FINAL DE PROPIEDAD
+    if (productToDelete.created_by !== profile.id && profile.role !== 'superadmin') {
+      toast({
+        title: "Acceso denegado",
+        description: "Solo puedes eliminar productos que has creado.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsDeleting(true);
     try {
@@ -530,7 +589,8 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
       const { error } = await supabase
         .from('products')
         .delete()
-        .eq('id', productToDelete.id);
+        .eq('id', productToDelete.id)
+        .eq('created_by', profile.id); // ✅ Filtro adicional por seguridad
 
       if (error) {
         console.error('❌ Error eliminando producto:', error);
@@ -574,6 +634,21 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
   };
 
   const handleEditProduct = (product: Product) => {
+    if (!profile?.id) {
+      console.error('❌ No hay profile disponible');
+      return;
+    }
+
+    // VERIFICACIÓN DE PROPIEDAD: Solo permitir editar productos propios
+    if (product.created_by !== profile.id && profile.role !== 'superadmin') {
+      toast({
+        title: "Acceso denegado",
+        description: "Solo puedes editar productos que has creado.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     console.log('✏️ Editando producto:', product.name, product.id);
     setEditingProduct(product);
     setShowForm(true);
@@ -587,7 +662,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
 
   // Función mejorada para manejar el guardado con confirmación visual
   const handleSaveProduct = async (newProductName?: string) => {
-    console.log('💾 Producto guardado, iniciando refesco robusto...', newProductName ? `para: ${newProductName}` : '(actualización)');
+    console.log('💾 Producto guardado, iniciando refresco robusto...', newProductName ? `para: ${newProductName}` : '(actualización)');
     
     try {
       // Refrescar datos de forma robusta con el nombre real del producto
@@ -652,6 +727,18 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     }
   };
 
+  // VERIFICACIÓN DE PERMISOS: Solo mostrar si es administrador
+  if (!profile || (profile.role !== 'admin' && profile.role !== 'superadmin')) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-destructive">Acceso Denegado</h2>
+          <p className="text-muted-foreground">Solo los administradores pueden acceder a la gestión de productos.</p>
+        </div>
+      </div>
+    );
+  }
+
   if (showPublicMenu) {
     return <PublicMenu onBack={() => setShowPublicMenu(false)} />;
   }
@@ -710,9 +797,9 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
       <main className="container mx-auto px-4 py-8">
         <div className="space-y-6">
           <div>
-            <h2 className="text-2xl font-bold">Gestión de Productos</h2>
+            <h2 className="text-2xl font-bold">Mis Productos</h2>
             <p className="text-muted-foreground">
-              Administra el menú del restaurante • Los productos más recientes aparecen primero • Hasta 100 productos por página
+              Administra TUS productos • Solo se muestran los productos que has creado • Hasta 100 productos por página
             </p>
           </div>
 
@@ -901,7 +988,7 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
               <p className="text-muted-foreground">
                 {searchTerm || selectedCategory !== 'all' 
                   ? 'No se encontraron productos con los filtros aplicados'
-                  : 'No hay productos registrados'
+                  : 'No tienes productos registrados. ¡Crea tu primer producto!'
                 }
               </p>
             </div>

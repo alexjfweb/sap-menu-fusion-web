@@ -906,6 +906,7 @@ export type Database = {
           calories: number | null
           category_id: string | null
           created_at: string | null
+          created_by: string
           description: string | null
           id: string
           image_url: string | null
@@ -925,6 +926,7 @@ export type Database = {
           calories?: number | null
           category_id?: string | null
           created_at?: string | null
+          created_by: string
           description?: string | null
           id?: string
           image_url?: string | null
@@ -944,6 +946,7 @@ export type Database = {
           calories?: number | null
           category_id?: string | null
           created_at?: string | null
+          created_by?: string
           description?: string | null
           id?: string
           image_url?: string | null
@@ -964,6 +967,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

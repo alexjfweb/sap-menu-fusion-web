@@ -1,7 +1,7 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { Order, OrderItem } from '@/types';
 import { useActivityLogger } from './useActivityLogger';
 
@@ -19,10 +19,11 @@ interface OrderFormData {
 
 export const useOrderSync = () => {
   const { logOrderActivity } = useActivityLogger();
+  const { profile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Obtener todas las órdenes
+  // Obtener todas las órdenes - SIN FILTRO por administrador (las órdenes son globales)
   const { data: orders, isLoading: isLoadingOrders, error: ordersError } = useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
@@ -103,22 +104,32 @@ export const useOrderSync = () => {
     }
   };
 
-  // Crear una nueva orden
+  // Crear una nueva orden - ✅ AGREGAR created_by si es empleado/admin
   const createOrderMutation = useMutation({
     mutationFn: async (orderData: OrderFormData) => {
       const { items, ...order } = orderData;
 
+      // ✅ AGREGAR created_by si el usuario está autenticado y es empleado/admin
+      const orderToInsert = {
+        order_number: order.order_number,
+        customer_name: order.customer_name,
+        customer_phone: order.customer_phone,
+        status: order.status || 'pendiente',
+        total_amount: order.total_amount,
+        notes: order.notes,
+        table_id: order.table_id,
+        // Solo agregar created_by si hay un profile válido (empleado/admin)
+        ...(profile?.id && (profile.role === 'empleado' || profile.role === 'admin' || profile.role === 'superadmin') 
+          ? { created_by: profile.id } 
+          : {}
+        )
+      };
+
+      console.log('📝 Creando orden:', orderToInsert);
+
       const { data: orderResult, error: orderError } = await supabase
         .from('orders')
-        .insert({
-          order_number: order.order_number,
-          customer_name: order.customer_name,
-          customer_phone: order.customer_phone,
-          status: order.status || 'pendiente',
-          total_amount: order.total_amount,
-          notes: order.notes,
-          table_id: order.table_id,
-        })
+        .insert(orderToInsert)
         .select()
         .single();
 
