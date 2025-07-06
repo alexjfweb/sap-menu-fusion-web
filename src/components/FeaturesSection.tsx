@@ -1,6 +1,7 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { 
   ShoppingCart, 
   Calendar, 
@@ -12,6 +13,8 @@ import {
   Zap,
   Globe
 } from 'lucide-react';
+import { useSmartNavigation } from '@/hooks/useSmartNavigation';
+import DemoModal from '@/components/modals/DemoModal';
 
 const features = [
   {
@@ -71,6 +74,17 @@ const features = [
 ];
 
 const FeaturesSection = () => {
+  const { navigateToAuth, isNavigating } = useSmartNavigation();
+  const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
+
+  const handleFreeTrial = () => {
+    navigateToAuth();
+  };
+
+  const handleScheduleDemo = () => {
+    setIsDemoModalOpen(true);
+  };
+
   return (
     <section id="caracteristicas" className="py-20 bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -118,16 +132,31 @@ const FeaturesSection = () => {
               Únete a cientos de restaurantes que ya están usando SAP Menu para crecer su negocio.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button className="bg-primary text-white px-8 py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors">
-                Prueba Gratuita
-              </button>
-              <button className="border border-primary text-primary px-8 py-3 rounded-lg font-semibold hover:bg-primary/10 transition-colors">
+              <Button 
+                size="lg"
+                className="px-8 py-3"
+                onClick={handleFreeTrial}
+                disabled={isNavigating}
+              >
+                {isNavigating ? 'Verificando...' : 'Prueba Gratuita'}
+              </Button>
+              <Button 
+                size="lg"
+                variant="outline" 
+                className="px-8 py-3"
+                onClick={handleScheduleDemo}
+              >
                 Agendar Demo
-              </button>
+              </Button>
             </div>
           </div>
         </div>
       </div>
+
+      <DemoModal 
+        isOpen={isDemoModalOpen} 
+        onClose={() => setIsDemoModalOpen(false)} 
+      />
     </section>
   );
 };

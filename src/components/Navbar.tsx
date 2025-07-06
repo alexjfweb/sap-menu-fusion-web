@@ -2,13 +2,26 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ChefHat, Menu } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useSmartNavigation } from '@/hooks/useSmartNavigation';
 
 const Navbar = () => {
+  const navigate = useNavigate();
   const { navigateToAuth, isNavigating } = useSmartNavigation();
 
   const handleAuthClick = () => {
     navigateToAuth();
+  };
+
+  const handleContactClick = () => {
+    navigate('/contact');
+  };
+
+  const handleScrollToSection = (sectionId: string) => {
+    const section = document.querySelector(sectionId);
+    if (section) {
+      section.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   return (
@@ -20,15 +33,24 @@ const Navbar = () => {
         </div>
         
         <div className="hidden md:flex items-center space-x-8">
-          <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">
+          <button 
+            onClick={() => handleScrollToSection('#features')}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
             Características
-          </a>
-          <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">
+          </button>
+          <button 
+            onClick={() => handleScrollToSection('#planes')}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
             Precios
-          </a>
-          <a href="#contact" className="text-muted-foreground hover:text-foreground transition-colors">
+          </button>
+          <button 
+            onClick={handleContactClick}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
             Contacto
-          </a>
+          </button>
         </div>
         
         <div className="flex items-center space-x-4">
