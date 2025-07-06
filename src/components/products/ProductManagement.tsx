@@ -1,526 +1,116 @@
-import React, { useState, useCallback } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Search, Edit, Trash2, Eye, EyeOff, ArrowLeft, ChefHat, Menu as MenuIcon, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { 
+  Plus, 
+  Search, 
+  Edit, 
+  Trash2, 
+  Eye, 
+  EyeOff,
+  Package,
+  AlertCircle
+} from 'lucide-react';
 import ProductForm from './ProductForm';
-import PublicMenu from '../menu/PublicMenu';
 import DeleteProductModal from './DeleteProductModal';
-import EnhancedBulkActionsModal from './EnhancedBulkActionsModal';
-import ProductPagination from './ProductPagination';
 import { Tables } from '@/integrations/supabase/types';
-import { sortProductsByStandardizedCategories, sortCategoriesByStandardOrder } from '@/lib/categoryUtils';
 
 type Product = Tables<'products'>;
 type Category = Tables<'categories'>;
 
-// Tipo específico para productos con categorías parciales (como viene de la consulta)
-type ProductWithPartialCategory = Product & { 
-  categories?: { id: string; name: string } | null 
-};
-
-interface ProductManagementProps {
-  onBack?: () => void;
-}
-
-const PRODUCTS_PER_PAGE = 100;
-
-const ProductManagement = ({ onBack }: ProductManagementProps) => {
-  const { profile } = useAuth(); // Obtener perfil del usuario actual
+const ProductManagement: React.FC = () => {
+  const { toast } = useToast();
+  const { profile } = useAuth();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [currentPage, setCurrentPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [showPublicMenu, setShowPublicMenu] = useState(false);
-  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
-  const [showBulkModal, setShowBulkModal] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [recentlyCreatedProduct, setRecentlyCreatedProduct] = useState<string | null>(null);
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
 
-  // CORRECCIÓN CRÍTICA: Query que SOLO obtiene productos del administrador actual
-  const { data: products, isLoading: productsLoading, refetch: refetchProducts } = useQuery({
-    queryKey: ['products', profile?.id], // ✅ Incluir profile.id en la key para separar por administrador
+  // Fetch products filtered by current admin
+  const { data: products, isLoading: loadingProducts } = useQuery({
+    queryKey: ['products', profile?.id],
     queryFn: async () => {
       if (!profile?.id) {
-        console.warn('⚠️ [PRODUCT MANAGEMENT] No profile ID available');
+        console.log('⚠️ No hay perfil de usuario, no se pueden cargar productos');
         return [];
       }
 
-      console.log('🔍 [PRODUCT MANAGEMENT] Obteniendo productos SOLO del administrador:', profile.id);
+      console.log('🔍 Cargando productos para admin:', profile.id, profile.role);
+
+      let query = supabase.from('products').select('*');
       
-      // FILTRO CRÍTICO: Solo productos creados por el administrador actual
-      const { data, error } = await supabase
-        .from('products')
-        .select(`
-          *,
-          categories (
-            id,
-            name
-          )
-        `)
-        .eq('created_by', profile.id) // ✅ FILTRO OBLIGATORIO por administrador
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error('❌ Error obteniendo productos del administrador:', error);
-        throw error;
+      // FASE 4: Filtrado correcto por administrador
+      if (profile.role === 'superadmin') {
+        // Superadmin ve todos los productos
+        console.log('👑 Superadmin: cargando todos los productos');
+      } else {
+        // Admin regular solo ve sus productos
+        console.log('👤 Admin regular: cargando solo productos propios');
+        query = query.eq('created_by', profile.id);
       }
       
-      console.log('✅ [PRODUCT MANAGEMENT] Productos obtenidos del admin', profile.id, ':', data?.length || 0, 'productos');
-      console.log('📅 Productos del administrador:', data?.map(p => ({ name: p.name, created_by: p.created_by })));
-      return data as ProductWithPartialCategory[];
+      const { data, error } = await query.order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Error loading products:', error);
+        throw error;
+      }
+
+      console.log(`✅ Cargados ${data?.length || 0} productos para admin ${profile.id}`);
+      return data as Product[];
     },
-    enabled: !!profile?.id && (profile.role === 'admin' || profile.role === 'superadmin'), // Solo ejecutar si hay profile válido
+    enabled: !!profile?.id,
   });
 
-  // Query de categorías (sin cambios, las categorías son globales)
+  // Fetch categories
   const { data: categories } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
-      console.log('🔍 [PRODUCT MANAGEMENT] Obteniendo categorías...');
       const { data, error } = await supabase
         .from('categories')
         .select('*')
-        .order('sort_order');
-      
-      if (error) {
-        console.error('❌ Error obteniendo categorías:', error);
-        throw error;
-      }
-      
-      console.log('✅ [PRODUCT MANAGEMENT] Categorías obtenidas:', data?.length || 0, 'categorías');
-      return data;
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+
+      if (error) throw error;
+      return data as Category[];
     },
   });
 
-  // Ordenar categorías según el orden establecido usando la utilidad centralizada
-  const sortedCategories = React.useMemo(() => {
-    if (!categories) return [];
-    return sortCategoriesByStandardOrder(categories);
-  }, [categories]);
-
-  // Aplicar filtros pero mantener el orden cronológico descendente para productos recientes
-  const sortedAndFilteredProducts = React.useMemo(() => {
-    if (!products || !categories) return [];
-    
-    const filtered = products.filter(product => {
+  const filteredProducts = useMemo(() => {
+    return products?.filter(product => {
       const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           product.description?.toLowerCase().includes(searchTerm.toLowerCase());
+                          product.description?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || product.category_id === selectedCategory;
-      
       return matchesSearch && matchesCategory;
-    });
-    
-    // Para mantener los productos recientes al inicio, solo aplicamos ordenamiento por categoría
-    // si no hay filtros activos. Si hay filtros, mantenemos el orden cronológico.
-    if (searchTerm || selectedCategory !== 'all') {
-      return filtered; // Mantener orden cronológico cuando hay filtros
-    }
-    
-    return sortProductsByStandardizedCategories(filtered, categories);
-  }, [products, categories, searchTerm, selectedCategory]);
+    }) || [];
+  }, [products, searchTerm, selectedCategory]);
 
-  const totalProducts = sortedAndFilteredProducts?.length || 0;
-  const totalPages = Math.ceil(totalProducts / PRODUCTS_PER_PAGE);
-  const paginatedProducts = sortedAndFilteredProducts?.slice(
-    (currentPage - 1) * PRODUCTS_PER_PAGE,
-    currentPage * PRODUCTS_PER_PAGE
-  );
-
-  React.useEffect(() => {
-    setCurrentPage(1);
-    setSelectedProducts(new Set());
-  }, [searchTerm, selectedCategory]);
-
-  // Función para encontrar y resaltar el producto recién creado
-  const highlightNewProduct = useCallback((productName: string) => {
-    console.log('🎯 Resaltando producto recién creado:', productName);
-    setRecentlyCreatedProduct(productName);
-    
-    // Ir a la primera página donde debería estar el producto más reciente
-    setCurrentPage(1);
-    
-    // Quitar el resaltado después de 5 segundos
-    setTimeout(() => {
-      setRecentlyCreatedProduct(null);
-    }, 5000);
-  }, []);
-
-  // SISTEMA DE INVALIDACIÓN MEJORADO - ahora específico por administrador
-  const notifyPublicMenuUpdate = useCallback(() => {
+  const toggleAvailability = async (product: Product) => {
     try {
-      // Señal para que PublicMenu se actualice
-      localStorage.setItem('product_management_updated', Date.now().toString());
-      console.log('🔔 [PRODUCT MANAGEMENT] Notificación enviada a PublicMenu');
-      
-      // Forzar evento de storage para componentes en la misma pestaña
-      window.dispatchEvent(new StorageEvent('storage', {
-        key: 'product_management_updated',
-        newValue: Date.now().toString()
-      }));
-    } catch (error) {
-      console.warn('⚠️ No se pudo notificar actualización via localStorage:', error);
-    }
-  }, []);
-
-  // Función mejorada para refrescar datos con cache optimista mejorado
-  const refreshProductData = async (newProductName?: string, maxRetries = 6): Promise<boolean> => {
-    if (!profile?.id) {
-      console.error('❌ No hay profile disponible para refrescar datos');
-      return false;
-    }
-
-    setIsRefreshing(true);
-    
-    // PASO 1: Cache optimista mejorado - usar nombre real si se proporciona
-    let optimisticProduct: ProductWithPartialCategory | null = null;
-    if (newProductName && !editingProduct) {
-      optimisticProduct = {
-        id: 'temp-' + Date.now(),
-        name: newProductName,
-        description: 'Producto recién creado...',
-        price: 0,
-        category_id: null,
-        product_type: 'plato' as any,
-        is_available: true,
-        preparation_time: 15,
-        calories: null,
-        is_vegetarian: false,
-        is_vegan: false,
-        is_gluten_free: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        image_url: null,
-        ingredients: null,
-        allergens: null,
-        created_by: profile.id, // ✅ Asignar al administrador actual
-        categories: null
-      };
-
-      // Actualizar cache optimista - agregar al principio de la lista
-      queryClient.setQueryData(['products', profile.id], (oldData: ProductWithPartialCategory[] | undefined) => {
-        if (!oldData) return [optimisticProduct!];
-        return [optimisticProduct!, ...oldData];
-      });
-
-      console.log('✨ Cache optimista aplicado para:', newProductName);
-    }
-
-    // PASO 2: Delay estratégico más largo para asegurar propagación
-    console.log('⏳ Esperando propagación de datos en Supabase...');
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        console.log(`🔄 Intento ${attempt}/${maxRetries} - Refrescando datos de productos del admin ${profile?.id}...`);
-        
-        // INVALIDACIÓN ESPECÍFICA: Solo invalidar productos del administrador actual
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ['products', profile.id] }),
-          queryClient.invalidateQueries({ queryKey: ['categories'] })
-        ]);
-        
-        // Notificar a PublicMenu sobre la actualización
-        notifyPublicMenuUpdate();
-        
-        // Esperar procesamiento de invalidaciones
-        await new Promise(resolve => setTimeout(resolve, 400));
-        
-        // Refetch explícito con timeout aumentado y tipado correcto
-        const refetchPromise = refetchProducts();
-        const timeoutPromise = new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout en refetch')), 10000)
-        );
-        
-        const result = await Promise.race([refetchPromise, timeoutPromise]);
-        
-        // PASO 3: Verificación crítica - buscar el producto en los datos refrescados
-        if (newProductName && !editingProduct) {
-          // Verificar directamente en los datos devueltos por el refetch
-          const freshData = result.data as ProductWithPartialCategory[] | undefined;
-          const foundProduct = freshData?.find(p => p.name === newProductName && p.created_by === profile.id); // ✅ Verificar que sea del admin actual
-          
-          if (!foundProduct) {
-            console.warn(`⚠️ Intento ${attempt}: Producto "${newProductName}" no encontrado en datos refrescados del admin ${profile.id}`);
-            
-            // Verificación adicional directa a la base de datos con filtro por administrador
-            const { data: verificationData } = await supabase
-              .from('products')
-              .select('id, name, created_at, created_by')
-              .eq('name', newProductName)
-              .eq('created_by', profile.id) // ✅ Verificar que sea del admin actual
-              .order('created_at', { ascending: false })
-              .limit(1);
-
-            if (!verificationData || verificationData.length === 0) {
-              throw new Error(`Producto "${newProductName}" no encontrado para el administrador ${profile.id}`);
-            }
-
-            console.log('✅ Producto encontrado en verificación directa para admin', profile.id, ':', verificationData[0]);
-            
-            // Si está en la DB pero no en el refetch, es un problema de timing
-            if (attempt < maxRetries) {
-              const delay = Math.min(1500 * attempt, 4000);
-              console.log(`⏳ Problema de timing detectado, esperando ${delay}ms más...`);
-              await new Promise(resolve => setTimeout(resolve, delay));
-              continue;
-            }
-          } else {
-            console.log('✅ Producto encontrado en refetch para admin', profile.id, ':', foundProduct.name, foundProduct.created_at);
-            
-            // Resaltar el producto recién creado
-            highlightNewProduct(newProductName);
-          }
-        }
-        
-        console.log('✅ [PRODUCT MANAGEMENT] Datos refrescados exitosamente para admin', profile.id);
-        setIsRefreshing(false);
-        return true;
-        
-      } catch (error) {
-        console.warn(`⚠️ Intento ${attempt} falló para admin ${profile?.id}:`, error);
-        
-        if (attempt === maxRetries) {
-          console.error('❌ Todos los intentos de refetch fallaron para admin', profile?.id);
-          
-          // Limpiar cache optimista si falló
-          if (optimisticProduct) {
-            queryClient.setQueryData(['products', profile.id], (oldData: ProductWithPartialCategory[] | undefined) => {
-              if (!oldData) return [];
-              return oldData.filter(p => p.id !== optimisticProduct!.id);
-            });
-            console.log('🧹 Cache optimista limpiado debido a fallo');
-          }
-          
-          setIsRefreshing(false);
-          return false;
-        }
-        
-        // Esperar antes del siguiente intento con backoff exponencial
-        const delay = Math.min(1200 * Math.pow(1.5, attempt - 1), 6000);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-    
-    setIsRefreshing(false);
-    return false;
-  };
-
-  const checkProductDependencies = async (productId: string) => {
-    try {
-      // Verificar si existe en order_items
-      const { data: orderItems, error: orderError } = await supabase
-        .from('order_items')
-        .select('id')
-        .eq('product_id', productId)
-        .limit(1);
-
-      if (orderError) {
-        console.error('❌ Error verificando dependencias en order_items:', orderError);
-        return { hasOrderItems: false, hasDependencies: false };
-      }
-
-      const hasOrderItems = (orderItems?.length || 0) > 0;
-
-      return {
-        hasOrderItems,
-        hasDependencies: hasOrderItems
-      };
-    } catch (error) {
-      console.error('❌ Error verificando dependencias:', error);
-      return { hasOrderItems: false, hasDependencies: false };
-    }
-  };
-
-  const handleSelectProduct = (productId: string, checked: boolean) => {
-    const newSelected = new Set(selectedProducts);
-    if (checked) {
-      newSelected.add(productId);
-    } else {
-      newSelected.delete(productId);
-    }
-    console.log('📋 Productos seleccionados en página:', Array.from(newSelected));
-    setSelectedProducts(newSelected);
-  };
-
-  const handleSelectAllCurrentPage = () => {
-    if (!paginatedProducts) return;
-    
-    const newSelected = new Set(selectedProducts);
-    const currentPageIds = paginatedProducts.map(p => p.id);
-    
-    const allCurrentPageSelected = currentPageIds.every(id => selectedProducts.has(id));
-    
-    if (allCurrentPageSelected) {
-      currentPageIds.forEach(id => newSelected.delete(id));
-    } else {
-      currentPageIds.forEach(id => newSelected.add(id));
-    }
-    
-    console.log('📋 Selección página actual - productos seleccionados:', Array.from(newSelected));
-    setSelectedProducts(newSelected);
-  };
-
-  const performBulkOperation = async (
-    operation: 'delete' | 'activate' | 'deactivate',
-    showProgress: (progress: number) => void
-  ) => {
-    if (selectedProducts.size === 0) {
-      console.warn('⚠️ No hay productos seleccionados');
-      return;
-    }
-
-    const selectedIds = Array.from(selectedProducts);
-    console.log(`🔄 Iniciando operación masiva: ${operation} para admin ${profile?.id}`);
-    console.log(`📋 Total productos seleccionados:`, selectedIds.length);
-
-    if (selectedIds.length > 100) {
-      toast({
-        title: "Demasiados productos",
-        description: "Por favor selecciona máximo 100 productos a la vez para mayor estabilidad.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsDeleting(true);
-    
-    try {
-      const CHUNK_SIZE = 50;
-      const chunks = [];
-      for (let i = 0; i < selectedIds.length; i += CHUNK_SIZE) {
-        chunks.push(selectedIds.slice(i, i + CHUNK_SIZE));
-      }
-
-      console.log(`📦 Procesando ${chunks.length} grupos de hasta ${CHUNK_SIZE} productos cada uno`);
-
-      let totalAffected = 0;
-      let chunkIndex = 0;
-
-      for (const chunk of chunks) {
-        chunkIndex++;
-        const progressValue = (chunkIndex / chunks.length) * 100;
-        showProgress(progressValue);
-        
-        console.log(`📦 Procesando grupo ${chunkIndex}/${chunks.length} con ${chunk.length} productos`);
-
-        const { data, error } = await supabase.functions.invoke('bulk-product-operations', {
-          body: {
-            operation,
-            productIds: chunk
-          }
-        });
-
-        if (error) {
-          console.error(`❌ Error en grupo ${chunkIndex} de operación ${operation}:`, error);
-          throw new Error(`Error en grupo ${chunkIndex}: ${error.message}. ${totalAffected} productos fueron procesados exitosamente.`);
-        }
-
-        if (!data.success) {
-          console.error(`❌ Grupo ${chunkIndex} de operación ${operation} falló:`, data.error);
-          throw new Error(`Grupo ${chunkIndex} falló: ${data.error}. ${totalAffected} productos fueron procesados exitosamente.`);
-        }
-
-        totalAffected += data.affectedRows;
-        console.log(`✅ Grupo ${chunkIndex} completado: ${data.affectedRows} productos afectados (Total: ${totalAffected})`);
-      }
-
-      showProgress(100);
-      console.log(`🎉 Operación masiva ${operation} completada: ${totalAffected} productos procesados en ${chunks.length} grupos`);
-
-      let successMessage = '';
-      switch (operation) {
-        case 'delete':
-          successMessage = `${totalAffected} productos eliminados correctamente`;
-          break;
-        case 'activate':
-          successMessage = `${totalAffected} productos activados correctamente`;
-          break;
-        case 'deactivate':
-          successMessage = `${totalAffected} productos desactivados correctamente`;
-          break;
-      }
-
-      toast({
-        title: "Operación completada",
-        description: successMessage,
-      });
-
-      setSelectedProducts(new Set());
-      await refreshProductData();
-      setShowBulkModal(false);
-
-    } catch (error) {
-      console.error(`❌ Error en operación masiva ${operation}:`, error);
-      toast({
-        title: "Error en operación masiva",
-        description: error.message || `No se pudo completar la operación ${operation}`,
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const handleBulkDelete = (showProgress: (progress: number) => void) => 
-    performBulkOperation('delete', showProgress);
-  const handleBulkActivate = (showProgress: (progress: number) => void) => 
-    performBulkOperation('activate', showProgress);
-  const handleBulkDeactivate = (showProgress: (progress: number) => void) => 
-    performBulkOperation('deactivate', showProgress);
-
-  const toggleProductAvailability = async (product: Product) => {
-    if (!profile?.id) {
-      console.error('❌ No hay profile disponible');
-      return;
-    }
-
-    // VERIFICACIÓN DE PROPIEDAD: Solo permitir editar productos propios
-    if (product.created_by !== profile.id && profile.role !== 'superadmin') {
-      toast({
-        title: "Acceso denegado",
-        description: "Solo puedes editar productos que has creado.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      console.log(`🔄 Cambiando disponibilidad de "${product.name}": ${product.is_available} → ${!product.is_available}`);
-      
       const { error } = await supabase
         .from('products')
         .update({ is_available: !product.is_available })
         .eq('id', product.id)
-        .eq('created_by', profile.id); // ✅ Filtro adicional por seguridad
+        .eq('created_by', profile?.id || ''); // Verificar propiedad
 
-      if (error) {
-        console.error('❌ Error actualizando disponibilidad:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log(`✅ Disponibilidad actualizada para "${product.name}"`);
+      queryClient.invalidateQueries({ queryKey: ['products'] });
       toast({
         title: "Producto actualizado",
-        description: `${product.name} ${!product.is_available ? 'activado' : 'desactivado'} correctamente`,
+        description: `${product.name} ${product.is_available ? 'desactivado' : 'activado'}`,
       });
-
-      // INVALIDACIÓN ESPECÍFICA: Refrescar datos del administrador actual
-      await refreshProductData();
     } catch (error) {
-      console.error('❌ Error updating product:', error);
+      console.error('Error toggling availability:', error);
       toast({
         title: "Error",
         description: "No se pudo actualizar el producto",
@@ -529,503 +119,260 @@ const ProductManagement = ({ onBack }: ProductManagementProps) => {
     }
   };
 
-  const handleDeleteProduct = async (product: Product) => {
-    if (!profile?.id) {
-      console.error('❌ No hay profile disponible');
-      return;
-    }
-
-    // VERIFICACIÓN DE PROPIEDAD: Solo permitir eliminar productos propios
-    if (product.created_by !== profile.id && profile.role !== 'superadmin') {
+  const handleEdit = (product: Product) => {
+    // Verificar propiedad antes de editar
+    if (profile?.role !== 'superadmin' && product.created_by !== profile?.id) {
       toast({
         title: "Acceso denegado",
-        description: "Solo puedes eliminar productos que has creado.",
+        description: "Solo puedes editar productos que has creado",
         variant: "destructive",
       });
       return;
     }
-
-    console.log('🔍 Verificando dependencias para:', product.name, product.id);
     
-    // Verificar dependencias antes de mostrar el modal
-    const dependencies = await checkProductDependencies(product.id);
-    
-    if (dependencies.hasDependencies) {
-      let dependencyMessage = '';
-      if (dependencies.hasOrderItems) {
-        dependencyMessage = 'Este producto está asociado a pedidos anteriores y no puede ser eliminado. ';
-      }
-      
-      toast({
-        title: "No se puede eliminar el producto",
-        description: `${dependencyMessage}Considera desactivarlo en su lugar para que no aparezca en el menú público pero mantenga el historial.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    console.log('🗑️ Preparando eliminación de producto:', product.name, product.id);
-    setProductToDelete(product);
-    setShowDeleteModal(true);
+    setEditingProduct(product);
+    setShowForm(true);
   };
 
-  const confirmDeleteProduct = async () => {
-    if (!productToDelete || !profile?.id) return;
-
-    // VERIFICACIÓN FINAL DE PROPIEDAD
-    if (productToDelete.created_by !== profile.id && profile.role !== 'superadmin') {
+  const handleDelete = (product: Product) => {
+    // Verificar propiedad antes de eliminar
+    if (profile?.role !== 'superadmin' && product.created_by !== profile?.id) {
       toast({
         title: "Acceso denegado",
-        description: "Solo puedes eliminar productos que has creado.",
+        description: "Solo puedes eliminar productos que has creado",
         variant: "destructive",
       });
       return;
     }
+    
+    setDeletingProduct(product);
+  };
 
-    setIsDeleting(true);
+  const handleFormSave = () => {
+    // FASE 3: Invalidación simplificada
+    queryClient.invalidateQueries({ queryKey: ['products'] });
+    setShowForm(false);
+    setEditingProduct(null);
+  };
+
+  const handleFormCancel = () => {
+    setShowForm(false);
+    setEditingProduct(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingProduct) return;
+
     try {
-      console.log('🗑️ Eliminando producto:', productToDelete.name, productToDelete.id);
-      
       const { error } = await supabase
         .from('products')
         .delete()
-        .eq('id', productToDelete.id)
-        .eq('created_by', profile.id); // ✅ Filtro adicional por seguridad
+        .eq('id', deletingProduct.id)
+        .eq('created_by', profile?.id || ''); // Verificar propiedad
 
-      if (error) {
-        console.error('❌ Error eliminando producto:', error);
-        
-        // Manejar específicamente el error 409 de clave foránea
-        if (error.code === '23503' || error.message.includes('violates foreign key constraint')) {
-          toast({
-            title: "No se puede eliminar el producto",
-            description: "Este producto está asociado a pedidos anteriores y no puede ser eliminado. Considera desactivarlo en su lugar.",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Error",
-            description: "No se pudo eliminar el producto. Inténtalo de nuevo.",
-            variant: "destructive",
-          });
-        }
-        return;
-      }
+      if (error) throw error;
 
-      console.log('✅ Producto eliminado correctamente:', productToDelete.name);
+      queryClient.invalidateQueries({ queryKey: ['products'] });
       toast({
         title: "Producto eliminado",
-        description: `${productToDelete.name} eliminado correctamente`,
+        description: "El producto ha sido eliminado correctamente",
       });
-
-      await refreshProductData();
-      setShowDeleteModal(false);
-      setProductToDelete(null);
     } catch (error) {
-      console.error('❌ Error deleting product:', error);
+      console.error('Error deleting product:', error);
       toast({
         title: "Error",
         description: "No se pudo eliminar el producto",
         variant: "destructive",
       });
     } finally {
-      setIsDeleting(false);
+      setDeletingProduct(null);
     }
   };
 
-  const handleEditProduct = (product: Product) => {
-    if (!profile?.id) {
-      console.error('❌ No hay profile disponible');
-      return;
-    }
-
-    // VERIFICACIÓN DE PROPIEDAD: Solo permitir editar productos propios
-    if (product.created_by !== profile.id && profile.role !== 'superadmin') {
-      toast({
-        title: "Acceso denegado",
-        description: "Solo puedes editar productos que has creado.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    console.log('✏️ Editando producto:', product.name, product.id);
-    setEditingProduct(product);
-    setShowForm(true);
-  };
-
-  const handleCloseForm = () => {
-    console.log('❌ Cerrando formulario de producto');
-    setShowForm(false);
-    setEditingProduct(null);
-  };
-
-  // Función mejorada para manejar el guardado con confirmación visual
-  const handleSaveProduct = async (newProductName?: string) => {
-    console.log('💾 Producto guardado, iniciando refresco robusto...', newProductName ? `para: ${newProductName}` : '(actualización)');
-    
-    try {
-      // Refrescar datos de forma robusta con el nombre real del producto
-      const refreshSuccess = await refreshProductData(newProductName);
-      
-      if (refreshSuccess) {
-        handleCloseForm();
-        
-        // Mostrar confirmación visual mejorada con botón para navegar al producto
-        if (newProductName) {
-          toast({
-            title: "¡Producto creado exitosamente!",
-            description: (
-              <div className="flex items-center justify-between">
-                <span>{newProductName} se agregó al inicio de la lista</span>
-                <CheckCircle className="h-4 w-4 text-green-500 ml-2" />
-              </div>
-            ),
-          });
-        } else {
-          toast({
-            title: "Producto actualizado",
-            description: "Los cambios se guardaron correctamente",
-          });
-        }
-        
-        console.log('✅ Producto guardado y lista actualizada exitosamente');
-      } else {
-        // MEJORA CRÍTICA: Manejo de errores por constraint único
-        toast({
-          title: "Producto guardado con advertencias",
-          description: "El producto se guardó pero puede que tengas que actualizar la página para verlo. Si el nombre ya existe, por favor elige uno diferente.",
-          variant: "destructive",
-        });
-        
-        // Cerrar formulario y ir a la primera página de todos modos
-        handleCloseForm();
-        setCurrentPage(1);
-      }
-      
-    } catch (error) {
-      console.error('❌ Error en handleSaveProduct:', error);
-      
-      // MEJORA CRÍTICA: Detectar errores de constraint único
-      const errorMessage = error?.message || '';
-      if (errorMessage.includes('unique_product_name') || errorMessage.includes('already exists')) {
-        toast({
-          title: "Nombre duplicado",
-          description: "Ya existe un producto con ese nombre. Por favor, elige un nombre diferente.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Advertencia",
-          description: "El producto se guardó, pero puede que tengas que recargar para verlo en la lista.",
-          variant: "destructive",
-        });
-      }
-      
-      // Cerrar formulario de todos modos
-      handleCloseForm();
-    }
-  };
-
-  // VERIFICACIÓN DE PERMISOS: Solo mostrar si es administrador
   if (!profile || (profile.role !== 'admin' && profile.role !== 'superadmin')) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-destructive">Acceso Denegado</h2>
-          <p className="text-muted-foreground">Solo los administradores pueden acceder a la gestión de productos.</p>
-        </div>
-      </div>
+      <Card>
+        <CardContent className="flex items-center justify-center p-8">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium">Acceso Restringido</h3>
+            <p className="text-muted-foreground">Solo los administradores pueden gestionar productos.</p>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
-
-  if (showPublicMenu) {
-    return <PublicMenu onBack={() => setShowPublicMenu(false)} />;
-  }
-
-  if (productsLoading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  const selectedCount = selectedProducts.size;
-  const currentPageProductCount = paginatedProducts?.length || 0;
-  const allCurrentPageSelected = currentPageProductCount > 0 && 
-    paginatedProducts?.every(p => selectedProducts.has(p.id));
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              {onBack && (
-                <Button variant="ghost" size="sm" onClick={onBack}>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Volver al Panel
-                </Button>
-              )}
-              <div className="flex items-center space-x-2">
-                <ChefHat className="h-8 w-8 text-primary" />
-                <h1 className="text-2xl font-bold">Gestión de Productos</h1>
-                {isRefreshing && (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button 
-                variant="outline" 
-                onClick={() => setShowPublicMenu(true)} 
-                className="flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-              >
-                <MenuIcon className="h-4 w-4" />
-                Ver Menú Público
-              </Button>
-              <Button onClick={() => setShowForm(true)} className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Nuevo Producto
-              </Button>
-            </div>
-          </div>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold">Gestión de Productos</h2>
+          <p className="text-muted-foreground">
+            {profile.role === 'superadmin' 
+              ? 'Administra todos los productos del sistema'
+              : 'Administra tus productos'
+            }
+          </p>
         </div>
-      </header>
+        <Button onClick={() => setShowForm(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Nuevo Producto
+        </Button>
+      </div>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-2xl font-bold">Mis Productos</h2>
-            <p className="text-muted-foreground">
-              Administra TUS productos • Solo se muestran los productos que has creado • Hasta 100 productos por página
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                  <Input
-                    placeholder="Buscar productos..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+      {/* Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Buscar productos..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
               </div>
+            </div>
+            <div className="w-full sm:w-64">
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-3 py-2 border border-input rounded-md bg-background"
+                className="w-full px-3 py-2 border border-input rounded-md bg-background"
               >
                 <option value="all">Todas las categorías</option>
-                {sortedCategories?.map((category) => (
+                {categories?.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name}
                   </option>
                 ))}
               </select>
             </div>
+          </div>
+        </CardContent>
+      </Card>
 
-            {currentPageProductCount > 0 && (
-              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <Checkbox
-                    checked={allCurrentPageSelected}
-                    onCheckedChange={handleSelectAllCurrentPage}
+      {/* Products List */}
+      {loadingProducts ? (
+        <Card>
+          <CardContent className="flex items-center justify-center p-8">
+            <div className="text-center">
+              <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4 animate-pulse" />
+              <p className="text-muted-foreground">Cargando productos...</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : filteredProducts.length === 0 ? (
+        <Card>
+          <CardContent className="flex items-center justify-center p-8">
+            <div className="text-center">
+              <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">
+                {products?.length === 0 ? 'No hay productos' : 'No se encontraron productos'}
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                {products?.length === 0 
+                  ? 'Comienza creando tu primer producto'
+                  : 'Intenta con otros términos de búsqueda'
+                }
+              </p>
+              {products?.length === 0 && (
+                <Button onClick={() => setShowForm(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Crear Primer Producto
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredProducts.map((product) => (
+            <Card key={product.id} className="overflow-hidden">
+              <div className="aspect-video bg-muted relative">
+                {product.image_url ? (
+                  <img
+                    src={product.image_url}
+                    alt={product.name}
+                    className="w-full h-full object-cover"
                   />
-                  <span className="text-sm">
-                    {allCurrentPageSelected 
-                      ? `Deseleccionar página (${currentPageProductCount})` 
-                      : `Seleccionar página actual (${currentPageProductCount})`
-                    }
-                  </span>
-                  {selectedCount > 0 && (
-                    <Badge variant="secondary">{selectedCount} seleccionados</Badge>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Package className="h-12 w-12 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="absolute top-2 right-2 flex gap-2">
+                  {product.is_available ? (
+                    <Badge variant="default">Disponible</Badge>
+                  ) : (
+                    <Badge variant="secondary">No disponible</Badge>
                   )}
                 </div>
-                
-                {selectedCount > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">
-                      Máx. 100 por operación
-                    </span>
+              </div>
+              <CardContent className="p-4">
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-semibold text-lg">{product.name}</h3>
+                  <span className="text-lg font-bold text-green-600">${product.price}</span>
+                </div>
+                {product.description && (
+                  <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
+                    {product.description}
+                  </p>
+                )}
+                <div className="flex justify-between items-center">
+                  <div className="flex gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setShowBulkModal(true)}
-                      disabled={selectedCount > 100}
+                      onClick={() => handleEdit(product)}
                     >
-                      Acciones en lote
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toggleAvailability(product)}
+                    >
+                      {product.is_available ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDelete(product)}
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-            {paginatedProducts?.map((product) => (
-              <Card 
-                key={product.id} 
-                className={`group hover:shadow-lg transition-all duration-300 ${
-                  recentlyCreatedProduct === product.name 
-                    ? 'ring-2 ring-green-500 bg-green-50 shadow-lg scale-105' 
-                    : ''
-                }`}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-3 flex-1">
-                      <Checkbox
-                        checked={selectedProducts.has(product.id)}
-                        onCheckedChange={(checked) => handleSelectProduct(product.id, checked as boolean)}
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <CardTitle className="text-lg">{product.name}</CardTitle>
-                          {recentlyCreatedProduct === product.name && (
-                            <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
-                              ¡Nuevo!
-                            </Badge>
-                          )}
-                        </div>
-                        <CardDescription className="mt-1">
-                          {product.categories?.name}
-                        </CardDescription>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleProductAvailability(product)}
-                        className="h-8 w-8 p-0"
-                      >
-                        {product.is_available ? (
-                          <Eye className="h-4 w-4 text-green-600" />
-                        ) : (
-                          <EyeOff className="h-4 w-4 text-gray-400" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEditProduct(product)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteProduct(product)}
-                        className="h-8 w-8 p-0 text-destructive hover:text-destructive flex items-center justify-center"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                
-                <CardContent>
-                  {product.image_url && (
-                    <img 
-                      src={product.image_url} 
-                      alt={product.name}
-                      className="w-full h-32 object-cover rounded-md mb-3"
-                      onError={(e) => {
-                        console.error('Error loading image:', e);
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
-                  )}
-                  
-                  {product.description && (
-                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                      {product.description}
-                    </p>
-                  )}
-                  
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-2xl font-bold text-primary">
-                      ${Number(product.price).toFixed(2)}
-                    </span>
-                    <Badge variant={product.is_available ? "default" : "secondary"}>
-                      {product.is_available ? "Disponible" : "No disponible"}
-                    </Badge>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1">
-                    {product.is_vegetarian && (
-                      <Badge variant="outline" className="text-xs">Vegetariano</Badge>
-                    )}
-                    {product.is_vegan && (
-                      <Badge variant="outline" className="text-xs">Vegano</Badge>
-                    )}
-                    {product.is_gluten_free && (
-                      <Badge variant="outline" className="text-xs">Sin Gluten</Badge>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          <ProductPagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalItems={totalProducts}
-            itemsPerPage={PRODUCTS_PER_PAGE}
-            onPageChange={setCurrentPage}
-          />
-
-          {paginatedProducts?.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">
-                {searchTerm || selectedCategory !== 'all' 
-                  ? 'No se encontraron productos con los filtros aplicados'
-                  : 'No tienes productos registrados. ¡Crea tu primer producto!'
-                }
-              </p>
-            </div>
-          )}
-
-          {showForm && (
-            <ProductForm
-              product={editingProduct}
-              categories={sortedCategories || []}
-              onSave={handleSaveProduct}
-              onCancel={handleCloseForm}
-            />
-          )}
-
-          <DeleteProductModal
-            isOpen={showDeleteModal}
-            onClose={() => {
-              setShowDeleteModal(false);
-              setProductToDelete(null);
-            }}
-            onConfirm={confirmDeleteProduct}
-            productName={productToDelete?.name || ''}
-            isLoading={isDeleting}
-          />
-
-          <EnhancedBulkActionsModal
-            isOpen={showBulkModal}
-            onClose={() => setShowBulkModal(false)}
-            selectedCount={selectedCount}
-            currentPage={currentPage}
-            onBulkDelete={handleBulkDelete}
-            onBulkActivate={handleBulkActivate}
-            onBulkDeactivate={handleBulkDeactivate}
-            isLoading={isDeleting}
-          />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
-      </main>
+      )}
+
+      {/* Modals */}
+      {showForm && (
+        <ProductForm
+          product={editingProduct}
+          categories={categories || []}
+          onSave={handleFormSave}
+          onCancel={handleFormCancel}
+        />
+      )}
+
+      {deletingProduct && (
+        <DeleteProductModal
+          product={deletingProduct}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeletingProduct(null)}
+        />
+      )}
     </div>
   );
 };

@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useAuth } from '@/hooks/useAuth';
+import { useProductValidation } from '@/hooks/useProductValidation';
 import { X, Upload, Image, Link } from 'lucide-react';
 import { Tables } from '@/integrations/supabase/types';
 
@@ -31,8 +32,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
   const { toast } = useToast();
   const { profile } = useAuth();
   const { uploadFile, uploading } = useFileUpload();
+  const { checkDuplicateProduct } = useProductValidation();
   const [loading, setLoading] = useState(false);
-  const [confirmingCreation, setConfirmingCreation] = useState(false);
   const [uploadMethod, setUploadMethod] = useState<'pc' | 'url'>('pc');
   const [imageUrl, setImageUrl] = useState('');
   const [formData, setFormData] = useState({
@@ -116,46 +117,9 @@ const ProductForm: React.FC<ProductFormProps> = ({
       setFormData({ ...formData, image_url: imageUrl });
       toast({
         title: "URL añadida",
-        description: "La URL de la imagen se ha añadido correctamente",
+        description: "La URL de la imagen se ha añadida correctamente",
       });
     }
-  };
-
-  const confirmProductCreation = async (productName: string, adminId: string, maxRetries = 8): Promise<boolean> => {
-    console.log('🔍 Confirmando creación del producto:', productName, 'para admin:', adminId);
-    
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        const delay = attempt === 1 ? 1200 : Math.min(800 * attempt, 3000);
-        console.log(`⏳ Esperando ${delay}ms antes de verificación ${attempt}...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-
-        const { data, error } = await supabase
-          .from('products')
-          .select('id, name, created_at, created_by')
-          .eq('name', productName)
-          .eq('created_by', adminId)
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (error) {
-          console.error(`❌ Error en intento ${attempt} de confirmación:`, error);
-          if (attempt === maxRetries) throw error;
-        } else if (data && data.length > 0) {
-          console.log('✅ Producto confirmado en la base de datos para admin', adminId, ':', data[0]);
-          console.log('📅 Fecha de creación:', data[0].created_at);
-          return true;
-        } else {
-          console.log(`⚠️ Intento ${attempt}: Producto "${productName}" aún no encontrado para admin ${adminId}`);
-        }
-
-      } catch (error) {
-        console.error(`❌ Error en confirmación intento ${attempt}:`, error);
-        if (attempt === maxRetries) throw error;
-      }
-    }
-
-    return false;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -182,6 +146,22 @@ const ProductForm: React.FC<ProductFormProps> = ({
     setLoading(true);
 
     try {
+      // FASE 2: Validación previa para productos nuevos
+      if (!product) {
+        console.log('🔍 Verificando duplicados para producto:', formData.name);
+        const isDuplicate = await checkDuplicateProduct(formData.name);
+        
+        if (isDuplicate) {
+          toast({
+            title: "Producto duplicado",
+            description: `Ya tienes un producto llamado "${formData.name}". Elige un nombre diferente.`,
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+      }
+
       console.log('💾 Guardando producto...', product ? 'Actualización' : 'Creación', 'para admin:', profile.id);
       
       const productData = {
@@ -202,72 +182,53 @@ const ProductForm: React.FC<ProductFormProps> = ({
         created_by: profile.id,
       };
 
-      let error;
+      let result;
       if (product) {
-        console.log('🔄 Actualizando producto existente:', product.id, 'para admin:', profile.id);
+        console.log('🔄 Actualizando producto existente:', product.id);
         
-        const { data: updateData, error: updateError } = await supabase
+        const { data: updateData, error } = await supabase
           .from('products')
           .update(productData)
           .eq('id', product.id)
           .eq('created_by', profile.id)
-          .select();
+          .select()
+          .single();
 
-        error = updateError;
-        
-        if (!error && (!updateData || updateData.length === 0)) {
-          throw new Error('No se pudo actualizar el producto. Verifica que tienes permisos para editarlo.');
-        }
+        if (error) throw error;
+        result = updateData;
       } else {
-        console.log('➕ Creando nuevo producto con nombre:', formData.name, 'para admin:', profile.id);
+        console.log('➕ Creando nuevo producto:', formData.name);
         
-        const { error: insertError } = await supabase
+        const { data: insertData, error } = await supabase
           .from('products')
-          .insert([productData]);
+          .insert([productData])
+          .select()
+          .single();
         
-        error = insertError;
+        if (error) throw error;
+        result = insertData;
       }
 
-      if (error) {
-        console.error('❌ Error guardando producto:', error);
-        
-        if (error.code === '42501' || error.message.includes('policy')) {
-          throw new Error('No tienes permisos para realizar esta acción. Solo puedes gestionar productos que has creado.');
-        }
-        
-        throw error;
-      }
-
-      console.log('✅ Producto guardado exitosamente en la base de datos');
-
-      if (!product) {
-        console.log('🔍 Iniciando confirmación de creación para:', formData.name, 'admin:', profile.id);
-        setConfirmingCreation(true);
-        
-        const confirmed = await confirmProductCreation(formData.name, profile.id);
-        
-        if (!confirmed) {
-          throw new Error(`No se pudo confirmar la creación del producto "${formData.name}" para el administrador ${profile.id}`);
-        }
-        
-        console.log('✅ Creación del producto confirmada exitosamente');
-        setConfirmingCreation(false);
-      }
+      console.log('✅ Producto guardado exitosamente:', result);
       
       toast({
         title: product ? "Producto actualizado" : "Producto creado",
         description: `${formData.name} ${product ? 'actualizado' : 'creado'} correctamente`,
       });
 
+      // FASE 3: Simplificación - llamar onSave inmediatamente
       onSave(product ? undefined : formData.name);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error saving product:', error);
-      setConfirmingCreation(false);
       
       let errorMessage = `No se pudo ${product ? 'actualizar' : 'crear'} el producto`;
       
-      if (error.message.includes('permisos') || error.message.includes('policy')) {
+      // FASE 3: Manejo mejorado de errores específicos
+      if (error.code === '23505') {
+        // Error de constraint UNIQUE
+        errorMessage = `Ya tienes un producto con el nombre "${formData.name}". Elige un nombre diferente.`;
+      } else if (error.code === '42501' || error.message.includes('policy')) {
         errorMessage = "No tienes permisos para realizar esta acción";
       } else if (error.message.includes('unique') || error.message.includes('already exists')) {
         errorMessage = "Ya existe un producto con ese nombre";
@@ -551,10 +512,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
               <Button type="button" variant="outline" onClick={onCancel}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={loading || uploading || confirmingCreation}>
-                {loading ? 'Guardando...' 
-                  : confirmingCreation ? 'Confirmando creación...'
-                  : (product ? 'Actualizar' : 'Crear')}
+              <Button type="submit" disabled={loading || uploading}>
+                {loading ? 'Guardando...' : (product ? 'Actualizar' : 'Crear')}
               </Button>
             </div>
           </form>
