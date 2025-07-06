@@ -339,11 +339,10 @@ const AuthForm = () => {
     }
   };
 
-  // eliminar el boton de  preparacion de despliegie
   const handleCreateSuperAdmin = async () => {
     setLoading(true);
     try {
-      console.log('🚀 : allseosoporte@gmail.com');
+      
       
       const result = await createSuperAdminUser();
       
