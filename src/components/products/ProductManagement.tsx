@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useBusinessContext } from '@/hooks/useBusinessContext';
 import { 
   Plus, 
   Search, 
@@ -32,6 +33,7 @@ interface ProductManagementProps {
 const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
   const { toast } = useToast();
   const { profile } = useAuth();
+  const { businessId, businessName, isLoading: businessLoading } = useBusinessContext();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -39,27 +41,35 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
 
-  // Fetch products filtered by current admin
+  // FASE 2: Query corregida para productos del restaurante específico
   const { data: products, isLoading: loadingProducts } = useQuery({
-    queryKey: ['products', profile?.id],
+    queryKey: ['products-by-business', businessId, profile?.id],
     queryFn: async () => {
-      if (!profile?.id) {
-        console.log('⚠️ No hay perfil de usuario, no se pueden cargar productos');
+      if (!profile?.id || !businessId) {
+        console.log('⚠️ No hay perfil de usuario o business_id, no se pueden cargar productos');
         return [];
       }
 
-      console.log('🔍 Cargando productos para admin:', profile.id, profile.role);
+      console.log('🔍 Cargando productos para business:', businessId, 'admin:', profile.id);
 
-      let query = supabase.from('products').select('*');
-      
-      // FASE 4: Filtrado correcto por administrador
-      if (profile.role === 'superadmin') {
-        // Superadmin ve todos los productos
-        console.log('👑 Superadmin: cargando todos los productos');
-      } else {
-        // Admin regular solo ve sus productos
-        console.log('👤 Admin regular: cargando solo productos propios');
+      let query = supabase
+        .from('products')
+        .select(`
+          *,
+          categories (
+            id,
+            name
+          )
+        `)
+        .eq('business_id', businessId); // CORRECCIÓN: Filtrar por business_id
+
+      // Superadmin ve todos los productos del negocio
+      // Admin regular solo ve sus productos del negocio
+      if (profile.role !== 'superadmin') {
         query = query.eq('created_by', profile.id);
+        console.log('👤 Admin regular: filtrando por created_by');
+      } else {
+        console.log('👑 Superadmin: viendo todos los productos del negocio');
       }
       
       const { data, error } = await query.order('created_at', { ascending: false });
@@ -69,10 +79,10 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
         throw error;
       }
 
-      console.log(`✅ Cargados ${data?.length || 0} productos para admin ${profile.id}`);
+      console.log(`✅ Cargados ${data?.length || 0} productos para negocio ${businessId}`);
       return data as Product[];
     },
-    enabled: !!profile?.id,
+    enabled: !!profile?.id && !!businessId,
   });
 
   // Fetch categories
@@ -105,11 +115,14 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
         .from('products')
         .update({ is_available: !product.is_available })
         .eq('id', product.id)
-        .eq('created_by', profile?.id || ''); // Verificar propiedad
+        .eq('business_id', businessId); // Verificar business_id
 
       if (error) throw error;
 
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      // FASE 4: Invalidación de cache sincronizada
+      queryClient.invalidateQueries({ queryKey: ['products-by-business'] });
+      queryClient.invalidateQueries({ queryKey: ['products-public-optimized-v2'] });
+      
       toast({
         title: "Producto actualizado",
         description: `${product.name} ${product.is_available ? 'desactivado' : 'activado'}`,
@@ -154,8 +167,9 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
   };
 
   const handleFormSave = () => {
-    // FASE 3: Invalidación simplificada
-    queryClient.invalidateQueries({ queryKey: ['products'] });
+    // FASE 4: Invalidación sincronizada del cache
+    queryClient.invalidateQueries({ queryKey: ['products-by-business'] });
+    queryClient.invalidateQueries({ queryKey: ['products-public-optimized-v2'] });
     setShowForm(false);
     setEditingProduct(null);
   };
@@ -166,18 +180,21 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!deletingProduct) return;
+    if (!deletingProduct || !businessId) return;
 
     try {
       const { error } = await supabase
         .from('products')
         .delete()
         .eq('id', deletingProduct.id)
-        .eq('created_by', profile?.id || ''); // Verificar propiedad
+        .eq('business_id', businessId); // Verificar business_id
 
       if (error) throw error;
 
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      // FASE 4: Invalidación sincronizada
+      queryClient.invalidateQueries({ queryKey: ['products-by-business'] });
+      queryClient.invalidateQueries({ queryKey: ['products-public-optimized-v2'] });
+      
       toast({
         title: "Producto eliminado",
         description: "El producto ha sido eliminado correctamente",
@@ -193,6 +210,20 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
       setDeletingProduct(null);
     }
   };
+
+  // Loading states
+  if (businessLoading || !businessId) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center p-8">
+          <div className="text-center">
+            <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4 animate-pulse" />
+            <p className="text-muted-foreground">Cargando contexto del restaurante...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!profile || (profile.role !== 'admin' && profile.role !== 'superadmin')) {
     return (
@@ -221,8 +252,11 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
           <div>
             <h2 className="text-2xl font-bold">Gestión de Productos</h2>
             <p className="text-muted-foreground">
+              {businessName ? `Restaurante: ${businessName}` : 'Administra tus productos'}
+            </p>
+            <p className="text-xs text-muted-foreground">
               {profile.role === 'superadmin' 
-                ? 'Administra todos los productos del sistema'
+                ? 'Administra todos los productos del restaurante'
                 : 'Administra tus productos'
               }
             </p>
@@ -234,7 +268,6 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
         </Button>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-4">
@@ -267,13 +300,12 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
         </CardContent>
       </Card>
 
-      {/* Products List */}
       {loadingProducts ? (
         <Card>
           <CardContent className="flex items-center justify-center p-8">
             <div className="text-center">
               <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4 animate-pulse" />
-              <p className="text-muted-foreground">Cargando productos...</p>
+              <p className="text-muted-foreground">Cargando productos del restaurante...</p>
             </div>
           </CardContent>
         </Card>
@@ -369,11 +401,11 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
         </div>
       )}
 
-      {/* Modals */}
       {showForm && (
         <ProductForm
           product={editingProduct}
           categories={categories || []}
+          businessId={businessId}
           onSave={handleFormSave}
           onCancel={handleFormCancel}
         />

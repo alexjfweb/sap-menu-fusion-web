@@ -1,16 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { useProductValidation } from '@/hooks/useProductValidation';
-import { X } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
-
-// Import the new form components
-import { ProductImageUpload } from './form/ProductImageUpload';
 import { ProductBasicFields } from './form/ProductBasicFields';
 import { ProductDetailsFields } from './form/ProductDetailsFields';
 import { ProductOptionsFields } from './form/ProductOptionsFields';
@@ -21,62 +19,37 @@ type Category = Tables<'categories'>;
 interface ProductFormProps {
   product?: Product | null;
   categories: Category[];
-  onSave: (productName?: string) => void;
+  businessId: string;
+  onSave: () => void;
   onCancel: () => void;
 }
 
-const ProductForm: React.FC<ProductFormProps> = ({
-  product,
-  categories,
-  onSave,
-  onCancel,
+const ProductForm: React.FC<ProductFormProps> = ({ 
+  product, 
+  categories, 
+  businessId, 
+  onSave, 
+  onCancel 
 }) => {
   const { toast } = useToast();
   const { profile } = useAuth();
-  const { checkDuplicateProduct } = useProductValidation();
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     price: '',
     category_id: '',
     product_type: 'plato',
-    preparation_time: '15',
     is_available: true,
     is_vegetarian: false,
     is_vegan: false,
     is_gluten_free: false,
+    preparation_time: '',
     calories: '',
     ingredients: '',
     allergens: '',
-    image_url: '',
   });
-
-  useEffect(() => {
-    if (!profile || (profile.role !== 'admin' && profile.role !== 'superadmin')) {
-      console.error('❌ Usuario sin permisos intentando acceder al formulario de productos');
-      toast({
-        title: "Acceso denegado",
-        description: "Solo los administradores pueden crear o editar productos.",
-        variant: "destructive",
-      });
-      onCancel();
-      return;
-    }
-
-    if (product && product.created_by !== profile.id && profile.role !== 'superadmin') {
-      console.error('❌ Usuario intentando editar producto que no es suyo:', product.id);
-      toast({
-        title: "Acceso denegado",
-        description: "Solo puedes editar productos que has creado.",
-        variant: "destructive",
-      });
-      onCancel();
-      return;
-    }
-
-    console.log('✅ Usuario autorizado para', product ? 'editar' : 'crear', 'producto');
-  }, [profile, product, onCancel, toast]);
 
   useEffect(() => {
     if (product) {
@@ -86,173 +59,123 @@ const ProductForm: React.FC<ProductFormProps> = ({
         price: product.price?.toString() || '',
         category_id: product.category_id || '',
         product_type: product.product_type || 'plato',
-        preparation_time: product.preparation_time?.toString() || '15',
         is_available: product.is_available ?? true,
         is_vegetarian: product.is_vegetarian ?? false,
         is_vegan: product.is_vegan ?? false,
         is_gluten_free: product.is_gluten_free ?? false,
+        preparation_time: product.preparation_time?.toString() || '',
         calories: product.calories?.toString() || '',
-        ingredients: product.ingredients?.join(', ') || '',
-        allergens: product.allergens?.join(', ') || '',
-        image_url: product.image_url || '',
+        ingredients: Array.isArray(product.ingredients) ? product.ingredients.join(', ') : '',
+        allergens: Array.isArray(product.allergens) ? product.allergens.join(', ') : '',
       });
     }
   }, [product]);
 
-  const handleFormDataChange = (updates: Partial<typeof formData>) => {
-    setFormData(prev => ({ ...prev, ...updates }));
+  const handleFormDataChange = (newData: Partial<typeof formData>) => {
+    setFormData(prev => ({ ...prev, ...newData }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!profile || (profile.role !== 'admin' && profile.role !== 'superadmin')) {
+    
+    if (!profile?.id || !businessId) {
       toast({
-        title: "Acceso denegado",
-        description: "Solo los administradores pueden crear productos.",
+        title: "Error",
+        description: "No se pudo identificar el usuario o restaurante",
         variant: "destructive",
       });
       return;
     }
 
-    if (product && product.created_by !== profile.id && profile.role !== 'superadmin') {
+    if (!formData.name.trim() || !formData.price) {
       toast({
-        title: "Acceso denegado",
-        description: "Solo puedes editar productos que has creado.",
+        title: "Error",
+        description: "El nombre y precio son obligatorios",
         variant: "destructive",
       });
       return;
     }
 
-    setLoading(true);
+    setIsLoading(true);
 
     try {
-      // FASE 2: Validación previa para productos nuevos
-      if (!product) {
-        console.log('🔍 Verificando duplicados para producto:', formData.name);
-        const isDuplicate = await checkDuplicateProduct(formData.name);
-        
-        if (isDuplicate) {
-          toast({
-            title: "Producto duplicado",
-            description: `Ya tienes un producto llamado "${formData.name}". Elige un nombre diferente.`,
-            variant: "destructive",
-          });
-          setLoading(false);
-          return;
-        }
-      }
-
-      console.log('💾 Guardando producto...', product ? 'Actualización' : 'Creación', 'para admin:', profile.id);
-      
       const productData = {
-        name: formData.name,
-        description: formData.description || null,
+        name: formData.name.trim(),
+        description: formData.description.trim() || null,
         price: parseFloat(formData.price),
         category_id: formData.category_id || null,
         product_type: formData.product_type as any,
-        preparation_time: parseInt(formData.preparation_time),
         is_available: formData.is_available,
         is_vegetarian: formData.is_vegetarian,
         is_vegan: formData.is_vegan,
         is_gluten_free: formData.is_gluten_free,
+        preparation_time: formData.preparation_time ? parseInt(formData.preparation_time) : null,
         calories: formData.calories ? parseInt(formData.calories) : null,
-        ingredients: formData.ingredients ? formData.ingredients.split(',').map(i => i.trim()) : null,
-        allergens: formData.allergens ? formData.allergens.split(',').map(a => a.trim()) : null,
-        image_url: formData.image_url || null,
+        ingredients: formData.ingredients ? formData.ingredients.split(',').map(i => i.trim()).filter(i => i) : null,
+        allergens: formData.allergens ? formData.allergens.split(',').map(a => a.trim()).filter(a => a) : null,
+        business_id: businessId, // CORRECCIÓN: Incluir business_id
         created_by: profile.id,
       };
 
-      let result;
+      console.log('💾 Guardando producto con business_id:', businessId);
+
       if (product) {
-        console.log('🔄 Actualizando producto existente:', product.id);
-        
-        const { data: updateData, error } = await supabase
+        // Actualizar producto existente
+        const { error } = await supabase
           .from('products')
           .update(productData)
           .eq('id', product.id)
-          .eq('created_by', profile.id)
-          .select()
-          .single();
+          .eq('business_id', businessId); // Verificar business_id
 
         if (error) throw error;
-        result = updateData;
+
+        toast({
+          title: "Producto actualizado",
+          description: "El producto ha sido actualizado correctamente",
+        });
       } else {
-        console.log('➕ Creando nuevo producto:', formData.name);
-        
-        const { data: insertData, error } = await supabase
+        // Crear nuevo producto
+        const { error } = await supabase
           .from('products')
-          .insert([productData])
-          .select()
-          .single();
-        
+          .insert([productData]);
+
         if (error) throw error;
-        result = insertData;
+
+        toast({
+          title: "Producto creado",
+          description: "El producto ha sido creado correctamente",
+        });
       }
 
-      console.log('✅ Producto guardado exitosamente:', result);
-      
-      toast({
-        title: product ? "Producto actualizado" : "Producto creado",
-        description: `${formData.name} ${product ? 'actualizado' : 'creado'} correctamente`,
-      });
-
-      // FASE 3: Simplificación - llamar onSave inmediatamente
-      onSave(product ? undefined : formData.name);
-      
+      onSave();
     } catch (error: any) {
-      console.error('❌ Error saving product:', error);
-      
-      let errorMessage = `No se pudo ${product ? 'actualizar' : 'crear'} el producto`;
-      
-      // FASE 3: Manejo mejorado de errores específicos
-      if (error.code === '23505') {
-        // Error de constraint UNIQUE
-        errorMessage = `Ya tienes un producto con el nombre "${formData.name}". Elige un nombre diferente.`;
-      } else if (error.code === '42501' || error.message.includes('policy')) {
-        errorMessage = "No tienes permisos para realizar esta acción";
-      } else if (error.message.includes('unique') || error.message.includes('already exists')) {
-        errorMessage = "Ya existe un producto con ese nombre";
-      }
-      
+      console.error('Error saving product:', error);
       toast({
         title: "Error",
-        description: errorMessage,
+        description: error.message || "No se pudo guardar el producto",
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
-
-  if (!profile || (profile.role !== 'admin' && profile.role !== 'superadmin')) {
-    return null;
-  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader>
           <CardTitle>
             {product ? 'Editar Producto' : 'Nuevo Producto'}
           </CardTitle>
-          <Button variant="ghost" size="sm" onClick={onCancel}>
-            <X className="h-4 w-4" />
-          </Button>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <ProductBasicFields
               formData={formData}
               categories={categories}
               onFormDataChange={handleFormDataChange}
             />
-
-            <ProductImageUpload
-              imageUrl={formData.image_url}
-              onImageChange={(url) => handleFormDataChange({ image_url: url })}
-            />
-
+            
             <ProductDetailsFields
               formData={formData}
               onFormDataChange={handleFormDataChange}
@@ -263,12 +186,20 @@ const ProductForm: React.FC<ProductFormProps> = ({
               onFormDataChange={handleFormDataChange}
             />
 
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button type="button" variant="outline" onClick={onCancel}>
+            <div className="flex justify-end space-x-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={onCancel}
+                disabled={isLoading}
+              >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? 'Guardando...' : (product ? 'Actualizar' : 'Crear')}
+              <Button 
+                type="submit"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Guardando...' : (product ? 'Actualizar' : 'Crear')}
               </Button>
             </div>
           </form>

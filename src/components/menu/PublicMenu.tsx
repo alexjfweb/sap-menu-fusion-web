@@ -7,6 +7,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { ShoppingCart, Plus, Share2, Calendar, ArrowLeft, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { useBusinessContext } from '@/hooks/useBusinessContext';
 import MenuExplorer from './MenuExplorer';
 import ExpandableDescription from './ExpandableDescription';
 import ShoppingCartModal from './ShoppingCartModal';
@@ -23,9 +25,10 @@ type Category = Tables<'categories'>;
 
 interface PublicMenuProps {
   onBack?: () => void;
+  restaurantName?: string; // FASE 3: Soporte para URL amigable
 }
 
-const PublicMenu = ({ onBack }: PublicMenuProps) => {
+const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showCart, setShowCart] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -35,8 +38,78 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { profile } = useAuth();
+  const { businessId: authBusinessId } = useBusinessContext(); // Business ID del usuario autenticado
 
-  console.log('🚀 [PUBLIC MENU] Iniciando componente');
+  console.log('🚀 [PUBLIC MENU] Iniciando con restaurantName:', restaurantName);
+
+  // FASE 3: Determinar business_id desde URL o usuario autenticado
+  const { 
+    data: targetBusinessInfo, 
+    isLoading: businessInfoLoading,
+    error: businessInfoError 
+  } = useQuery({
+    queryKey: ['target-business-info', restaurantName, authBusinessId],
+    queryFn: async () => {
+      console.log('🏢 [BUSINESS] Determinando negocio objetivo...');
+      
+      // Si hay restaurantName en URL, usar ese
+      if (restaurantName) {
+        console.log('🔍 Buscando por nombre de restaurante:', restaurantName);
+        const { data, error } = await supabase
+          .rpc('get_business_by_name', { restaurant_name: restaurantName });
+        
+        if (error) {
+          console.error('❌ Error buscando por nombre:', error);
+          throw error;
+        }
+        
+        if (!data) {
+          console.warn('⚠️ No se encontró restaurante con nombre:', restaurantName);
+          return null;
+        }
+        
+        // Obtener información completa del negocio
+        const { data: businessData, error: businessError } = await supabase
+          .rpc('get_business_by_id', { business_uuid: data });
+        
+        if (businessError) throw businessError;
+        
+        console.log('✅ Negocio encontrado por nombre:', businessData?.[0]?.business_name);
+        return businessData?.[0] || null;
+      }
+      
+      // Si hay usuario autenticado, usar su business_id
+      if (authBusinessId) {
+        console.log('👤 Usando business_id del usuario autenticado:', authBusinessId);
+        const { data: businessData, error } = await supabase
+          .rpc('get_business_by_id', { business_uuid: authBusinessId });
+        
+        if (error) throw error;
+        
+        console.log('✅ Negocio del usuario autenticado:', businessData?.[0]?.business_name);
+        return businessData?.[0] || null;
+      }
+      
+      // Fallback: primer negocio disponible
+      console.log('🔄 Fallback: usando primer negocio disponible');
+      const { data, error } = await supabase
+        .from('business_info')
+        .select('*')
+        .limit(1)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      
+      console.log('✅ Usando negocio por defecto:', data?.business_name);
+      return data;
+    },
+    enabled: isInitialized,
+    retry: 2,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const targetBusinessId = targetBusinessInfo?.id;
 
   // CORRECCIÓN CRÍTICA: Inicialización controlada
   useEffect(() => {
@@ -119,36 +192,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     return defaults;
   }, [customization, customizationLoading, customizationError]);
 
-  // CORRECCIÓN CRÍTICA: Query optimizada para business info
-  const { 
-    data: businessInfo, 
-    isLoading: businessInfoLoading, 
-    error: businessInfoError 
-  } = useQuery({
-    queryKey: ['public-business-info-v2'],
-    queryFn: async () => {
-      console.log('📋 [BUSINESS INFO] Obteniendo información del negocio...');
-      
-      const { data, error } = await supabase
-        .from('business_info')
-        .select('*')
-        .limit(1)
-        .single();
-      
-      if (error && error.code !== 'PGRST116') {
-        console.error('❌ [BUSINESS INFO] Error:', error);
-        throw error;
-      }
-      
-      console.log('✅ [BUSINESS INFO] Obtenida correctamente');
-      return data;
-    },
-    enabled: isInitialized,
-    retry: 2,
-    staleTime: 1000 * 60 * 5, // 5 minutos
-  });
-
-  // CORRECCIÓN CRÍTICA: Query optimizada para categorías
+  // Fetch categories
   const { 
     data: categories, 
     isLoading: categoriesLoading, 
@@ -177,81 +221,69 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     },
     enabled: isInitialized,
     retry: 2,
-    staleTime: 1000 * 60 * 5, // 5 minutos
+    staleTime: 1000 * 60 * 5,
   });
 
-  // CORRECCIÓN CRÍTICA: Query super optimizada para productos
+  // FASE 2: Query corregida para productos del restaurante específico
   const { 
     data: products, 
     isLoading: productsLoading, 
     error: productsError,
     refetch: refetchProducts 
   } = useQuery({
-    queryKey: ['products-public-optimized-v2'],
+    queryKey: ['products-public-by-business-v3', targetBusinessId],
     queryFn: async () => {
-      console.log('🍽️ [PRODUCTS] Obteniendo productos optimizados...');
+      if (!targetBusinessId) {
+        console.warn('⚠️ [PRODUCTS] No hay targetBusinessId disponible');
+        return [];
+      }
+
+      console.log('🍽️ [PRODUCTS] Obteniendo productos del negocio:', targetBusinessId);
       
       try {
+        // CORRECCIÓN: Usar función SQL para obtener productos del negocio específico
         const { data, error } = await supabase
-          .from('products')
-          .select(`
-            id,
-            name,
-            description,
-            price,
-            image_url,
-            category_id,
-            is_available,
-            is_vegetarian,
-            is_vegan,
-            is_gluten_free,
-            created_at,
-            categories (
-              id,
-              name
-            )
-          `)
-          .eq('is_available', true)
-          .order('name')
-          .limit(100); // Límite razonable
+          .rpc('get_public_products_by_business', { business_uuid: targetBusinessId });
         
         if (error) {
-          console.error('❌ [PRODUCTS] Error en query:', error);
+          console.error('❌ [PRODUCTS] Error en RPC:', error);
           throw error;
         }
         
         if (!data || data.length === 0) {
-          console.warn('⚠️ [PRODUCTS] No hay productos disponibles');
+          console.warn('⚠️ [PRODUCTS] No hay productos disponibles para el negocio');
           return [];
         }
         
-        // Filtrar duplicados más eficientemente
-        const uniqueProducts = [];
-        const seenIds = new Set();
-        const seenNames = new Set();
+        // Enriquecer con información de categorías
+        const enrichedProducts = await Promise.all(
+          data.map(async (product) => {
+            if (product.category_id) {
+              const { data: categoryData } = await supabase
+                .from('categories')
+                .select('id, name')
+                .eq('id', product.category_id)
+                .single();
+              
+              return {
+                ...product,
+                categories: categoryData
+              };
+            }
+            return product;
+          })
+        );
         
-        for (const product of data) {
-          const nameKey = product.name.toLowerCase().trim();
-          
-          if (!seenIds.has(product.id) && !seenNames.has(nameKey)) {
-            seenIds.add(product.id);
-            seenNames.add(nameKey);
-            uniqueProducts.push(product);
-          }
-        }
-        
-        console.log(`✅ [PRODUCTS] ${uniqueProducts.length} productos únicos obtenidos`);
-        console.log(`🔢 [PRODUCTS] ${data.length - uniqueProducts.length} duplicados filtrados`);
-        
-        return uniqueProducts;
+        console.log(`✅ [PRODUCTS] ${enrichedProducts.length} productos obtenidos para negocio ${targetBusinessId}`);
+        return enrichedProducts;
       } catch (error) {
         console.error('❌ [PRODUCTS] Error crítico:', error);
         throw error;
       }
     },
-    enabled: isInitialized,
+    enabled: isInitialized && !!targetBusinessId,
     retry: 2,
-    staleTime: 1000 * 60 * 2, // 2 minutos
+    staleTime: 1000 * 60 * 2,
   });
 
   // CORRECCIÓN CRÍTICA: Query optimizada para carrito
@@ -289,7 +321,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     },
     enabled: !!sessionId && isInitialized,
     retry: 1,
-    staleTime: 1000 * 30, // 30 segundos
+    staleTime: 1000 * 30,
   });
 
   useEffect(() => {
@@ -327,7 +359,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   // Hook de paginación optimizado
   const pagination = useProductPagination({ 
     products: filteredProducts, 
-    itemsPerPage: 9 // Menos items para mejor rendimiento
+    itemsPerPage: 9
   });
 
   // Reset pagination when category changes
@@ -403,13 +435,15 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   };
 
   // Estados de carga y error mejorados
-  const isLoading = !isInitialized || productsLoading || categoriesLoading;
-  const hasError = productsError || categoriesError;
+  const isLoading = !isInitialized || productsLoading || categoriesLoading || businessInfoLoading;
+  const hasError = productsError || categoriesError || businessInfoError;
 
   console.log('🎯 [RENDER] Estado actual:', {
     isInitialized,
     isLoading,
     hasError,
+    targetBusinessId,
+    businessName: targetBusinessInfo?.business_name,
     productsCount: products?.length || 0,
     categoriesCount: categories?.length || 0,
     filteredCount: filteredProducts?.length || 0
@@ -433,7 +467,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
               Cargando Menú del Restaurante
             </p>
             <p style={{ color: colors.product_description_color }} className="text-sm mt-2">
-              Obteniendo los productos más frescos para ti...
+              {restaurantName ? `Cargando menú de ${restaurantName}...` : 'Obteniendo los productos más frescos para ti...'}
             </p>
           </div>
           <div className="space-y-2">
@@ -468,7 +502,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
 
   // CORRECCIÓN CRÍTICA: Manejo de errores mejorado
   if (hasError) {
-    console.error('❌ [RENDER] Error crítico detectado:', { productsError, categoriesError });
+    console.error('❌ [RENDER] Error crítico detectado:', { productsError, categoriesError, businessInfoError });
     
     return (
       <div 
@@ -500,7 +534,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
                   className="text-2xl font-bold"
                   style={{ color: colors.header_text_color }}
                 >
-                  Menú del Restaurante
+                  {targetBusinessInfo?.business_name || 'Menú del Restaurante'}
                 </h1>
               </div>
             </div>
@@ -512,8 +546,9 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               <div className="space-y-3">
-                <p className="font-medium">Error al cargar el menú</p>
+                <p className="font-medium">Error al cargar el menú del restaurante</p>
                 <div className="text-sm space-y-1">
+                  {businessInfoError && <div>• Información del negocio: {businessInfoError.message}</div>}
                   {productsError && <div>• Productos: {productsError.message}</div>}
                   {categoriesError && <div>• Categorías: {categoriesError.message}</div>}
                 </div>
@@ -539,7 +574,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
 
   // CORRECCIÓN CRÍTICA: Validación de productos mejorada
   if (!products || !Array.isArray(products) || products.length === 0) {
-    console.warn('⚠️ [RENDER] No hay productos disponibles');
+    console.warn('⚠️ [RENDER] No hay productos disponibles para el restaurante');
     
     return (
       <div 
@@ -571,7 +606,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
                   className="text-2xl font-bold"
                   style={{ color: colors.header_text_color }}
                 >
-                  Menú del Restaurante
+                  {targetBusinessInfo?.business_name || 'Menú del Restaurante'}
                 </h1>
               </div>
             </div>
@@ -585,7 +620,12 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
               <AlertDescription>
                 <div className="space-y-3">
                   <p className="font-medium">Menú en preparación</p>
-                  <p className="text-sm">Estamos preparando nuestro delicioso menú para ti.</p>
+                  <p className="text-sm">
+                    {targetBusinessInfo?.business_name 
+                      ? `${targetBusinessInfo.business_name} está preparando su delicioso menú para ti.`
+                      : 'Estamos preparando nuestro delicioso menú para ti.'
+                    }
+                  </p>
                   <div className="flex justify-center gap-2">
                     <Button onClick={handleRetry} size="sm">
                       <RefreshCw className="h-4 w-4 mr-2" />
@@ -607,14 +647,14 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     );
   }
 
-  console.log('✅ [RENDER] Renderizando menú completo con', products.length, 'productos');
+  console.log('✅ [RENDER] Renderizando menú completo del restaurante:', targetBusinessInfo?.business_name, 'con', products.length, 'productos');
 
   return (
     <div 
       className="min-h-screen"
       style={{ backgroundColor: colors.menu_bg_color }}
     >
-      {/* Header optimizado */}
+      {/* Header optimizado con nombre del restaurante */}
       <header 
         className="border-b backdrop-blur sticky top-0 z-50"
         style={{ 
@@ -636,12 +676,19 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
                   Volver al Panel
                 </Button>
               )}
-              <h1 
-                className="text-2xl font-bold"
-                style={{ color: colors.header_text_color }}
-              >
-                Menú del Restaurante
-              </h1>
+              <div>
+                <h1 
+                  className="text-2xl font-bold"
+                  style={{ color: colors.header_text_color }}
+                >
+                  {targetBusinessInfo?.business_name || 'Menú del Restaurante'}
+                </h1>
+                {restaurantName && (
+                  <p className="text-sm opacity-75" style={{ color: colors.header_text_color }}>
+                    URL: /{restaurantName}
+                  </p>
+                )}
+              </div>
             </div>
             
             <div className="flex items-center space-x-2">
@@ -696,8 +743,8 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
       {/* Main content optimizado */}
       <main className="container mx-auto px-4 py-8">
         <div className="space-y-6">
-          {businessInfo && !businessInfoLoading && (
-            <BusinessInfoDisplay businessInfo={businessInfo} />
+          {targetBusinessInfo && (
+            <BusinessInfoDisplay businessInfo={targetBusinessInfo} />
           )}
 
           <MenuExplorer
@@ -711,7 +758,7 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
           {filteredProducts && filteredProducts.length > 0 && (
             <div className="flex justify-between items-center text-sm mb-4">
               <span style={{ color: colors.product_description_color }}>
-                Mostrando {pagination.startItem} - {pagination.endItem} de {pagination.totalItems} productos
+                Mostrando {pagination.startItem} - {pagination.endItem} de {pagination.totalItems} productos de {targetBusinessInfo?.business_name}
               </span>
               <div className="flex items-center gap-2">
                 <span style={{ color: colors.product_description_color }}>

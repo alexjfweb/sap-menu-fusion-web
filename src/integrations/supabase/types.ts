@@ -903,6 +903,7 @@ export type Database = {
       products: {
         Row: {
           allergens: string[] | null
+          business_id: string | null
           calories: number | null
           category_id: string | null
           created_at: string | null
@@ -923,6 +924,7 @@ export type Database = {
         }
         Insert: {
           allergens?: string[] | null
+          business_id?: string | null
           calories?: number | null
           category_id?: string | null
           created_at?: string | null
@@ -943,6 +945,7 @@ export type Database = {
         }
         Update: {
           allergens?: string[] | null
+          business_id?: string | null
           calories?: number | null
           category_id?: string | null
           created_at?: string | null
@@ -963,6 +966,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "products_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_info"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "products_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
@@ -982,6 +992,7 @@ export type Database = {
         Row: {
           address: string | null
           avatar_url: string | null
+          business_id: string | null
           created_at: string | null
           created_by: string | null
           email: string
@@ -997,6 +1008,7 @@ export type Database = {
         Insert: {
           address?: string | null
           avatar_url?: string | null
+          business_id?: string | null
           created_at?: string | null
           created_by?: string | null
           email: string
@@ -1012,6 +1024,7 @@ export type Database = {
         Update: {
           address?: string | null
           avatar_url?: string | null
+          business_id?: string | null
           created_at?: string | null
           created_by?: string | null
           email?: string
@@ -1025,6 +1038,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_info"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_created_by_fkey"
             columns: ["created_by"]
@@ -1393,9 +1413,62 @@ export type Database = {
         }
         Returns: string
       }
+      get_business_by_id: {
+        Args: { business_uuid: string }
+        Returns: {
+          address: string | null
+          business_name: string
+          cover_image_url: string | null
+          created_at: string
+          description: string | null
+          email: string | null
+          facebook_url: string | null
+          id: string
+          instagram_url: string | null
+          logo_url: string | null
+          nequi_number: string | null
+          nequi_qr_url: string | null
+          phone: string | null
+          public_menu_url: string | null
+          tax_id: string | null
+          tiktok_url: string | null
+          twitter_url: string | null
+          updated_at: string
+          website_url: string | null
+          whatsapp_url: string | null
+        }[]
+      }
+      get_business_by_name: {
+        Args: { restaurant_name: string }
+        Returns: string
+      }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]
+      }
+      get_public_products_by_business: {
+        Args: { business_uuid: string }
+        Returns: {
+          allergens: string[] | null
+          business_id: string | null
+          calories: number | null
+          category_id: string | null
+          created_at: string | null
+          created_by: string
+          description: string | null
+          id: string
+          image_url: string | null
+          ingredients: string[] | null
+          is_available: boolean | null
+          is_gluten_free: boolean | null
+          is_vegan: boolean | null
+          is_vegetarian: boolean | null
+          name: string
+          preparation_time: number | null
+          price: number
+          product_type: Database["public"]["Enums"]["product_type"] | null
+          updated_at: string | null
+        }[]
       }
       get_user_role: {
         Args: Record<PropertyKey, never>
