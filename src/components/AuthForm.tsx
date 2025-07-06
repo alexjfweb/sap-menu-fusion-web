@@ -416,7 +416,7 @@ const AuthForm = () => {
                 </p>
                 <Button 
                   onClick={handleCreateSuperAdmin}
-                  disabled={loading}
+                  disabled={true}
                   size="sm"
                   className="w-full"
                 >
