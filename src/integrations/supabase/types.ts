@@ -191,6 +191,85 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_activities: {
+        Row: {
+          activity_type: string
+          created_at: string | null
+          description: string
+          employee_id: string | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          metadata: Json | null
+        }
+        Insert: {
+          activity_type: string
+          created_at?: string | null
+          description: string
+          employee_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json | null
+        }
+        Update: {
+          activity_type?: string
+          created_at?: string | null
+          description?: string
+          employee_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_activities_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_settings: {
+        Row: {
+          created_at: string | null
+          employee_id: string | null
+          id: string
+          notification_preferences: Json | null
+          permissions: Json | null
+          updated_at: string | null
+          work_hours: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          employee_id?: string | null
+          id?: string
+          notification_preferences?: Json | null
+          permissions?: Json | null
+          updated_at?: string | null
+          work_hours?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          employee_id?: string | null
+          id?: string
+          notification_preferences?: Json | null
+          permissions?: Json | null
+          updated_at?: string | null
+          work_hours?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_settings_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory: {
         Row: {
           cost_per_unit: number | null
@@ -308,6 +387,66 @@ export type Database = {
             columns: ["business_id"]
             isOneToOne: true
             referencedRelation: "business_info"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string | null
+          entity_id: string | null
+          entity_type: string | null
+          expires_at: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          metadata: Json | null
+          recipient_id: string | null
+          sender_id: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          expires_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          metadata?: Json | null
+          recipient_id?: string | null
+          sender_id?: string | null
+          title: string
+          type?: string
+        }
+        Update: {
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          expires_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          metadata?: Json | null
+          recipient_id?: string | null
+          sender_id?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1230,6 +1369,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_notification: {
+        Args: {
+          p_recipient_id: string
+          p_sender_id: string
+          p_title: string
+          p_message: string
+          p_type?: string
+          p_entity_type?: string
+          p_entity_id?: string
+          p_metadata?: Json
+          p_expires_at?: string
+        }
+        Returns: string
+      }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]
@@ -1251,6 +1404,17 @@ export type Database = {
           created_at: string
           updated_at: string
         }[]
+      }
+      log_employee_activity: {
+        Args: {
+          p_employee_id: string
+          p_activity_type: string
+          p_description: string
+          p_entity_type?: string
+          p_entity_id?: string
+          p_metadata?: Json
+        }
+        Returns: string
       }
       promote_to_superadmin: {
         Args: { user_email: string }

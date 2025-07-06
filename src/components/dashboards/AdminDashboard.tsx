@@ -15,7 +15,8 @@ import {
   Clock,
   Palette,
   Building,
-  Globe
+  Globe,
+  Users
 } from 'lucide-react';
 import { usePublicMenuCustomization, getDefaultCustomization } from '@/hooks/useMenuCustomization';
 import OrderManagement from '../orders/OrderManagement';
@@ -25,6 +26,8 @@ import ReportsManagement from '../reports/ReportsManagement';
 import BusinessInfoManagement from '../business/BusinessInfoManagement';
 import MenuCustomization from '../menu/MenuCustomization';
 import PublicMenu from '../menu/PublicMenu';
+import EmployeeManagement from '../employees/EmployeeManagement';
+import NotificationCenter from '../notifications/NotificationCenter';
 
 const AdminDashboard = () => {
   const { profile, signOut } = useAuth();
@@ -95,6 +98,11 @@ const AdminDashboard = () => {
     return <MenuCustomization onBack={handleBackToDashboard} />;
   }
 
+  // NUEVA SECCIÓN: Gestión de Empleados
+  if (activeSection === 'employee-management') {
+    return <EmployeeManagement onBack={handleBackToDashboard} />;
+  }
+
   // CORRECCIÓN CRÍTICA: Renderizado optimizado del menú público
   if (activeSection === 'public-menu') {
     console.log('📱 [ADMIN] Renderizando menú público desde dashboard');
@@ -128,6 +136,9 @@ const AdminDashboard = () => {
             </h1>
           </div>
           <div className="flex items-center space-x-4">
+            {/* Centro de Notificaciones */}
+            <NotificationCenter />
+            
             {/* CORRECCIÓN: Botón directo para ver menú público */}
             <Button 
               onClick={handleViewPublicMenu}
@@ -302,7 +313,7 @@ const AdminDashboard = () => {
 
         {/* Management Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* CORRECCIÓN: Card mejorada para Ver Menú Público */}
+          {/* NUEVA CARD: Gestión de Empleados */}
           <Card 
             className="hover:shadow-lg transition-shadow duration-300 border-primary/40"
             style={{ 
@@ -316,27 +327,27 @@ const AdminDashboard = () => {
                 className="flex items-center space-x-2"
                 style={{ color: colors.product_name_color }}
               >
-                <Globe 
+                <Users 
                   className="h-5 w-5"
                   style={{ color: colors.button_bg_color }}
                 />
-                <span>Ver Menú Público</span>
+                <span>Gestión de Empleados</span>
               </CardTitle>
               <CardDescription style={{ color: colors.product_description_color }}>
-                Previsualiza cómo ven tu menú los clientes
+                Administra tu equipo de trabajo completo
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Button 
                 className="w-full"
-                onClick={handleViewPublicMenu}
+                onClick={() => setActiveSection('employee-management')}
                 style={{ 
                   backgroundColor: colors.button_bg_color,
                   color: colors.button_text_color
                 }}
               >
-                <Globe className="h-4 w-4 mr-2" />
-                Abrir Menú Público
+                <Users className="h-4 w-4 mr-2" />
+                Gestionar Empleados
               </Button>
             </CardContent>
           </Card>
