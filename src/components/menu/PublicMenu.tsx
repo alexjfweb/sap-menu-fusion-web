@@ -352,7 +352,13 @@ const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
       return filtered.sort((a, b) => a.name.localeCompare(b.name));
     }
     
-    const sortedByCategory = sortProductsByStandardizedCategories(filtered, categories);
+    // CORRECCIÓN: Transformar productos para que coincidan con el tipo esperado por sortProductsByStandardizedCategories
+    const productsWithCategories = filtered.map(product => ({
+      ...product,
+      categories: product.categories ? { name: product.categories.name } : null
+    }));
+    
+    const sortedByCategory = sortProductsByStandardizedCategories(productsWithCategories, categories);
     return sortedByCategory;
   }, [products, selectedCategory, categories]);
 

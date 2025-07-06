@@ -145,7 +145,8 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
           phone_landline,
           address,
           avatar_url,
-          password_hash
+          password_hash,
+          business_id
         `)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
