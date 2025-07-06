@@ -59,14 +59,19 @@ export const useEmployeeManagement = () => {
     enabled: !!profile?.id && (profile.role === 'admin' || profile.role === 'superadmin'),
   });
 
-  // Crear empleado - Usando un UUID generado automáticamente
+  // Crear empleado - Generando un UUID único
   const createEmployeeMutation = useMutation({
     mutationFn: async (employeeData: EmployeeFormData) => {
       console.log('👤 [EMPLOYEE MANAGEMENT] Creating employee:', employeeData);
       
+      // Generar un UUID único para el nuevo empleado
+      const { data: uuidData } = await supabase.rpc('gen_random_uuid');
+      const newEmployeeId = uuidData || crypto.randomUUID();
+
       const { data, error } = await supabase
         .from('profiles')
         .insert({
+          id: newEmployeeId,
           email: employeeData.email,
           full_name: employeeData.full_name,
           role: employeeData.role,
