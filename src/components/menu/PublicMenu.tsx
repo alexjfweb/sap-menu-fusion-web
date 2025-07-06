@@ -32,68 +32,64 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   const [showReservation, setShowReservation] = useState(false);
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [sessionId, setSessionId] = useState<string>('');
+  const [isInitialized, setIsInitialized] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // CORRECCIÓN CRÍTICA: Forzar cache busting con timestamp único
-  const [forceRefresh, setForceRefresh] = useState(0);
-  const cacheKey = `cache_${Date.now()}_${forceRefresh}`;
+  console.log('🚀 [PUBLIC MENU] Iniciando componente');
 
-  console.log('🚀 [PUBLIC MENU] Iniciando con cache key:', cacheKey);
-
+  // CORRECCIÓN CRÍTICA: Inicialización controlada
   useEffect(() => {
-    try {
-      let storedSessionId = '';
+    const initializeMenu = async () => {
+      console.log('🔧 [INIT] Inicializando menú público...');
       
       try {
-        storedSessionId = localStorage.getItem('cart_session_id') || '';
-      } catch (error) {
-        console.log('LocalStorage not available (incognito mode), using session-only cart');
-      }
-      
-      if (!storedSessionId) {
-        storedSessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        let storedSessionId = '';
+        
         try {
-          localStorage.setItem('cart_session_id', storedSessionId);
+          storedSessionId = localStorage.getItem('cart_session_id') || '';
         } catch (error) {
-          console.log('Could not save session ID to localStorage (incognito mode)');
+          console.log('LocalStorage not available (incognito mode), using session-only cart');
         }
+        
+        if (!storedSessionId) {
+          storedSessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+          try {
+            localStorage.setItem('cart_session_id', storedSessionId);
+          } catch (error) {
+            console.log('Could not save session ID to localStorage (incognito mode)');
+          }
+        }
+        
+        setSessionId(storedSessionId);
+        
+        // Limpiar cache específico si es necesario
+        console.log('🧹 [INIT] Limpiando cache obsoleto...');
+        queryClient.removeQueries({ 
+          predicate: (query) => {
+            const key = query.queryKey[0] as string;
+            return key?.includes('old') || key?.includes('duplicate');
+          }
+        });
+        
+        setIsInitialized(true);
+        console.log('✅ [INIT] Menú inicializado correctamente');
+        
+      } catch (error) {
+        console.error('❌ [INIT] Error en inicialización:', error);
+        const fallbackId = 'fallback_' + Date.now();
+        setSessionId(fallbackId);
+        setIsInitialized(true);
       }
-      
-      setSessionId(storedSessionId);
-    } catch (error) {
-      console.error('Error setting up session:', error);
-      const fallbackId = 'fallback_' + Date.now();
-      setSessionId(fallbackId);
-    }
-  }, []);
+    };
 
-  // CORRECCIÓN CRÍTICA: Invalidación completa de cache al montar
-  useEffect(() => {
-    console.log('🧹 [CACHE] Invalidando cache completo...');
-    queryClient.clear();
-    
-    // Limpiar localStorage obsoleto
-    try {
-      const keysToRemove = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.includes('product') || key.includes('cache') || key.startsWith('sb-'))) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach(key => localStorage.removeItem(key));
-      console.log('✅ [CACHE] localStorage limpiado:', keysToRemove.length, 'keys removidas');
-    } catch (error) {
-      console.log('⚠️ [CACHE] No se pudo limpiar localStorage');
-    }
+    initializeMenu();
   }, [queryClient]);
 
   const { 
     data: customization, 
     isLoading: customizationLoading,
     error: customizationError,
-    refetch: refetchCustomization
   } = usePublicMenuCustomization();
   
   const colors = React.useMemo(() => {
@@ -123,85 +119,79 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     return defaults;
   }, [customization, customizationLoading, customizationError]);
 
+  // CORRECCIÓN CRÍTICA: Query optimizada para business info
   const { 
     data: businessInfo, 
     isLoading: businessInfoLoading, 
     error: businessInfoError 
   } = useQuery({
-    queryKey: ['public-business-info', cacheKey],
+    queryKey: ['public-business-info-v2'],
     queryFn: async () => {
       console.log('📋 [BUSINESS INFO] Obteniendo información del negocio...');
       
-      try {
-        const { data, error } = await supabase
-          .from('business_info')
-          .select('*')
-          .single();
-        
-        if (error) {
-          console.error('❌ [BUSINESS INFO] Error:', error);
-          throw new Error(`Failed to fetch business info: ${error.message}`);
-        }
-        
-        console.log('✅ [BUSINESS INFO] Obtenida correctamente');
-        return data;
-      } catch (error) {
-        console.error('❌ [BUSINESS INFO] Error crítico:', error);
+      const { data, error } = await supabase
+        .from('business_info')
+        .select('*')
+        .limit(1)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('❌ [BUSINESS INFO] Error:', error);
         throw error;
       }
+      
+      console.log('✅ [BUSINESS INFO] Obtenida correctamente');
+      return data;
     },
-    retry: 1,
-    staleTime: 0,
-    gcTime: 0,
+    enabled: isInitialized,
+    retry: 2,
+    staleTime: 1000 * 60 * 5, // 5 minutos
   });
 
+  // CORRECCIÓN CRÍTICA: Query optimizada para categorías
   const { 
     data: categories, 
     isLoading: categoriesLoading, 
     error: categoriesError,
     refetch: refetchCategories 
   } = useQuery({
-    queryKey: ['categories-public', cacheKey],
+    queryKey: ['categories-public-v2'],
     queryFn: async () => {
       console.log('🏷️ [CATEGORIES] Obteniendo categorías...');
       
-      try {
-        const { data, error } = await supabase
-          .from('categories')
-          .select('*')
-          .eq('is_active', true)
-          .order('sort_order');
-        
-        if (error) {
-          console.error('❌ [CATEGORIES] Error:', error);
-          throw new Error(`Failed to fetch categories: ${error.message}`);
-        }
-        
-        const sortedCategories = sortCategoriesByStandardOrder(data || []);
-        console.log(`✅ [CATEGORIES] ${sortedCategories.length} categorías obtenidas`);
-        return sortedCategories;
-      } catch (error) {
-        console.error('❌ [CATEGORIES] Error crítico:', error);
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order')
+        .limit(50);
+      
+      if (error) {
+        console.error('❌ [CATEGORIES] Error:', error);
         throw error;
       }
+      
+      const sortedCategories = sortCategoriesByStandardOrder(data || []);
+      console.log(`✅ [CATEGORIES] ${sortedCategories.length} categorías obtenidas`);
+      return sortedCategories;
     },
-    retry: 1,
-    staleTime: 0,
-    gcTime: 0,
+    enabled: isInitialized,
+    retry: 2,
+    staleTime: 1000 * 60 * 5, // 5 minutos
   });
 
+  // CORRECCIÓN CRÍTICA: Query super optimizada para productos
   const { 
     data: products, 
     isLoading: productsLoading, 
     error: productsError,
     refetch: refetchProducts 
   } = useQuery({
-    queryKey: ['products-public-clean', cacheKey],
+    queryKey: ['products-public-optimized-v2'],
     queryFn: async () => {
-      console.log('🍽️ [PRODUCTS] Obteniendo productos LIMPIOS (sin duplicados)...');
+      console.log('🍽️ [PRODUCTS] Obteniendo productos optimizados...');
       
       try {
-        // CORRECCIÓN CRÍTICA: Query optimizada para evitar duplicados
         const { data, error } = await supabase
           .from('products')
           .select(`
@@ -222,41 +212,51 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
             )
           `)
           .eq('is_available', true)
-          .order('name') // Ordenar por nombre para detectar duplicados
-          .limit(200); // Límite para evitar sobrecarga
+          .order('name')
+          .limit(100); // Límite razonable
         
         if (error) {
           console.error('❌ [PRODUCTS] Error en query:', error);
-          throw new Error(`Failed to fetch products: ${error.message}`);
+          throw error;
         }
         
-        // CORRECCIÓN CRÍTICA: Filtrar duplicados en el cliente como fallback
+        if (!data || data.length === 0) {
+          console.warn('⚠️ [PRODUCTS] No hay productos disponibles');
+          return [];
+        }
+        
+        // Filtrar duplicados más eficientemente
         const uniqueProducts = [];
+        const seenIds = new Set();
         const seenNames = new Set();
         
-        for (const product of data || []) {
-          if (!seenNames.has(product.name.toLowerCase())) {
-            seenNames.add(product.name.toLowerCase());
+        for (const product of data) {
+          const nameKey = product.name.toLowerCase().trim();
+          
+          if (!seenIds.has(product.id) && !seenNames.has(nameKey)) {
+            seenIds.add(product.id);
+            seenNames.add(nameKey);
             uniqueProducts.push(product);
-          } else {
-            console.log('⚠️ [PRODUCTS] Duplicado detectado y eliminado:', product.name);
           }
         }
         
-        console.log(`✅ [PRODUCTS] ${uniqueProducts.length} productos únicos obtenidos (${(data?.length || 0) - uniqueProducts.length} duplicados filtrados)`);
+        console.log(`✅ [PRODUCTS] ${uniqueProducts.length} productos únicos obtenidos`);
+        console.log(`🔢 [PRODUCTS] ${data.length - uniqueProducts.length} duplicados filtrados`);
+        
         return uniqueProducts;
       } catch (error) {
         console.error('❌ [PRODUCTS] Error crítico:', error);
         throw error;
       }
     },
-    retry: 1,
-    staleTime: 0,
-    gcTime: 0,
+    enabled: isInitialized,
+    retry: 2,
+    staleTime: 1000 * 60 * 2, // 2 minutos
   });
 
+  // CORRECCIÓN CRÍTICA: Query optimizada para carrito
   const { data: cartData, refetch: refetchCart } = useQuery({
-    queryKey: ['cart-items-public', sessionId, cacheKey],
+    queryKey: ['cart-items-public-v2', sessionId],
     queryFn: async () => {
       if (!sessionId) {
         console.log('⚠️ [CART] No session ID disponible');
@@ -265,36 +265,31 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
       
       console.log('🛒 [CART] Obteniendo items del carrito...');
       
-      try {
-        const { data, error } = await supabase
-          .from('cart_items')
-          .select(`
-            *,
-            products (
-              id,
-              name,
-              price,
-              image_url
-            )
-          `)
-          .eq('session_id', sessionId);
-        
-        if (error) {
-          console.error('❌ [CART] Error:', error);
-          return [];
-        }
-        
-        console.log(`✅ [CART] ${data?.length || 0} items obtenidos`);
-        return data || [];
-      } catch (error) {
-        console.error('❌ [CART] Error crítico:', error);
+      const { data, error } = await supabase
+        .from('cart_items')
+        .select(`
+          *,
+          products (
+            id,
+            name,
+            price,
+            image_url
+          )
+        `)
+        .eq('session_id', sessionId)
+        .limit(50);
+      
+      if (error) {
+        console.error('❌ [CART] Error:', error);
         return [];
       }
+      
+      console.log(`✅ [CART] ${data?.length || 0} items obtenidos`);
+      return data || [];
     },
-    enabled: !!sessionId,
+    enabled: !!sessionId && isInitialized,
     retry: 1,
-    staleTime: 0,
-    gcTime: 0,
+    staleTime: 1000 * 30, // 30 segundos
   });
 
   useEffect(() => {
@@ -303,9 +298,12 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     }
   }, [cartData]);
 
-  // Productos filtrados con ordenamiento
+  // Productos filtrados con ordenamiento optimizado
   const filteredProducts = React.useMemo(() => {
-    if (!products) return [];
+    if (!products || !Array.isArray(products)) {
+      console.log('🔄 [FILTER] No hay productos para filtrar');
+      return [];
+    }
     
     console.log('🔄 [FILTER] Procesando productos filtrados...');
     console.log('📊 Total productos disponibles:', products.length);
@@ -326,10 +324,10 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     return sortedByCategory;
   }, [products, selectedCategory, categories]);
 
-  // Hook de paginación
+  // Hook de paginación optimizado
   const pagination = useProductPagination({ 
     products: filteredProducts, 
-    itemsPerPage: 12 // Reducir items por página para mejor rendimiento
+    itemsPerPage: 9 // Menos items para mejor rendimiento
   });
 
   // Reset pagination when category changes
@@ -398,18 +396,18 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
   };
 
   const handleRetry = () => {
-    console.log('🔄 [RETRY] Forzando actualización completa...');
-    setForceRefresh(prev => prev + 1);
-    queryClient.clear();
+    console.log('🔄 [RETRY] Reintentando carga de datos...');
     refetchProducts();
     refetchCategories();
-    refetchCustomization();
+    refetchCart();
   };
 
-  const isLoading = productsLoading || categoriesLoading;
+  // Estados de carga y error mejorados
+  const isLoading = !isInitialized || productsLoading || categoriesLoading;
   const hasError = productsError || categoriesError;
 
   console.log('🎯 [RENDER] Estado actual:', {
+    isInitialized,
     isLoading,
     hasError,
     productsCount: products?.length || 0,
@@ -417,43 +415,58 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     filteredCount: filteredProducts?.length || 0
   });
 
+  // CORRECCIÓN CRÍTICA: Estado de carga mejorado
   if (isLoading) {
-    console.log('⏳ [RENDER] Mostrando estado de carga...');
+    console.log('⏳ [RENDER] Mostrando estado de carga optimizado...');
     return (
       <div 
         className="min-h-screen flex items-center justify-center"
         style={{ backgroundColor: colors.menu_bg_color }}
       >
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-4 max-w-md mx-auto px-4">
           <div 
-            className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto"
+            className="animate-spin rounded-full h-16 w-16 border-b-4 mx-auto"
             style={{ borderColor: colors.button_bg_color }}
           ></div>
           <div>
-            <p style={{ color: colors.text_color }} className="text-lg font-medium">
-              Cargando menú...
+            <p style={{ color: colors.text_color }} className="text-xl font-bold">
+              Cargando Menú del Restaurante
             </p>
-            <p style={{ color: colors.product_description_color }} className="text-sm">
-              Obteniendo la información más reciente
+            <p style={{ color: colors.product_description_color }} className="text-sm mt-2">
+              Obteniendo los productos más frescos para ti...
             </p>
           </div>
-          <Button 
-            onClick={handleRetry}
-            variant="outline"
-            size="sm"
-            style={{ 
-              borderColor: colors.product_card_border_color,
-              color: colors.text_color
-            }}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Forzar actualización
-          </Button>
+          <div className="space-y-2">
+            <Button 
+              onClick={handleRetry}
+              variant="outline"
+              size="sm"
+              style={{ 
+                borderColor: colors.product_card_border_color,
+                color: colors.text_color
+              }}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Reintentar
+            </Button>
+            {onBack && (
+              <Button 
+                onClick={onBack}
+                variant="ghost"
+                size="sm"
+                style={{ color: colors.product_description_color }}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Volver al Panel
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     );
   }
 
+  // CORRECCIÓN CRÍTICA: Manejo de errores mejorado
   if (hasError) {
     console.error('❌ [RENDER] Error crítico detectado:', { productsError, categoriesError });
     
@@ -499,15 +512,15 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               <div className="space-y-3">
-                <p className="font-medium">Error crítico al cargar el menú</p>
+                <p className="font-medium">Error al cargar el menú</p>
                 <div className="text-sm space-y-1">
-                  {productsError && <div>• Error de productos: {productsError.message}</div>}
-                  {categoriesError && <div>• Error de categorías: {categoriesError.message}</div>}
+                  {productsError && <div>• Productos: {productsError.message}</div>}
+                  {categoriesError && <div>• Categorías: {categoriesError.message}</div>}
                 </div>
                 <div className="flex gap-2">
                   <Button onClick={handleRetry} size="sm">
                     <RefreshCw className="h-4 w-4 mr-2" />
-                    Reintentar carga
+                    Reintentar
                   </Button>
                   {onBack && (
                     <Button onClick={onBack} variant="outline" size="sm">
@@ -524,7 +537,8 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
     );
   }
 
-  if (!products || products.length === 0) {
+  // CORRECCIÓN CRÍTICA: Validación de productos mejorada
+  if (!products || !Array.isArray(products) || products.length === 0) {
     console.warn('⚠️ [RENDER] No hay productos disponibles');
     
     return (
@@ -570,8 +584,8 @@ const PublicMenu = ({ onBack }: PublicMenuProps) => {
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 <div className="space-y-3">
-                  <p className="font-medium">No hay productos disponibles</p>
-                  <p className="text-sm">El menú podría estar actualizándose o no tener productos configurados.</p>
+                  <p className="font-medium">Menú en preparación</p>
+                  <p className="text-sm">Estamos preparando nuestro delicioso menú para ti.</p>
                   <div className="flex justify-center gap-2">
                     <Button onClick={handleRetry} size="sm">
                       <RefreshCw className="h-4 w-4 mr-2" />

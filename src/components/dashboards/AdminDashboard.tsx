@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -65,6 +64,12 @@ const AdminDashboard = () => {
     setActiveSection(null);
   };
 
+  // CORRECCIÓN CRÍTICA: Mejorar navegación al menú público
+  const handleViewPublicMenu = () => {
+    console.log('🔗 [ADMIN] Navegando al menú público...');
+    setActiveSection('public-menu');
+  };
+
   // Si hay una sección activa, mostrar ese componente
   if (activeSection === 'orders') {
     return <OrderManagement onBack={handleBackToDashboard} />;
@@ -90,7 +95,9 @@ const AdminDashboard = () => {
     return <MenuCustomization onBack={handleBackToDashboard} />;
   }
 
+  // CORRECCIÓN CRÍTICA: Renderizado optimizado del menú público
   if (activeSection === 'public-menu') {
+    console.log('📱 [ADMIN] Renderizando menú público desde dashboard');
     return <PublicMenu onBack={handleBackToDashboard} />;
   }
 
@@ -121,6 +128,19 @@ const AdminDashboard = () => {
             </h1>
           </div>
           <div className="flex items-center space-x-4">
+            {/* CORRECCIÓN: Botón directo para ver menú público */}
+            <Button 
+              onClick={handleViewPublicMenu}
+              variant="outline"
+              size="sm"
+              style={{ 
+                borderColor: colors.button_bg_color,
+                color: colors.button_bg_color
+              }}
+            >
+              <Globe className="h-4 w-4 mr-2" />
+              Ver Menú Público
+            </Button>
             <span 
               className="text-sm"
               style={{ color: colors.product_description_color }}
@@ -282,6 +302,45 @@ const AdminDashboard = () => {
 
         {/* Management Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* CORRECCIÓN: Card mejorada para Ver Menú Público */}
+          <Card 
+            className="hover:shadow-lg transition-shadow duration-300 border-primary/40"
+            style={{ 
+              backgroundColor: colors.product_card_bg_color,
+              borderColor: colors.button_bg_color,
+              boxShadow: `0 4px 6px -1px ${colors.shadow_color}`
+            }}
+          >
+            <CardHeader>
+              <CardTitle 
+                className="flex items-center space-x-2"
+                style={{ color: colors.product_name_color }}
+              >
+                <Globe 
+                  className="h-5 w-5"
+                  style={{ color: colors.button_bg_color }}
+                />
+                <span>Ver Menú Público</span>
+              </CardTitle>
+              <CardDescription style={{ color: colors.product_description_color }}>
+                Previsualiza cómo ven tu menú los clientes
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={handleViewPublicMenu}
+                style={{ 
+                  backgroundColor: colors.button_bg_color,
+                  color: colors.button_text_color
+                }}
+              >
+                <Globe className="h-4 w-4 mr-2" />
+                Abrir Menú Público
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Gestión de Pedidos */}
           <Card 
             className="hover:shadow-lg transition-shadow duration-300"
@@ -463,43 +522,6 @@ const AdminDashboard = () => {
                 }}
               >
                 Configurar Negocio
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Ver Menú Público */}
-          <Card 
-            className="hover:shadow-lg transition-shadow duration-300"
-            style={{ 
-              backgroundColor: colors.product_card_bg_color,
-              borderColor: colors.product_card_border_color
-            }}
-          >
-            <CardHeader>
-              <CardTitle 
-                className="flex items-center space-x-2"
-                style={{ color: colors.product_name_color }}
-              >
-                <Globe 
-                  className="h-5 w-5"
-                  style={{ color: colors.button_bg_color }}
-                />
-                <span>Ver Menú Público</span>
-              </CardTitle>
-              <CardDescription style={{ color: colors.product_description_color }}>
-                Previsualiza cómo ven tu menú los clientes
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button 
-                className="w-full"
-                onClick={() => setActiveSection('public-menu')}
-                style={{ 
-                  backgroundColor: colors.button_bg_color,
-                  color: colors.button_text_color
-                }}
-              >
-                Ver Menú Público
               </Button>
             </CardContent>
           </Card>

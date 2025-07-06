@@ -26,16 +26,16 @@ interface PaginationResult {
 
 export const useProductPagination = ({ 
   products, 
-  itemsPerPage = 12 
+  itemsPerPage = 9 
 }: UseProductPaginationProps): PaginationResult => {
   // CORRECCIÓN CRÍTICA: Hook optimizado para paginación estable
   const [currentPage, setCurrentPage] = React.useState(1);
   
-  // CORRECCIÓN: Cálculos más seguros
+  // CORRECCIÓN: Cálculos más seguros y optimizados
   const totalItems = Array.isArray(products) ? products.length : 0;
   const totalPages = totalItems > 0 ? Math.ceil(totalItems / itemsPerPage) : 1;
   
-  // CORRECCIÓN: Productos paginados con validación
+  // CORRECCIÓN: Productos paginados con validación optimizada
   const paginatedProducts = useMemo(() => {
     if (!Array.isArray(products) || products.length === 0) {
       console.log('📄 [PAGINATION] No hay productos para paginar');
@@ -47,7 +47,7 @@ export const useProductPagination = ({
     
     const paginated = products.slice(startIndex, endIndex);
     
-    console.log(`📄 [PAGINATION] Página ${currentPage}/${totalPages}: ${paginated.length} productos (${startIndex}-${Math.min(endIndex, totalItems)})`);
+    console.log(`📄 [PAGINATION] Página ${currentPage}/${totalPages}: ${paginated.length} productos (${startIndex + 1}-${Math.min(endIndex, totalItems)})`);
     
     return paginated;
   }, [products, currentPage, itemsPerPage, totalItems, totalPages]);
