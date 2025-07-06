@@ -2,13 +2,13 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ChefHat, Star, Clock, Shield } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useSmartNavigation } from '@/hooks/useSmartNavigation';
 
 const HeroSection = () => {
-  const navigate = useNavigate();
+  const { navigateToAuth, isNavigating } = useSmartNavigation();
 
   const handleGetStarted = () => {
-    navigate('/auth');
+    navigateToAuth();
   };
 
   return (
@@ -36,8 +36,9 @@ const HeroSection = () => {
               size="lg" 
               className="text-lg px-8 py-6"
               onClick={handleGetStarted}
+              disabled={isNavigating}
             >
-              Iniciar Sesión
+              {isNavigating ? 'Verificando...' : 'Iniciar Sesión'}
             </Button>
             <Button size="lg" variant="outline" className="text-lg px-8 py-6">
               Ver Demo

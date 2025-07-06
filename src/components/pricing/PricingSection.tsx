@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Check, Star, Users, Zap, Crown, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PaymentModal from './PaymentModal';
+import { useSmartNavigation } from '@/hooks/useSmartNavigation';
 
 const plans = [
   {
@@ -136,11 +136,12 @@ const colorClasses = {
 const PricingSection = () => {
   const [selectedPlan, setSelectedPlan] = useState<typeof plans[0] | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const { navigateToAuth, isNavigating } = useSmartNavigation();
 
   const handleSelectPlan = (plan: typeof plans[0]) => {
     if (plan.id === 'free') {
-      // Handle free plan signup
-      console.log('Signing up for free plan');
+      console.log('🆓 [PRICING] Plan gratuito seleccionado, usando navegación inteligente');
+      navigateToAuth();
       return;
     }
     
@@ -218,8 +219,12 @@ const PricingSection = () => {
                   <Button 
                     className={cn("w-full text-white font-semibold transition-all duration-200", colors.button)}
                     onClick={() => handleSelectPlan(plan)}
+                    disabled={plan.id === 'free' && isNavigating}
                   >
-                    {plan.price === 'Gratis' ? 'Comenzar Gratis' : 'Elegir Plan'}
+                    {plan.price === 'Gratis' ? 
+                      (isNavigating ? 'Verificando...' : 'Comenzar Gratis') : 
+                      'Elegir Plan'
+                    }
                   </Button>
                 </CardFooter>
               </Card>

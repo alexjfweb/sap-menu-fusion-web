@@ -2,13 +2,13 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ChefHat, Menu } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useSmartNavigation } from '@/hooks/useSmartNavigation';
 
 const Navbar = () => {
-  const navigate = useNavigate();
+  const { navigateToAuth, isNavigating } = useSmartNavigation();
 
-  const handleLoginClick = () => {
-    navigate('/auth');
+  const handleAuthClick = () => {
+    navigateToAuth();
   };
 
   return (
@@ -32,11 +32,18 @@ const Navbar = () => {
         </div>
         
         <div className="flex items-center space-x-4">
-          <Button variant="outline" onClick={handleLoginClick}>
-            Iniciar Sesión
+          <Button 
+            variant="outline" 
+            onClick={handleAuthClick}
+            disabled={isNavigating}
+          >
+            {isNavigating ? 'Verificando...' : 'Iniciar Sesión'}
           </Button>
-          <Button onClick={handleLoginClick}>
-            Empezar Gratis
+          <Button 
+            onClick={handleAuthClick}
+            disabled={isNavigating}
+          >
+            {isNavigating ? 'Verificando...' : 'Empezar Gratis'}
           </Button>
           <Button variant="ghost" size="icon" className="md:hidden">
             <Menu className="h-5 w-5" />
