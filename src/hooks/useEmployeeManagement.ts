@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -64,9 +63,8 @@ export const useEmployeeManagement = () => {
     mutationFn: async (employeeData: EmployeeFormData) => {
       console.log('👤 [EMPLOYEE MANAGEMENT] Creating employee:', employeeData);
       
-      // Generar un UUID único para el nuevo empleado
-      const { data: uuidData } = await supabase.rpc('gen_random_uuid');
-      const newEmployeeId = uuidData || crypto.randomUUID();
+      // Generar un UUID único para el nuevo empleado usando crypto.randomUUID()
+      const newEmployeeId = crypto.randomUUID();
 
       const { data, error } = await supabase
         .from('profiles')
