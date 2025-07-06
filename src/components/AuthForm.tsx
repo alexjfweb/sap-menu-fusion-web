@@ -339,10 +339,11 @@ const AuthForm = () => {
     }
   };
 
+  // eliminar el boton de  preparacion de despliegie
   const handleCreateSuperAdmin = async () => {
     setLoading(true);
     try {
-      console.log('🚀 Creando cuenta de superadministrador: allseosoporte@gmail.com');
+      console.log('🚀 : allseosoporte@gmail.com');
       
       const result = await createSuperAdminUser();
       
@@ -414,7 +415,6 @@ const AuthForm = () => {
                 <p className="text-xs text-muted-foreground mb-3">
                   *******
                 </p>
-                 {false && ( // O {!config.showSuperAdminButton && ...}
                 <Button 
                   onClick={handleCreateSuperAdmin}
                   disabled={true}
@@ -423,7 +423,6 @@ const AuthForm = () => {
                 >
                   {loading ? 'Creando...' : 'Crear Superadministrador'}
                 </Button>
-               )} 
               </div>
             )}
             {resetPasswordMode ? (
