@@ -410,7 +410,7 @@ const AuthForm = () => {
             {/* Panel de preparación para despliegue */}
             {showDeploymentHelper && (
               <div className="mb-6 p-4 border rounded-lg bg-blue-50">
-                <h3 className="font-semibold text-sm mb-2">Preparación para Despliegue</h3>
+                <h3 className="font-semibold text-sm mb-2"></h3>
                 <p className="text-xs text-muted-foreground mb-3">
                   Crear cuenta de superadministrador allseosoporte@gmail.com
                 </p>
