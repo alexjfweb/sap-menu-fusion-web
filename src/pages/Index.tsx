@@ -41,7 +41,9 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <HeroSection />
-      <FeaturesSection />
+      <div id="features">
+        <FeaturesSection />
+      </div>
       <PricingPlans />
       
       {/* Panel de diagnóstico para desarrollo (oculto por defecto) */}

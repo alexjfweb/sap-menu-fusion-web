@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ChefHat, Star, Clock, Shield } from 'lucide-react';
@@ -9,6 +8,14 @@ const HeroSection = () => {
 
   const handleGetStarted = () => {
     navigateToAuth();
+  };
+
+  const handleViewDemo = () => {
+    // Scroll suave hacia la sección de características
+    const featuresSection = document.querySelector('#features');
+    if (featuresSection) {
+      featuresSection.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   return (
@@ -38,9 +45,14 @@ const HeroSection = () => {
               onClick={handleGetStarted}
               disabled={isNavigating}
             >
-              {isNavigating ? 'Verificando...' : 'Iniciar Sesión'}
+              {isNavigating ? 'Verificando...' : 'Prueba Gratis'}
             </Button>
-            <Button size="lg" variant="outline" className="text-lg px-8 py-6">
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="text-lg px-8 py-6"
+              onClick={handleViewDemo}
+            >
               Ver Demo
             </Button>
           </div>
