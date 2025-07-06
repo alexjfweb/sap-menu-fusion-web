@@ -15,7 +15,8 @@ import {
   Eye, 
   EyeOff,
   Package,
-  AlertCircle
+  AlertCircle,
+  ArrowLeft
 } from 'lucide-react';
 import ProductForm from './ProductForm';
 import DeleteProductModal from './DeleteProductModal';
@@ -24,7 +25,11 @@ import { Tables } from '@/integrations/supabase/types';
 type Product = Tables<'products'>;
 type Category = Tables<'categories'>;
 
-const ProductManagement: React.FC = () => {
+interface ProductManagementProps {
+  onBack?: () => void;
+}
+
+const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
   const { toast } = useToast();
   const { profile } = useAuth();
   const queryClient = useQueryClient();
@@ -206,14 +211,22 @@ const ProductManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold">Gestión de Productos</h2>
-          <p className="text-muted-foreground">
-            {profile.role === 'superadmin' 
-              ? 'Administra todos los productos del sistema'
-              : 'Administra tus productos'
-            }
-          </p>
+        <div className="flex items-center space-x-4">
+          {onBack && (
+            <Button variant="outline" onClick={onBack}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Volver
+            </Button>
+          )}
+          <div>
+            <h2 className="text-2xl font-bold">Gestión de Productos</h2>
+            <p className="text-muted-foreground">
+              {profile.role === 'superadmin' 
+                ? 'Administra todos los productos del sistema'
+                : 'Administra tus productos'
+              }
+            </p>
+          </div>
         </div>
         <Button onClick={() => setShowForm(true)}>
           <Plus className="h-4 w-4 mr-2" />
@@ -368,9 +381,11 @@ const ProductManagement: React.FC = () => {
 
       {deletingProduct && (
         <DeleteProductModal
-          product={deletingProduct}
+          isOpen={!!deletingProduct}
+          onClose={() => setDeletingProduct(null)}
           onConfirm={handleDeleteConfirm}
-          onCancel={() => setDeletingProduct(null)}
+          productName={deletingProduct.name}
+          isLoading={false}
         />
       )}
     </div>
