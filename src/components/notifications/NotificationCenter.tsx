@@ -71,6 +71,10 @@ const NotificationCenter = () => {
     }
   };
 
+  const handleMarkAllAsRead = () => {
+    markAllAsRead();
+  };
+
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
@@ -100,7 +104,7 @@ const NotificationCenter = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={markAllAsRead}
+                  onClick={handleMarkAllAsRead}
                   className="text-xs"
                 >
                   <CheckCheck className="h-4 w-4 mr-1" />

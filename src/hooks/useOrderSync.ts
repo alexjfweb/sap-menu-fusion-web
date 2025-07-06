@@ -1,7 +1,7 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-
 import { Order, OrderItem } from '@/types';
 import { useActivityLogger } from './useActivityLogger';
 
@@ -13,7 +13,7 @@ interface OrderFormData {
   items: OrderItem[];
   notes?: string;
   table_id?: string;
-  status?: string;
+  status?: 'pendiente' | 'en_preparacion' | 'listo' | 'entregado' | 'cancelado';
   order_number: string;
 }
 
@@ -61,6 +61,48 @@ export const useOrderSync = () => {
     });
   };
 
+  // Función para sincronizar pedido a la base de datos
+  const syncOrderToDatabase = async (
+    cartItems: any[],
+    totalAmount: number,
+    customerName: string,
+    customerPhone: string,
+    customerEmail?: string,
+    specialInstructions?: string,
+    paymentMethod?: string,
+    sessionId?: string
+  ) => {
+    try {
+      const orderNumber = `ORD-${Date.now()}`;
+      
+      const orderData: OrderFormData = {
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        customer_email: customerEmail,
+        total_amount: totalAmount,
+        items: cartItems.map(item => ({
+          id: item.id,
+          order_id: '',
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: Number(item.products?.price || 0),
+          total_price: item.quantity * Number(item.products?.price || 0),
+          special_instructions: item.special_instructions,
+          created_at: new Date().toISOString()
+        })),
+        notes: specialInstructions ? `${specialInstructions} | Método de pago: ${paymentMethod}` : `Método de pago: ${paymentMethod}`,
+        status: 'pendiente',
+        order_number: orderNumber
+      };
+
+      const result = await createOrderMutation.mutateAsync(orderData);
+      return { success: true, data: result };
+    } catch (error) {
+      console.error('Error syncing order to database:', error);
+      return { success: false, error };
+    }
+  };
+
   // Crear una nueva orden
   const createOrderMutation = useMutation({
     mutationFn: async (orderData: OrderFormData) => {
@@ -69,8 +111,13 @@ export const useOrderSync = () => {
       const { data: orderResult, error: orderError } = await supabase
         .from('orders')
         .insert({
-          ...order,
-          total_amount: orderData.total_amount,
+          order_number: order.order_number,
+          customer_name: order.customer_name,
+          customer_phone: order.customer_phone,
+          status: order.status || 'pendiente',
+          total_amount: order.total_amount,
+          notes: order.notes,
+          table_id: order.table_id,
         })
         .select()
         .single();
@@ -138,10 +185,19 @@ export const useOrderSync = () => {
     mutationFn: async ({ id, data: updateData }: { id: string; data: Partial<OrderFormData> }) => {
       const { data, error } = await supabase
         .from('orders')
-        .update(updateData)
+        .update({
+          customer_name: updateData.customer_name,
+          customer_phone: updateData.customer_phone,
+          status: updateData.status,
+          total_amount: updateData.total_amount,
+          notes: updateData.notes,
+          table_id: updateData.table_id,
+        })
         .eq('id', id)
         .select()
         .single();
+      
+      if (error) throw error;
       
       // Log activity after successful update
       if (data) {
@@ -213,6 +269,7 @@ export const useOrderSync = () => {
     isLoadingOrders,
     ordersError,
     useOrder,
+    syncOrderToDatabase,
     createOrder: createOrderMutation.mutate,
     isCreatingOrder: createOrderMutation.isPending,
     updateOrder: updateOrderMutation.mutate,

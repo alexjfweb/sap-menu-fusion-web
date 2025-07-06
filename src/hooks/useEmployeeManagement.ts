@@ -59,7 +59,7 @@ export const useEmployeeManagement = () => {
     enabled: !!profile?.id && (profile.role === 'admin' || profile.role === 'superadmin'),
   });
 
-  // Crear empleado
+  // Crear empleado - Usando un UUID generado automáticamente
   const createEmployeeMutation = useMutation({
     mutationFn: async (employeeData: EmployeeFormData) => {
       console.log('👤 [EMPLOYEE MANAGEMENT] Creating employee:', employeeData);
