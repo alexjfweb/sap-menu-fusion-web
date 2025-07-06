@@ -352,11 +352,14 @@ const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
       return filtered.sort((a, b) => a.name.localeCompare(b.name));
     }
     
-    // CORRECCIÓN: Transformar productos para que coincidan con el tipo esperado por sortProductsByStandardizedCategories
-    const productsWithCategories = filtered.map(product => ({
-      ...product,
-      categories: product.categories ? { name: product.categories.name } : null
-    }));
+    // CORRECCIÓN: Usar category_id para encontrar la categoría correspondiente
+    const productsWithCategories = filtered.map(product => {
+      const category = categories?.find(cat => cat.id === product.category_id);
+      return {
+        ...product,
+        categories: category ? { name: category.name } : null
+      };
+    });
     
     const sortedByCategory = sortProductsByStandardizedCategories(productsWithCategories, categories);
     return sortedByCategory;
@@ -787,124 +790,129 @@ const PublicMenu = ({ onBack, restaurantName }: PublicMenuProps) => {
           {pagination.paginatedProducts && pagination.paginatedProducts.length > 0 ? (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {pagination.paginatedProducts.map((product) => (
-                  <Card 
-                    key={`${product.id}-${product.name}`}
-                    className="group hover:shadow-lg transition-shadow"
-                    style={{ 
-                      backgroundColor: colors.product_card_bg_color,
-                      borderColor: colors.product_card_border_color
-                    }}
-                  >
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle 
-                            className="text-lg"
-                            style={{ color: colors.product_name_color }}
-                          >
-                            {product.name}
-                          </CardTitle>
-                          <CardDescription 
-                            className="mt-1"
-                            style={{ color: colors.product_description_color }}
-                          >
-                            {(product as any).categories?.name}
-                          </CardDescription>
+                {pagination.paginatedProducts.map((product) => {
+                  // CORRECCIÓN: Encontrar la categoría usando category_id
+                  const productCategory = categories?.find(cat => cat.id === product.category_id);
+                  
+                  return (
+                    <Card 
+                      key={`${product.id}-${product.name}`}
+                      className="group hover:shadow-lg transition-shadow"
+                      style={{ 
+                        backgroundColor: colors.product_card_bg_color,
+                        borderColor: colors.product_card_border_color
+                      }}
+                    >
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <CardTitle 
+                              className="text-lg"
+                              style={{ color: colors.product_name_color }}
+                            >
+                              {product.name}
+                            </CardTitle>
+                            <CardDescription 
+                              className="mt-1"
+                              style={{ color: colors.product_description_color }}
+                            >
+                              {productCategory?.name || 'Sin categoría'}
+                            </CardDescription>
+                          </div>
                         </div>
-                      </div>
-                    </CardHeader>
-                    
-                    <CardContent>
-                      {product.image_url && (
-                        <img 
-                          src={product.image_url} 
-                          alt={product.name}
-                          className="w-full h-32 object-cover rounded-md mb-3"
-                          onError={(e) => {
-                            console.error('Error loading image:', product.image_url);
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
+                      </CardHeader>
+                      
+                      <CardContent>
+                        {product.image_url && (
+                          <img 
+                            src={product.image_url} 
+                            alt={product.name}
+                            className="w-full h-32 object-cover rounded-md mb-3"
+                            onError={(e) => {
+                              console.error('Error loading image:', product.image_url);
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        )}
+                        
+                        <ExpandableDescription 
+                          description={product.description || ''} 
+                          maxLength={80}
+                          textColor={colors.product_description_color}
                         />
-                      )}
-                      
-                      <ExpandableDescription 
-                        description={product.description || ''} 
-                        maxLength={80}
-                        textColor={colors.product_description_color}
-                      />
-                      
-                      <div className="flex items-center justify-between mb-3">
-                        <span 
-                          className="text-2xl font-bold"
-                          style={{ color: colors.product_price_color }}
-                        >
-                          {formatPrice(Number(product.price))}
-                        </span>
-                        <Badge 
-                          variant="default"
+                        
+                        <div className="flex items-center justify-between mb-3">
+                          <span 
+                            className="text-2xl font-bold"
+                            style={{ color: colors.product_price_color }}
+                          >
+                            {formatPrice(Number(product.price))}
+                          </span>
+                          <Badge 
+                            variant="default"
+                            style={{ 
+                              backgroundColor: colors.button_bg_color,
+                              color: colors.button_text_color
+                            }}
+                          >
+                            Disponible
+                          </Badge>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1 mb-3">
+                          {product.is_vegetarian && (
+                            <Badge 
+                              variant="outline" 
+                              className="text-xs"
+                              style={{ 
+                                borderColor: colors.product_card_border_color,
+                                color: colors.text_color
+                              }}
+                            >
+                              Vegetariano
+                            </Badge>
+                          )}
+                          {product.is_vegan && (
+                            <Badge 
+                              variant="outline" 
+                              className="text-xs"
+                              style={{ 
+                                borderColor: colors.product_card_border_color,
+                                color: colors.text_color
+                              }}
+                            >
+                              Vegano
+                            </Badge>
+                          )}
+                          {product.is_gluten_free && (
+                            <Badge 
+                              variant="outline" 
+                              className="text-xs"
+                              style={{ 
+                                borderColor: colors.product_card_border_color,
+                                color: colors.text_color
+                              }}
+                            >
+                              Sin Gluten
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        <Button 
+                          onClick={() => addToCart(product)}
+                          className="w-full"
                           style={{ 
                             backgroundColor: colors.button_bg_color,
                             color: colors.button_text_color
                           }}
                         >
-                          Disponible
-                        </Badge>
-                      </div>
-
-                      <div className="flex flex-wrap gap-1 mb-3">
-                        {product.is_vegetarian && (
-                          <Badge 
-                            variant="outline" 
-                            className="text-xs"
-                            style={{ 
-                              borderColor: colors.product_card_border_color,
-                              color: colors.text_color
-                            }}
-                          >
-                            Vegetariano
-                          </Badge>
-                        )}
-                        {product.is_vegan && (
-                          <Badge 
-                            variant="outline" 
-                            className="text-xs"
-                            style={{ 
-                              borderColor: colors.product_card_border_color,
-                              color: colors.text_color
-                            }}
-                          >
-                            Vegano
-                          </Badge>
-                        )}
-                        {product.is_gluten_free && (
-                          <Badge 
-                            variant="outline" 
-                            className="text-xs"
-                            style={{ 
-                              borderColor: colors.product_card_border_color,
-                              color: colors.text_color
-                            }}
-                          >
-                            Sin Gluten
-                          </Badge>
-                        )}
-                      </div>
-                      
-                      <Button 
-                        onClick={() => addToCart(product)}
-                        className="w-full"
-                        style={{ 
-                          backgroundColor: colors.button_bg_color,
-                          color: colors.button_text_color
-                        }}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Agregar al Carrito
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
+                          <Plus className="h-4 w-4 mr-2" />
+                          Agregar al Carrito
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
 
               {/* Controles de paginación optimizados */}
