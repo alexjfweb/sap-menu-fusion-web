@@ -414,6 +414,7 @@ const AuthForm = () => {
                 <p className="text-xs text-muted-foreground mb-3">
                   *******
                 </p>
+                 {false && ( // O {!config.showSuperAdminButton && ...}
                 <Button 
                   onClick={handleCreateSuperAdmin}
                   disabled={true}
@@ -422,6 +423,7 @@ const AuthForm = () => {
                 >
                   {loading ? 'Creando...' : 'Crear Superadministrador'}
                 </Button>
+               )} 
               </div>
             )}
             {resetPasswordMode ? (
