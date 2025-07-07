@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,6 +36,7 @@ interface PaymentMethodConfig {
     email?: string;
     private_key?: string;
     phone_number?: string;
+    merchant_code?: string;
   };
   logo_url: string;
   logo_file?: File;
@@ -57,7 +59,7 @@ const PaymentConfiguration = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Métodos de pago predefinidos con tipos exactos que coinciden con el constraint
+  // NUEVO: Métodos de pago predefinidos con QR Code reconstruido
   const defaultMethods = [
     { name: 'Contra Entrega', type: 'cash_on_delivery', icon: Truck },
     { name: 'Código QR', type: 'qr_code', icon: QrCode },
@@ -125,8 +127,12 @@ const PaymentConfiguration = () => {
     const newConfigs = [...configs];
     if (field === 'logo_url') {
       newConfigs[index].logo_url = value as string;
+      // NUEVO: Limpiar archivo cuando se ingresa URL
+      newConfigs[index].logo_file = undefined;
     } else {
       newConfigs[index].logo_file = value as File;
+      // NUEVO: Limpiar URL cuando se sube archivo
+      newConfigs[index].logo_url = '';
     }
     setConfigs(newConfigs);
   };
@@ -134,12 +140,7 @@ const PaymentConfiguration = () => {
   const validateConfig = (config: PaymentMethodConfig): string | null => {
     if (!config.is_active) return null;
 
-    // Validar que métodos como Nequi tengan al menos una opción de logo
-    if (['nequi', 'daviplata'].includes(config.type) && !config.logo_url && !config.logo_file) {
-      return `${config.name}: Debe proporcionar un logo (URL o archivo)`;
-    }
-
-    // Validaciones específicas por tipo
+    // NUEVO: Validaciones específicas por tipo
     switch (config.type) {
       case 'stripe':
         if (!config.configuration.public_key || !config.configuration.secret_key) {
@@ -162,6 +163,15 @@ const PaymentConfiguration = () => {
         }
         if (!/^\d{10}$/.test(config.configuration.phone_number)) {
           return `${config.name}: El número debe tener exactamente 10 dígitos`;
+        }
+        break;
+      case 'qr_code':
+        // NUEVO: Validación específica para QR Code
+        if (!config.logo_url && !config.logo_file) {
+          return `${config.name}: Debe proporcionar un código QR (imagen o URL)`;
+        }
+        if (config.logo_url && config.logo_file) {
+          return `${config.name}: Solo puede usar imagen O URL, no ambas`;
         }
         break;
     }
@@ -189,10 +199,9 @@ const PaymentConfiguration = () => {
         }
       }
 
-      // CORRECCIÓN CRÍTICA: Subir archivos de logo sin sobrescribir URLs externas
+      // Subir archivos de logo solo cuando no hay URL externa
       for (const config of configs) {
-        if (config.logo_file && (!config.logo_url || config.logo_url.trim() === '')) {
-          // Solo subir archivo si NO hay URL externa definida
+        if (config.logo_file && !config.logo_url.trim()) {
           console.log(`📁 Subiendo logo para ${config.name}...`);
           const fileExt = config.logo_file.name.split('.').pop();
           const fileName = `${config.type}_logo_${Date.now()}.${fileExt}`;
@@ -225,7 +234,6 @@ const PaymentConfiguration = () => {
 
       // Guardar configuraciones en base de datos
       for (const config of configs) {
-        // Solo guardar configuraciones activas
         if (!config.is_active) {
           console.log(`⏭️ Saltando ${config.name} (inactivo)`);
           continue;
@@ -242,14 +250,13 @@ const PaymentConfiguration = () => {
         
         const upsertData = {
           name: config.name,
-          type: config.type, // Usar tipos exactos del constraint
+          type: config.type,
           is_active: config.is_active,
           configuration: config.configuration,
           webhook_url: config.logo_url && config.logo_url.trim() !== '' ? config.logo_url : null
         };
 
         if (config.id) {
-          // Actualizar existente
           const { error } = await supabase
             .from('payment_methods')
             .update(upsertData)
@@ -261,7 +268,6 @@ const PaymentConfiguration = () => {
           }
           console.log(`✅ Método ${config.name} actualizado`);
         } else {
-          // Crear nuevo
           const { data, error } = await supabase
             .from('payment_methods')
             .insert(upsertData)
@@ -287,7 +293,6 @@ const PaymentConfiguration = () => {
     } catch (error: any) {
       console.error('❌ Error crítico guardando configuración:', error);
       
-      // ANÁLISIS TÉCNICO PROFUNDO DEL ERROR
       let errorAnalysis = {
         type: 'unknown',
         constraint: null,
@@ -297,17 +302,14 @@ const PaymentConfiguration = () => {
       };
 
       if (error?.message) {
-        // Detectar violación de constraint
         if (error.message.includes('violates check constraint')) {
           errorAnalysis.type = 'constraint_violation';
           
-          // Extraer el nombre del constraint
           const constraintMatch = error.message.match(/constraint "([^"]+)"/);
           if (constraintMatch) {
             errorAnalysis.constraint = constraintMatch[1];
           }
           
-          // Detectar constraint específico de payment_methods_type_check
           if (error.message.includes('payment_methods_type_check')) {
             errorAnalysis.user_message = 'Tipo de método de pago no válido. Los tipos permitidos son: cash_on_delivery, qr_code, nequi, daviplata, mercado_pago, stripe, paypal.';
             errorAnalysis.technical_details = `Constraint violation: ${error.message}`;
@@ -325,7 +327,6 @@ const PaymentConfiguration = () => {
         }
       }
       
-      // Mostrar modal de error técnico mejorado
       setErrorModal({
         isOpen: true,
         title: 'Error Técnico: Configuración de Métodos de Pago',
@@ -429,6 +430,22 @@ const PaymentConfiguration = () => {
             </p>
           </div>
         );
+
+      case 'qr_code':
+        // NUEVO: Campos específicos para QR Code
+        return (
+          <div className="space-y-2">
+            <Label>Código Merchant (Opcional)</Label>
+            <Input
+              placeholder="Código identificador del comercio"
+              value={config.configuration.merchant_code || ''}
+              onChange={(e) => handleConfigChange(index, 'merchant_code', e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Código único de tu comercio para identificar los pagos QR
+            </p>
+          </div>
+        );
       
       default:
         return null;
@@ -438,6 +455,63 @@ const PaymentConfiguration = () => {
   const renderLogoSection = (config: PaymentMethodConfig, index: number) => {
     if (!config.is_active) return null;
 
+    // NUEVO: Sección específica para QR Code
+    if (config.type === 'qr_code') {
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label>Código QR</Label>
+            {config.logo_url && (
+              <img 
+                src={config.logo_url} 
+                alt="QR Code preview" 
+                className="h-16 w-16 object-contain rounded border"
+              />
+            )}
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                Subir Imagen QR
+              </Label>
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    handleLogoChange(index, 'logo_file', file);
+                  }
+                }}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Link className="h-4 w-4" />
+                URL del Código QR
+              </Label>
+              <Input
+                placeholder="https://ejemplo.com/mi-qr.png"
+                value={config.logo_url || ''}
+                onChange={(e) => handleLogoChange(index, 'logo_url', e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <Alert>
+            <QrCode className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Uso exclusivo:</strong> Puedes subir una imagen QR O usar una URL externa, pero no ambas opciones al mismo tiempo.
+            </AlertDescription>
+          </Alert>
+        </div>
+      );
+    }
+
+    // Para otros métodos de pago
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -463,10 +537,6 @@ const PaymentConfiguration = () => {
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) {
-                  // Limpiar URL externa cuando se sube archivo
-                  const newConfigs = [...configs];
-                  newConfigs[index].logo_url = '';
-                  setConfigs(newConfigs);
                   handleLogoChange(index, 'logo_file', file);
                 }
               }}
@@ -481,13 +551,7 @@ const PaymentConfiguration = () => {
             <Input
               placeholder="https://ejemplo.com/logo.png"
               value={config.logo_url || ''}
-              onChange={(e) => {
-                // Limpiar archivo cuando se ingresa URL externa
-                const newConfigs = [...configs];
-                newConfigs[index].logo_file = undefined;
-                setConfigs(newConfigs);
-                handleLogoChange(index, 'logo_url', e.target.value);
-              }}
+              onChange={(e) => handleLogoChange(index, 'logo_url', e.target.value)}
             />
           </div>
         </div>
@@ -576,7 +640,6 @@ const PaymentConfiguration = () => {
         </Button>
       </div>
 
-      {/* Modal de error técnico mejorado */}
       <ErrorModal
         isOpen={errorModal.isOpen}
         onClose={() => setErrorModal(prev => ({ ...prev, isOpen: false }))}
