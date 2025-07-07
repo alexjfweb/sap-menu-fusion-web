@@ -49,7 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Defer profile fetching to prevent deadlocks
         setTimeout(() => {
           if (mounted) {
-            fetchOrCreateProfile(session.user);
+            fetchProfile(session.user);
           }
         }, 100);
       } else if (event === 'SIGNED_OUT' || !session) {
@@ -80,7 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(data.session?.user ?? null);
         
         if (data.session?.user) {
-          await fetchOrCreateProfile(data.session.user);
+          await fetchProfile(data.session.user);
         } else {
           setLoading(false);
         }
@@ -101,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const fetchOrCreateProfile = async (user: User) => {
+  const fetchProfile = async (user: User) => {
     try {
       console.log('👤 Obteniendo perfil para usuario:', user.id, user.email);
       
@@ -125,107 +125,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      if (!data) {
-        console.log('📝 Perfil no encontrado, creando nuevo perfil para:', user.email);
-        await createProfile(user);
-      } else {
+      if (data) {
         console.log('✅ Perfil encontrado:', {
           email: data.email,
           role: data.role,
           is_active: data.is_active
         });
-        
-        // Check if we need to update the role for special emails
-        await updateRoleIfNeeded(user, data);
+        setProfile(data);
+      } else {
+        console.log('⚠️ No se encontró perfil para el usuario. El trigger debería haberlo creado.');
+        setProfile(null);
       }
     } catch (error) {
       console.error('❌ Error inesperado obteniendo perfil:', error);
-      setProfile(null);
-      setLoading(false);
-    }
-  };
-
-  const updateRoleIfNeeded = async (user: User, existingProfile: Profile) => {
-    try {
-      // Determine the correct role based on email
-      let expectedRole: 'empleado' | 'admin' | 'superadmin' = 'empleado';
-      if (user.email === 'alexjfweb@gmail.com' || user.email === 'superadmin@gmail.com' || user.email === 'allseosoporte@gmail.com') {
-        expectedRole = 'superadmin';
-      } else if (user.email === 'karen@gmail.com') {
-        expectedRole = 'admin';
-      }
-
-      // If the role needs to be updated
-      if (existingProfile.role !== expectedRole) {
-        console.log(`🔄 Actualizando rol para ${user.email} de ${existingProfile.role} a ${expectedRole}`);
-        
-        const { data, error } = await supabase
-          .from('profiles')
-          .update({ role: expectedRole })
-          .eq('id', user.id)
-          .select()
-          .single();
-
-        if (error) {
-          console.error('❌ Error actualizando rol:', error);
-          setProfile(existingProfile);
-        } else {
-          console.log('✅ Rol actualizado exitosamente:', data);
-          setProfile(data);
-        }
-      } else {
-        console.log('✅ Rol ya es correcto:', existingProfile.role);
-        setProfile(existingProfile);
-      }
-    } catch (error) {
-      console.error('❌ Error actualizando rol:', error);
-      setProfile(existingProfile);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const createProfile = async (user: User) => {
-    try {
-      console.log('📝 Creando perfil para usuario:', user.email);
-      
-      // Extract name from user metadata or use email
-      const fullName = user.user_metadata?.full_name || 
-                      user.user_metadata?.name || 
-                      user.email?.split('@')[0] || 
-                      'Usuario';
-
-      // Set role based on email
-      let role: 'empleado' | 'admin' | 'superadmin' = 'empleado';
-      if (user.email === 'alexjfweb@gmail.com' || user.email === 'superadmin@gmail.com' || user.email === 'allseosoporte@gmail.com') {
-        role = 'superadmin';
-      } else if (user.email === 'karen@gmail.com') {
-        role = 'admin';
-      }
-      
-      console.log('👑 Asignando rol:', role, 'a usuario:', user.email);
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .insert({
-          id: user.id,
-          email: user.email!,
-          full_name: fullName,
-          role: role,
-          is_active: true
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('❌ Error creando perfil:', error);
-        setProfile(null);
-      } else {
-        console.log('✅ Perfil creado exitosamente:', data);
-        setProfile(data);
-      }
-    } catch (error) {
-      console.error('❌ Error inesperado creando perfil:', error);
       setProfile(null);
     } finally {
       setLoading(false);

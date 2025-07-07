@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, User, Mail, Lock, UserCheck, AlertCircle } from 'lucide-react';
+import { Loader2, User, Mail, Lock, UserCheck, AlertCircle, CheckCircle } from 'lucide-react';
 import { cleanupAuthState } from '@/integrations/supabase/authUtils';
 import ErrorModal from '@/components/ErrorModal';
 
@@ -19,6 +19,15 @@ const AuthForm = () => {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [registrationSuccess, setRegistrationSuccess] = useState<{
+    show: boolean;
+    userRole: string;
+    userEmail: string;
+  }>({
+    show: false,
+    userRole: '',
+    userEmail: ''
+  });
   const [errorModal, setErrorModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -84,6 +93,7 @@ const AuthForm = () => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    setRegistrationSuccess({ show: false, userRole: '', userEmail: '' });
     console.log('🔄 Iniciando proceso de registro...');
 
     try {
@@ -117,60 +127,13 @@ const AuthForm = () => {
       if (error) {
         console.error('❌ Error en registro:', error);
         
-        // ANÁLISIS TÉCNICO PROFUNDO DEL ERROR DE REGISTRO
-        let errorAnalysis = {
-          type: 'registration_error',
-          code: error.status || 'unknown',
-          message: error.message,
-          technical_details: '',
-          suggested_action: '',
-          database_context: ''
-        };
-
-        // Detectar errores específicos de base de datos
+        // Análisis detallado del error
         if (error.message.includes('Database error saving new user')) {
-          errorAnalysis.type = 'database_trigger_error';
-          errorAnalysis.technical_details = `
-=== ERROR CRÍTICO EN TRIGGER DE USUARIOS ===
-Código: ${error.status}
-Mensaje: ${error.message}
-
-CAUSA PROBABLE:
-1. El trigger 'on_auth_user_created' no está funcionando correctamente
-2. Error en la función handle_new_user() al crear el perfil
-3. Violación de constraint en tabla profiles
-4. Problema con el tipo de dato user_role
-
-VERIFICACIONES NECESARIAS:
-- Verificar que el trigger on_auth_user_created esté activo
-- Confirmar que la función handle_new_user() existe y es correcta
-- Validar que el enum user_role incluya 'admin'
-- Revisar permisos de la función SECURITY DEFINER
-
-SQL PARA DEBUG:
-SELECT * FROM information_schema.triggers WHERE trigger_name = 'on_auth_user_created';
-SELECT proname FROM pg_proc WHERE proname = 'handle_new_user';
-          `;
-          errorAnalysis.suggested_action = 'Revisar configuración de triggers en base de datos y recrear si es necesario.';
-          errorAnalysis.database_context = 'Error en creación automática de perfil de usuario tras registro en auth.users';
-        } else if (error.message.includes('User already registered')) {
-          errorAnalysis.type = 'user_exists';
-          errorAnalysis.suggested_action = 'El usuario ya existe. Intenta iniciar sesión en su lugar.';
-        } else if (error.message.includes('Password should be')) {
-          errorAnalysis.type = 'password_policy';
-          errorAnalysis.suggested_action = 'La contraseña no cumple con los requisitos mínimos.';
-        }
-
-        // Mostrar modal de error técnico para errores críticos
-        if (errorAnalysis.type === 'database_trigger_error') {
           setErrorModal({
             isOpen: true,
             title: 'Error Crítico: Fallo en Registro de Usuario',
-            message: `No se pudo completar el registro debido a un error en la base de datos.\n\n${errorAnalysis.technical_details}\n\n=== INFORMACIÓN PARA SOPORTE ===\nOperación: Registro de usuario nuevo\nEmail: ${email}\nTimestamp: ${new Date().toISOString()}\nUser Agent: ${navigator.userAgent}`,
-            error: {
-              ...error,
-              analysis: errorAnalysis
-            }
+            message: `No se pudo completar el registro debido a un error en la base de datos.\n\n=== INFORMACIÓN TÉCNICA ===\nCódigo: ${error.status || 'unknown'}\nMensaje: ${error.message}\nOperación: Registro de usuario nuevo\nEmail: ${email}\nTimestamp: ${new Date().toISOString()}`,
+            error
           });
         }
         
@@ -183,32 +146,46 @@ SELECT proname FROM pg_proc WHERE proname = 'handle_new_user';
         console.log('📧 Email confirmado:', data.user.email_confirmed_at ? 'Sí' : 'No');
         console.log('👤 ID de usuario:', data.user.id);
         
+        // Verificar el rol asignado por el backend
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('role, full_name')
+          .eq('id', data.user.id)
+          .single();
+
+        const assignedRole = profileData?.role || 'admin';
+        
+        setRegistrationSuccess({
+          show: true,
+          userRole: assignedRole,
+          userEmail: data.user.email || email
+        });
+        
         if (data.user.email_confirmed_at) {
           // Usuario confirmado inmediatamente
           toast({
-            title: "¡Bienvenido!",
-            description: "Tu cuenta de administrador ha sido creada exitosamente",
+            title: "¡Cuenta creada exitosamente!",
+            description: `Tu cuenta con rol de ${assignedRole} ha sido creada`,
           });
           
           setTimeout(() => {
             window.location.href = '/';
-          }, 100);
+          }, 2000);
         } else {
           // Usuario necesita confirmar email
           toast({
             title: "Registro exitoso",
-            description: "Por favor, revisa tu email para confirmar tu cuenta de administrador",
+            description: "Por favor, revisa tu email para confirmar tu cuenta",
           });
         }
       }
     } catch (error: any) {
       console.error('❌ Error inesperado durante registro:', error);
       
-      // Modal de error para errores inesperados
       setErrorModal({
         isOpen: true,
         title: 'Error Inesperado en Registro',
-        message: `Se produjo un error inesperado durante el registro.\n\n=== DETALLES TÉCNICOS ===\nTipo: ${error.name || 'Unknown Error'}\nMensaje: ${error.message || 'Sin mensaje'}\nStack: ${error.stack || 'No disponible'}\n\n=== CONTEXTO ===\nOperación: Registro de usuario\nEmail: ${email}\nTimestamp: ${new Date().toISOString()}`,
+        message: `Se produjo un error inesperado durante el registro.\n\n=== DETALLES TÉCNICOS ===\nTipo: ${error.name || 'Unknown Error'}\nMensaje: ${error.message || 'Sin mensaje'}\nOperación: Registro de usuario\nEmail: ${email}\nTimestamp: ${new Date().toISOString()}`,
         error
       });
       
@@ -295,14 +272,28 @@ SELECT proname FROM pg_proc WHERE proname = 'handle_new_user';
             </TabsContent>
             
             <TabsContent value="signup" className="space-y-4">
-              {/* VALIDACIÓN VISUAL - Mensaje informativo sobre el rol */}
-              <Alert className="bg-green-50 border-green-200">
-                <UserCheck className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-800">
-                  <strong>Tu cuenta se registrará con rol de administrador</strong>
+              {registrationSuccess.show && (
+                <Alert className="bg-green-50 border-green-200">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800">
+                    <strong>¡Registro exitoso!</strong>
+                    <br />
+                    <span className="text-sm">
+                      Cuenta creada para: {registrationSuccess.userEmail}
+                      <br />
+                      Rol asignado: <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300">{registrationSuccess.userRole}</Badge>
+                    </span>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <Alert className="bg-blue-50 border-blue-200">
+                <UserCheck className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800">
+                  <strong>Registro de cuenta empresarial</strong>
                   <br />
-                  <span className="text-sm text-green-600">
-                    Tendrás acceso completo para gestionar tu restaurante
+                  <span className="text-sm text-blue-600">
+                    Se asignará automáticamente un rol administrativo
                   </span>
                 </AlertDescription>
               </Alert>
@@ -380,16 +371,15 @@ SELECT proname FROM pg_proc WHERE proname = 'handle_new_user';
                   ) : (
                     <>
                       <UserCheck className="mr-2 h-4 w-4" />
-                      Crear Cuenta de Administrador
+                      Crear Cuenta
                     </>
                   )}
                 </Button>
               </form>
 
-              {/* Badge adicional para reforzar el mensaje */}
               <div className="flex justify-center">
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                  Registro como Administrador
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  Cuenta Empresarial
                 </Badge>
               </div>
             </TabsContent>
