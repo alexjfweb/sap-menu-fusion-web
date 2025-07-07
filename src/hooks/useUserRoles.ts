@@ -21,7 +21,7 @@ export const useUserRoles = () => {
 
   const getUserRoleByEmail = (email: string): 'empleado' | 'admin' | 'superadmin' => {
     const config = USER_ROLE_CONFIG.find(config => config.email === email);
-    return config?.role || 'empleado';
+    return config?.role || 'admin';
   };
 
   const syncUserRoles = async () => {

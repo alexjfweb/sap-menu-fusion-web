@@ -129,11 +129,6 @@ const PaymentConfiguration = () => {
   const validateConfig = (config: PaymentMethodConfig): string | null => {
     if (!config.is_active) return null;
 
-    // Validar que tenga logo (URL o archivo)
-    if (!config.logo_url && !config.logo_file) {
-      return `${config.name}: Debe proporcionar un logo (URL o archivo)`;
-    }
-
     // Validaciones específicas por tipo
     switch (config.type) {
       case 'stripe':

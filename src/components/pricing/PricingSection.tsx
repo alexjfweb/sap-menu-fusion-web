@@ -6,6 +6,7 @@ import { Check, Star, Users, Zap, Crown, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PaymentModal from './PaymentModal';
 import { useSmartNavigation } from '@/hooks/useSmartNavigation';
+import DemoModal from '@/components/modals/DemoModal';
 
 const plans = [
   {
@@ -136,6 +137,7 @@ const colorClasses = {
 const PricingSection = () => {
   const [selectedPlan, setSelectedPlan] = useState<typeof plans[0] | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showSalesModal, setShowSalesModal] = useState(false);
   const { navigateToAuth, isNavigating } = useSmartNavigation();
 
   const handleSelectPlan = (plan: typeof plans[0]) => {
@@ -236,7 +238,11 @@ const PricingSection = () => {
           <p className="text-muted-foreground mb-4">
             ¿Necesitas algo personalizado para tu empresa?
           </p>
-          <Button variant="outline" size="lg">
+          <Button 
+            variant="outline" 
+            size="lg"
+            onClick={() => setShowSalesModal(true)}
+          >
             <CreditCard className="h-4 w-4 mr-2" />
             Contactar Ventas
           </Button>
@@ -252,6 +258,12 @@ const PricingSection = () => {
           }}
         />
       )}
+
+      <DemoModal
+        isOpen={showSalesModal}
+        onClose={() => setShowSalesModal(false)}
+        title="Contactar Ventas"
+      />
     </section>
   );
 };

@@ -12,9 +12,10 @@ import { useToast } from '@/hooks/use-toast';
 interface DemoModalProps {
   isOpen: boolean;
   onClose: () => void;
+  title?: string;
 }
 
-const DemoModal = ({ isOpen, onClose }: DemoModalProps) => {
+const DemoModal = ({ isOpen, onClose, title = 'Agendar Demo' }: DemoModalProps) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -95,7 +96,7 @@ _Solicitud enviada desde el sitio web oficial_`;
               <ChefHat className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <DialogTitle className="text-xl font-bold">Agendar Demo</DialogTitle>
+              <DialogTitle className="text-xl font-bold">{title}</DialogTitle>
               <p className="text-sm text-muted-foreground">
                 Descubre cómo SAP Menu puede transformar tu restaurante
               </p>
@@ -176,7 +177,7 @@ _Solicitud enviada desde el sitio web oficial_`;
               ) : (
                 <>
                   <Calendar className="h-4 w-4 mr-2" />
-                  Agendar Demo
+                  {title === 'Contactar Ventas' ? 'Contactar Ventas' : 'Agendar Demo'}
                 </>
               )}
             </Button>
