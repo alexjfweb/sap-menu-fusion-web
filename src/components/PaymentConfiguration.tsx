@@ -57,7 +57,7 @@ const PaymentConfiguration = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Métodos de pago predefinidos
+  // Métodos de pago predefinidos con tipos exactos que coinciden con el constraint
   const defaultMethods = [
     { name: 'Contra Entrega', type: 'cash_on_delivery', icon: Truck },
     { name: 'Código QR', type: 'qr_code', icon: QrCode },
@@ -72,12 +72,17 @@ const PaymentConfiguration = () => {
   const { data: existingMethods } = useQuery({
     queryKey: ['payment-methods-config'],
     queryFn: async () => {
+      console.log('🔍 Cargando métodos de pago existentes...');
       const { data, error } = await supabase
         .from('payment_methods')
         .select('*')
         .order('created_at', { ascending: true });
       
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error cargando métodos de pago:', error);
+        throw error;
+      }
+      console.log('✅ Métodos de pago cargados:', data);
       return data || [];
     },
   });
@@ -166,12 +171,14 @@ const PaymentConfiguration = () => {
 
   const handleSaveChanges = async () => {
     setSaving(true);
+    console.log('💾 Iniciando guardado de configuraciones...');
     
     try {
       // Validar todas las configuraciones
       for (const config of configs) {
         const error = validateConfig(config);
         if (error) {
+          console.error('❌ Error de validación:', error);
           toast({
             variant: 'destructive',
             title: 'Error de validación',
@@ -182,11 +189,13 @@ const PaymentConfiguration = () => {
         }
       }
 
-      // Subir archivos de logo si existen
+      // CORRECCIÓN CRÍTICA: Subir archivos de logo sin sobrescribir URLs externas
       for (const config of configs) {
-        if (config.logo_file) {
+        if (config.logo_file && (!config.logo_url || config.logo_url.trim() === '')) {
+          // Solo subir archivo si NO hay URL externa definida
+          console.log(`📁 Subiendo logo para ${config.name}...`);
           const fileExt = config.logo_file.name.split('.').pop();
-          const fileName = `${config.type}_logo.${fileExt}`;
+          const fileName = `${config.type}_logo_${Date.now()}.${fileExt}`;
           
           const { error: uploadError } = await supabase.storage
             .from('uploads')
@@ -195,6 +204,7 @@ const PaymentConfiguration = () => {
             });
 
           if (uploadError) {
+            console.error('❌ Error subiendo archivo:', uploadError);
             toast({
               variant: 'destructive',
               title: 'Error subiendo archivo',
@@ -204,29 +214,37 @@ const PaymentConfiguration = () => {
             return;
           }
 
-          // CORRECCIÓN CRÍTICA: Solo asignar URL de Supabase si NO hay URL externa
-          if (!config.logo_url || config.logo_url.trim() === '') {
-            const { data: { publicUrl } } = supabase.storage
-              .from('uploads')
-              .getPublicUrl(`payment-logos/${fileName}`);
-            
-            config.logo_url = publicUrl;
-          }
-          // Si ya hay una URL externa, no la sobrescribimos
+          const { data: { publicUrl } } = supabase.storage
+            .from('uploads')
+            .getPublicUrl(`payment-logos/${fileName}`);
+          
+          config.logo_url = publicUrl;
+          console.log(`✅ Logo subido para ${config.name}: ${publicUrl}`);
         }
       }
 
       // Guardar configuraciones en base de datos
       for (const config of configs) {
         // Solo guardar configuraciones activas
-        if (!config.is_active) continue;
+        if (!config.is_active) {
+          console.log(`⏭️ Saltando ${config.name} (inactivo)`);
+          continue;
+        }
         
-        const upsertData = {
+        console.log(`💾 Guardando configuración para ${config.name}...`);
+        console.log('📋 Datos a guardar:', {
           name: config.name,
           type: config.type,
           is_active: config.is_active,
           configuration: config.configuration,
-          // CORRECCIÓN: Solo asignar webhook_url si hay logo_url válida
+          webhook_url: config.logo_url || null
+        });
+        
+        const upsertData = {
+          name: config.name,
+          type: config.type, // Usar tipos exactos del constraint
+          is_active: config.is_active,
+          configuration: config.configuration,
           webhook_url: config.logo_url && config.logo_url.trim() !== '' ? config.logo_url : null
         };
 
@@ -237,7 +255,11 @@ const PaymentConfiguration = () => {
             .update(upsertData)
             .eq('id', config.id);
           
-          if (error) throw error;
+          if (error) {
+            console.error('❌ Error actualizando método existente:', error);
+            throw error;
+          }
+          console.log(`✅ Método ${config.name} actualizado`);
         } else {
           // Crear nuevo
           const { data, error } = await supabase
@@ -246,11 +268,16 @@ const PaymentConfiguration = () => {
             .select()
             .single();
           
-          if (error) throw error;
+          if (error) {
+            console.error('❌ Error creando nuevo método:', error);
+            throw error;
+          }
           config.id = data.id;
+          console.log(`✅ Método ${config.name} creado con ID: ${data.id}`);
         }
       }
 
+      console.log('🎉 Todas las configuraciones guardadas exitosamente');
       toast({
         title: 'Configuración guardada',
         description: 'Los métodos de pago han sido configurados exitosamente.',
@@ -258,33 +285,61 @@ const PaymentConfiguration = () => {
 
       queryClient.invalidateQueries({ queryKey: ['payment-methods-config'] });
     } catch (error: any) {
-      console.error('Error saving payment configuration:', error);
+      console.error('❌ Error crítico guardando configuración:', error);
       
-      // MEJORA: Modal de error con detalles específicos
-      let detailedMessage = 'No se pudo guardar la configuración de métodos de pago.';
-      let technicalDetails = '';
-      
-      if (error?.message?.includes('violates check constraint')) {
-        detailedMessage = 'Error de validación: tipo de método de pago no permitido.';
-        technicalDetails = `Constraint violation: ${error.message}`;
-      } else if (error?.code === '23505') {
-        detailedMessage = 'Error: Ya existe un método de pago con estas características.';
-        technicalDetails = `Unique constraint violation: ${error.message}`;
-      } else if (error?.message) {
-        technicalDetails = error.message;
+      // ANÁLISIS TÉCNICO PROFUNDO DEL ERROR
+      let errorAnalysis = {
+        type: 'unknown',
+        constraint: null,
+        table: null,
+        technical_details: '',
+        user_message: 'Error desconocido al guardar configuración.'
+      };
+
+      if (error?.message) {
+        // Detectar violación de constraint
+        if (error.message.includes('violates check constraint')) {
+          errorAnalysis.type = 'constraint_violation';
+          
+          // Extraer el nombre del constraint
+          const constraintMatch = error.message.match(/constraint "([^"]+)"/);
+          if (constraintMatch) {
+            errorAnalysis.constraint = constraintMatch[1];
+          }
+          
+          // Detectar constraint específico de payment_methods_type_check
+          if (error.message.includes('payment_methods_type_check')) {
+            errorAnalysis.user_message = 'Tipo de método de pago no válido. Los tipos permitidos son: cash_on_delivery, qr_code, nequi, daviplata, mercado_pago, stripe, paypal.';
+            errorAnalysis.technical_details = `Constraint violation: ${error.message}`;
+          }
+        } else if (error.code === '23505') {
+          errorAnalysis.type = 'unique_violation';
+          errorAnalysis.user_message = 'Ya existe un método de pago con estas características.';
+          errorAnalysis.technical_details = `Unique constraint violation: ${error.message}`;
+        } else if (error.code === '23503') {
+          errorAnalysis.type = 'foreign_key_violation';
+          errorAnalysis.user_message = 'Error de referencia en la base de datos.';
+          errorAnalysis.technical_details = `Foreign key violation: ${error.message}`;
+        } else {
+          errorAnalysis.technical_details = error.message;
+        }
       }
       
+      // Mostrar modal de error técnico mejorado
       setErrorModal({
         isOpen: true,
-        title: 'Error al guardar configuración de pagos',
-        message: `${detailedMessage}\n\nDetalles técnicos para soporte:\n${technicalDetails}`,
-        error
+        title: 'Error Técnico: Configuración de Métodos de Pago',
+        message: `${errorAnalysis.user_message}\n\n=== INFORMACIÓN TÉCNICA PARA SOPORTE ===\nTipo de Error: ${errorAnalysis.type}\nConstraint: ${errorAnalysis.constraint || 'N/A'}\nTabla: payment_methods\nDetalles: ${errorAnalysis.technical_details}\n\n=== CONTEXTO DE DEBUG ===\nOperación: Guardado de configuración de métodos de pago\nUsuario en ruta: /dashboard (configuración)\nTimestamp: ${new Date().toISOString()}`,
+        error: {
+          ...error,
+          analysis: errorAnalysis
+        }
       });
       
       toast({
         variant: 'destructive',
         title: 'Error al guardar',
-        description: detailedMessage,
+        description: errorAnalysis.user_message,
       });
     } finally {
       setSaving(false);
@@ -408,6 +463,10 @@ const PaymentConfiguration = () => {
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) {
+                  // Limpiar URL externa cuando se sube archivo
+                  const newConfigs = [...configs];
+                  newConfigs[index].logo_url = '';
+                  setConfigs(newConfigs);
                   handleLogoChange(index, 'logo_file', file);
                 }
               }}
@@ -422,10 +481,20 @@ const PaymentConfiguration = () => {
             <Input
               placeholder="https://ejemplo.com/logo.png"
               value={config.logo_url || ''}
-              onChange={(e) => handleLogoChange(index, 'logo_url', e.target.value)}
+              onChange={(e) => {
+                // Limpiar archivo cuando se ingresa URL externa
+                const newConfigs = [...configs];
+                newConfigs[index].logo_file = undefined;
+                setConfigs(newConfigs);
+                handleLogoChange(index, 'logo_url', e.target.value);
+              }}
             />
           </div>
         </div>
+        
+        <p className="text-xs text-muted-foreground">
+          Puedes usar una imagen local O una URL externa, no ambas.
+        </p>
       </div>
     );
   };
@@ -507,7 +576,7 @@ const PaymentConfiguration = () => {
         </Button>
       </div>
 
-      {/* Modal de error mejorado */}
+      {/* Modal de error técnico mejorado */}
       <ErrorModal
         isOpen={errorModal.isOpen}
         onClose={() => setErrorModal(prev => ({ ...prev, isOpen: false }))}
