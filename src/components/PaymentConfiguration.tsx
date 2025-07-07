@@ -33,6 +33,7 @@ interface PaymentMethodConfig {
     secret_key?: string;
     email?: string;
     private_key?: string;
+    phone_number?: string;
   };
   logo_url: string;
   logo_file?: File;
