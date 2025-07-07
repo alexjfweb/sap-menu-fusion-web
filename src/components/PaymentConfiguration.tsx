@@ -204,15 +204,15 @@ const PaymentConfiguration = () => {
             return;
           }
 
-          // Obtener URL pública y SOLO asignarla si no hay URL externa
-          const { data: { publicUrl } } = supabase.storage
-            .from('uploads')
-            .getPublicUrl(`payment-logos/${fileName}`);
-          
-          // CORRECCIÓN CRÍTICA: Solo asignar URL si no hay una URL externa especificada
+          // CORRECCIÓN CRÍTICA: Solo asignar URL de Supabase si NO hay URL externa
           if (!config.logo_url || config.logo_url.trim() === '') {
+            const { data: { publicUrl } } = supabase.storage
+              .from('uploads')
+              .getPublicUrl(`payment-logos/${fileName}`);
+            
             config.logo_url = publicUrl;
           }
+          // Si ya hay una URL externa, no la sobrescribimos
         }
       }
 
@@ -226,7 +226,7 @@ const PaymentConfiguration = () => {
           type: config.type,
           is_active: config.is_active,
           configuration: config.configuration,
-          // CORRECCIÓN: Permitir webhook_url nulo si no hay logo_url
+          // CORRECCIÓN: Solo asignar webhook_url si hay logo_url válida
           webhook_url: config.logo_url && config.logo_url.trim() !== '' ? config.logo_url : null
         };
 
@@ -257,21 +257,34 @@ const PaymentConfiguration = () => {
       });
 
       queryClient.invalidateQueries({ queryKey: ['payment-methods-config'] });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving payment configuration:', error);
       
-      // Mostrar modal de error detallado
+      // MEJORA: Modal de error con detalles específicos
+      let detailedMessage = 'No se pudo guardar la configuración de métodos de pago.';
+      let technicalDetails = '';
+      
+      if (error?.message?.includes('violates check constraint')) {
+        detailedMessage = 'Error de validación: tipo de método de pago no permitido.';
+        technicalDetails = `Constraint violation: ${error.message}`;
+      } else if (error?.code === '23505') {
+        detailedMessage = 'Error: Ya existe un método de pago con estas características.';
+        technicalDetails = `Unique constraint violation: ${error.message}`;
+      } else if (error?.message) {
+        technicalDetails = error.message;
+      }
+      
       setErrorModal({
         isOpen: true,
-        title: 'Error al guardar configuración',
-        message: 'No se pudo guardar la configuración de métodos de pago. Por favor, revise los datos ingresados e intente nuevamente.',
+        title: 'Error al guardar configuración de pagos',
+        message: `${detailedMessage}\n\nDetalles técnicos para soporte:\n${technicalDetails}`,
         error
       });
       
       toast({
         variant: 'destructive',
         title: 'Error al guardar',
-        description: 'No se pudo guardar la configuración de pagos.',
+        description: detailedMessage,
       });
     } finally {
       setSaving(false);
@@ -494,7 +507,7 @@ const PaymentConfiguration = () => {
         </Button>
       </div>
 
-      {/* Modal de error */}
+      {/* Modal de error mejorado */}
       <ErrorModal
         isOpen={errorModal.isOpen}
         onClose={() => setErrorModal(prev => ({ ...prev, isOpen: false }))}
