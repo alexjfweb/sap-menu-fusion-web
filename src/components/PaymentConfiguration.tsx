@@ -139,6 +139,14 @@ const PaymentConfiguration = () => {
           return `${config.name}: Clave pública es requerida`;
         }
         break;
+      case 'nequi':
+        if (!config.configuration.phone_number) {
+          return `${config.name}: Número de teléfono es requerido`;
+        }
+        if (!/^\d{10}$/.test(config.configuration.phone_number)) {
+          return `${config.name}: El número debe tener exactamente 10 dígitos`;
+        }
+        break;
     }
 
     return null;
@@ -302,6 +310,27 @@ const PaymentConfiguration = () => {
                 onChange={(e) => handleConfigChange(index, 'private_key', e.target.value)}
               />
             </div>
+          </div>
+        );
+      
+      case 'nequi':
+        return (
+          <div className="space-y-2">
+            <Label>Número de Teléfono Nequi</Label>
+            <Input
+              placeholder="3001234567"
+              value={config.configuration.phone_number || ''}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9]/g, '');
+                if (value.length <= 10) {
+                  handleConfigChange(index, 'phone_number', value);
+                }
+              }}
+              maxLength={10}
+            />
+            <p className="text-xs text-muted-foreground">
+              Ingresa 10 dígitos numéricos (ejemplo: 3001234567)
+            </p>
           </div>
         );
       

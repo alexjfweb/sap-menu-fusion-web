@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { ChefHat, Mail, MessageSquare, Phone, MapPin, Send, Loader2 } from 'lucide-react';
+import { ChefHat, Mail, MessageSquare, Phone, MapPin, Send, Loader2, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
@@ -18,6 +19,7 @@ const Contact = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData(prev => ({
@@ -82,6 +84,17 @@ const Contact = () => {
       <Navbar />
       
       <div className="container mx-auto px-4 py-16">
+        <div className="mb-8">
+          <Button
+            variant="outline"
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver al inicio
+          </Button>
+        </div>
+        
         <div className="text-center mb-12">
           <div className="flex justify-center mb-6">
             <ChefHat className="h-16 w-16 text-primary animate-pulse" />

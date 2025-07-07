@@ -18,6 +18,12 @@ const Navbar = () => {
   };
 
   const handleScrollToSection = (sectionId: string) => {
+    // Si no estamos en la página principal, navegar primero
+    if (window.location.pathname !== '/') {
+      navigate('/', { state: { scrollTo: sectionId } });
+      return;
+    }
+    
     const section = document.querySelector(sectionId);
     if (section) {
       section.scrollIntoView({ behavior: 'smooth' });
