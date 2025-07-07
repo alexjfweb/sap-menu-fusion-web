@@ -1103,6 +1103,39 @@ export type Database = {
           },
         ]
       }
+      registration_logs: {
+        Row: {
+          attempts: number | null
+          email: string
+          error_details: Json | null
+          id: string
+          message: string | null
+          status: string | null
+          timestamp: string | null
+          user_id: string | null
+        }
+        Insert: {
+          attempts?: number | null
+          email: string
+          error_details?: Json | null
+          id?: string
+          message?: string | null
+          status?: string | null
+          timestamp?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          attempts?: number | null
+          email?: string
+          error_details?: Json | null
+          id?: string
+          message?: string | null
+          status?: string | null
+          timestamp?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       reservations: {
         Row: {
           created_at: string | null

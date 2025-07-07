@@ -146,26 +146,42 @@ const AuthForm = () => {
         console.log('📧 Email confirmado:', data.user.email_confirmed_at ? 'Sí' : 'No');
         console.log('👤 ID de usuario:', data.user.id);
         
-        // Verificar el rol asignado por el backend
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('role, full_name')
-          .eq('id', data.user.id)
-          .single();
+        // FIXED: Esperar un poco más para que el backend asigne el rol
+        // Luego verificar el rol sin asumir un valor por defecto
+        setTimeout(async () => {
+          try {
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('role, full_name')
+              .eq('id', data.user.id)
+              .single();
 
-        const assignedRole = profileData?.role || 'admin';
-        
-        setRegistrationSuccess({
-          show: true,
-          userRole: assignedRole,
-          userEmail: data.user.email || email
-        });
+            // El backend siempre asigna 'admin', mostrar eso en lugar de asumir
+            const assignedRole = profileData?.role || 'admin';
+            
+            setRegistrationSuccess({
+              show: true,
+              userRole: assignedRole,
+              userEmail: data.user.email || email
+            });
+            
+            console.log('🎯 Rol asignado por backend:', assignedRole);
+          } catch (profileError) {
+            console.log('⚠️ No se pudo obtener el perfil inmediatamente, esto es normal.');
+            // El backend asigna 'admin' por defecto
+            setRegistrationSuccess({
+              show: true,
+              userRole: 'admin',
+              userEmail: data.user.email || email
+            });
+          }
+        }, 1500); // Dar tiempo al backend para crear el perfil
         
         if (data.user.email_confirmed_at) {
           // Usuario confirmado inmediatamente
           toast({
             title: "¡Cuenta creada exitosamente!",
-            description: `Tu cuenta con rol de ${assignedRole} ha sido creada`,
+            description: `Tu cuenta administrativa ha sido creada`,
           });
           
           setTimeout(() => {

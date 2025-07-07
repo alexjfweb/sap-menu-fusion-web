@@ -184,7 +184,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     signOut,
     isAuthenticated: !!session,
-    role: profile?.role || 'empleado',
+    // FIXED: Cambiar el fallback de 'empleado' a 'admin' para coincidir con el backend
+    // Si no hay perfil cargado, no mostrar rol hasta que se cargue
+    role: profile?.role || (loading ? '' : 'admin'),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
