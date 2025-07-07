@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import HeroSection from '@/components/HeroSection';
 import FeaturesSection from '@/components/FeaturesSection';
@@ -12,6 +12,7 @@ import DiagnosticPanel from '@/components/DiagnosticPanel';
 const Index = () => {
   const { isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   useEffect(() => {
@@ -23,6 +24,19 @@ const Index = () => {
       navigate('/dashboard');
     }
   }, [isAuthenticated, loading, navigate]);
+
+  // Handle scroll to section when navigating from other pages
+  useEffect(() => {
+    if (location.state?.scrollTo) {
+      const sectionId = location.state.scrollTo;
+      setTimeout(() => {
+        const section = document.querySelector(sectionId);
+        if (section) {
+          section.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    }
+  }, [location.state]);
 
   // Show loading while checking authentication
   if (loading) {
@@ -44,7 +58,9 @@ const Index = () => {
       <div id="features">
         <FeaturesSection />
       </div>
-      <PricingPlans />
+      <div id="planes">
+        <PricingPlans />
+      </div>
       
       {/* Panel de diagnóstico para desarrollo (oculto por defecto) */}
       <div className="container mx-auto px-4 py-8">
