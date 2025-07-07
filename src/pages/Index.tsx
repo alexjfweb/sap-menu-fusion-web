@@ -62,18 +62,6 @@ const Index = () => {
         <PricingPlans />
       </div>
       
-      {/* Panel de diagnóstico para desarrollo (oculto por defecto) */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center mb-4">
-          <button
-            onClick={() => setShowDiagnostics(!showDiagnostics)}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {showDiagnostics ? 'Ocultar' : 'Mostrar'} Panel de Diagnóstico
-          </button>
-        </div>
-        {showDiagnostics && <DiagnosticPanel />}
-      </div>
       
       <Footer />
     </div>

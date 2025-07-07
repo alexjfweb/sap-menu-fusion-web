@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import ErrorModal from '@/components/ErrorModal';
 import { 
   CreditCard, 
   Smartphone, 
@@ -43,6 +44,16 @@ const PaymentConfiguration = () => {
   const [configs, setConfigs] = useState<PaymentMethodConfig[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [errorModal, setErrorModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    error?: any;
+  }>({
+    isOpen: false,
+    title: '',
+    message: ''
+  });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -204,12 +215,15 @@ const PaymentConfiguration = () => {
 
       // Guardar configuraciones en base de datos
       for (const config of configs) {
+        // Solo guardar configuraciones activas
+        if (!config.is_active) continue;
+        
         const upsertData = {
           name: config.name,
           type: config.type,
           is_active: config.is_active,
           configuration: config.configuration,
-          webhook_url: config.logo_url
+          webhook_url: config.logo_url || null
         };
 
         if (config.id) {
@@ -241,6 +255,15 @@ const PaymentConfiguration = () => {
       queryClient.invalidateQueries({ queryKey: ['payment-methods-config'] });
     } catch (error) {
       console.error('Error saving payment configuration:', error);
+      
+      // Mostrar modal de error detallado
+      setErrorModal({
+        isOpen: true,
+        title: 'Error al guardar configuración',
+        message: 'No se pudo guardar la configuración de métodos de pago. Por favor, revise los datos ingresados e intente nuevamente.',
+        error
+      });
+      
       toast({
         variant: 'destructive',
         title: 'Error al guardar',
@@ -466,6 +489,16 @@ const PaymentConfiguration = () => {
           )}
         </Button>
       </div>
+
+      {/* Modal de error */}
+      <ErrorModal
+        isOpen={errorModal.isOpen}
+        onClose={() => setErrorModal(prev => ({ ...prev, isOpen: false }))}
+        title={errorModal.title}
+        message={errorModal.message}
+        error={errorModal.error}
+        logToConsole={true}
+      />
     </div>
   );
 };
