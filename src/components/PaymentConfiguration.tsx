@@ -204,12 +204,15 @@ const PaymentConfiguration = () => {
             return;
           }
 
-          // Obtener URL pública
+          // Obtener URL pública y SOLO asignarla si no hay URL externa
           const { data: { publicUrl } } = supabase.storage
             .from('uploads')
             .getPublicUrl(`payment-logos/${fileName}`);
           
-          config.logo_url = publicUrl;
+          // CORRECCIÓN CRÍTICA: Solo asignar URL si no hay una URL externa especificada
+          if (!config.logo_url || config.logo_url.trim() === '') {
+            config.logo_url = publicUrl;
+          }
         }
       }
 
@@ -223,7 +226,8 @@ const PaymentConfiguration = () => {
           type: config.type,
           is_active: config.is_active,
           configuration: config.configuration,
-          webhook_url: config.logo_url || null
+          // CORRECCIÓN: Permitir webhook_url nulo si no hay logo_url
+          webhook_url: config.logo_url && config.logo_url.trim() !== '' ? config.logo_url : null
         };
 
         if (config.id) {
