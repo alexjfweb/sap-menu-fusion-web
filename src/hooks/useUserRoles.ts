@@ -186,10 +186,8 @@ export const useUserRoles = () => {
     }
   };
 
-  // Sincronizar roles automáticamente al montar el componente
-  useEffect(() => {
-    syncUserRoles();
-  }, []);
+  // NOTA: syncUserRoles ahora debe ejecutarse manualmente desde el panel de Super Admin
+  // Removido useEffect automático para evitar sobrescribir roles por defecto de Supabase
 
   return {
     isLoading,

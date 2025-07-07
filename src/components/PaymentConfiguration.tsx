@@ -129,6 +129,11 @@ const PaymentConfiguration = () => {
   const validateConfig = (config: PaymentMethodConfig): string | null => {
     if (!config.is_active) return null;
 
+    // Validar que métodos como Nequi tengan al menos una opción de logo
+    if (['nequi', 'daviplata'].includes(config.type) && !config.logo_url && !config.logo_file) {
+      return `${config.name}: Debe proporcionar un logo (URL o archivo)`;
+    }
+
     // Validaciones específicas por tipo
     switch (config.type) {
       case 'stripe':
