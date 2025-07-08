@@ -22,6 +22,7 @@ import { useEmployeeManagement, Employee } from '@/hooks/useEmployeeManagement';
 import EmployeeForm from './EmployeeForm';
 import EmployeeProfile from './EmployeeProfile';
 import ActivityHistoryPanel from './ActivityHistoryPanel';
+import EmployeeCreatedModal from './EmployeeCreatedModal';
 
 interface EmployeeManagementProps {
   onBack: () => void;
@@ -32,6 +33,7 @@ const EmployeeManagement = ({ onBack }: EmployeeManagementProps) => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [activeView, setActiveView] = useState<'list' | 'create' | 'edit' | 'profile' | 'activity'>('list');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [newEmployeeData, setNewEmployeeData] = useState<{ employee: Employee; password: string } | null>(null);
 
   const {
     employees,
@@ -44,7 +46,9 @@ const EmployeeManagement = ({ onBack }: EmployeeManagementProps) => {
     isTogglingStatus,
     deleteEmployee,
     isDeletingEmployee,
-  } = useEmployeeManagement();
+  } = useEmployeeManagement((data) => {
+    setNewEmployeeData(data);
+  });
 
   // Filtrar empleados
   const filteredEmployees = employees.filter(employee => {
@@ -371,6 +375,16 @@ const EmployeeManagement = ({ onBack }: EmployeeManagementProps) => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de confirmación de empleado creado */}
+      {newEmployeeData && (
+        <EmployeeCreatedModal
+          isOpen={!!newEmployeeData}
+          onClose={() => setNewEmployeeData(null)}
+          employee={newEmployeeData.employee}
+          password={newEmployeeData.password}
+        />
+      )}
     </div>
   );
 };

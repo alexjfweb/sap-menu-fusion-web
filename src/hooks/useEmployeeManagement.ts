@@ -23,13 +23,14 @@ export interface EmployeeFormData {
   email: string;
   full_name: string;
   role: 'empleado' | 'admin';
+  password: string;
   phone_mobile?: string;
   phone_landline?: string;
   address?: string;
   is_active: boolean;
 }
 
-export const useEmployeeManagement = () => {
+export const useEmployeeManagement = (onEmployeeCreated?: (data: { employee: Employee; password: string }) => void) => {
   const { toast } = useToast();
   const { profile } = useAuth();
   const queryClient = useQueryClient();
@@ -84,6 +85,16 @@ export const useEmployeeManagement = () => {
         throw new Error('No tienes permisos para crear empleados');
       }
 
+      // Validar datos obligatorios
+      if (!employeeData.email || !employeeData.full_name || !employeeData.password) {
+        throw new Error('Email, nombre completo y contraseña son obligatorios');
+      }
+
+      // Validar contraseña mínima
+      if (employeeData.password.length < 8) {
+        throw new Error('La contraseña debe tener al menos 8 caracteres');
+      }
+
       // Verificar si el email ya existe (validación preventiva en frontend)
       const emailExists = await checkEmailExists(employeeData.email);
       if (emailExists) {
@@ -96,6 +107,7 @@ export const useEmployeeManagement = () => {
           employeeData: {
             email: employeeData.email,
             full_name: employeeData.full_name,
+            password: employeeData.password,
             phone_mobile: employeeData.phone_mobile,
             phone_landline: employeeData.phone_landline,
             address: employeeData.address,
@@ -116,15 +128,19 @@ export const useEmployeeManagement = () => {
       }
 
       console.log('✅ [EMPLOYEE MANAGEMENT] Employee created successfully:', data.data);
-      return data.data;
+      return { employee: data.data, password: data.password };
     },
     onSuccess: (data) => {
-      console.log('✅ [EMPLOYEE MANAGEMENT] Employee created successfully:', data.id);
+      console.log('✅ [EMPLOYEE MANAGEMENT] Employee created successfully:', data.employee.id);
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       toast({
         title: 'Empleado creado',
-        description: `El empleado ${data.full_name} ha sido creado exitosamente.`,
+        description: `El empleado ${data.employee.full_name} ha sido creado exitosamente.`,
       });
+      // Call the callback if provided
+      if (onEmployeeCreated) {
+        onEmployeeCreated(data);
+      }
     },
     onError: (error: any) => {
       console.error('❌ [EMPLOYEE MANAGEMENT] Error creating employee:', error);

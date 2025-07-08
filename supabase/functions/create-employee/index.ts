@@ -40,13 +40,18 @@ serve(async (req) => {
 
     console.log('🔧 [CREATE-EMPLOYEE] Creating employee:', employeeData.email);
 
-    // Generate a temporary password for the employee
-    const tempPassword = `Temp${Math.random().toString(36).slice(-8)}!`;
+    // Use provided password or generate a temporary one
+    const password = employeeData.password || `Temp${Math.random().toString(36).slice(-8)}!`;
+    
+    // Validate password length
+    if (password.length < 8) {
+      throw new Error('La contraseña debe tener al menos 8 caracteres');
+    }
 
     // Create user in auth.users with metadata
     const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: employeeData.email.toLowerCase().trim(),
-      password: tempPassword,
+      password: password,
       email_confirm: true, // Auto-confirm email for admin-created users
       user_metadata: {
         full_name: employeeData.full_name,
@@ -117,7 +122,7 @@ serve(async (req) => {
       success: true,
       data: profile,
       message: 'Empleado creado exitosamente',
-      tempPassword // Return temp password so admin can share with employee
+      password: password // Return password so admin can share with employee
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

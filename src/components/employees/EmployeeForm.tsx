@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Save } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ArrowLeft, Save, Key, Copy, Eye, EyeOff } from 'lucide-react';
 import { EmployeeFormData, Employee } from '@/hooks/useEmployeeManagement';
 
 interface EmployeeFormProps {
@@ -20,6 +21,8 @@ interface EmployeeFormProps {
 
 const EmployeeForm = ({ onSubmit, onCancel, isLoading, title, initialData }: EmployeeFormProps) => {
   const isEditing = !!initialData;
+  const [autoGeneratePassword, setAutoGeneratePassword] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
   
   const {
     register,
@@ -32,6 +35,7 @@ const EmployeeForm = ({ onSubmit, onCancel, isLoading, title, initialData }: Emp
       email: initialData?.email || '',
       full_name: initialData?.full_name || '',
       role: isEditing ? (initialData?.role === 'superadmin' ? 'admin' : (initialData?.role || 'empleado')) : 'empleado',
+      password: '',
       phone_mobile: initialData?.phone_mobile || '',
       phone_landline: initialData?.phone_landline || '',
       address: initialData?.address || '',
@@ -40,6 +44,29 @@ const EmployeeForm = ({ onSubmit, onCancel, isLoading, title, initialData }: Emp
   });
 
   const isActiveValue = watch('is_active');
+  const passwordValue = watch('password');
+
+  // Función para generar contraseña segura
+  const generateSecurePassword = () => {
+    const length = Math.floor(Math.random() * 5) + 8; // 8-12 caracteres
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < length; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  };
+
+  // Manejar cambio en el checkbox de auto-generar
+  const handleAutoGenerateChange = (checked: boolean) => {
+    setAutoGeneratePassword(checked);
+    if (checked) {
+      const newPassword = generateSecurePassword();
+      setValue('password', newPassword);
+    } else {
+      setValue('password', '');
+    }
+  };
 
   const onFormSubmit = (data: EmployeeFormData) => {
     console.log('📝 [EMPLOYEE FORM] Submitting form data:', data);
@@ -163,6 +190,85 @@ const EmployeeForm = ({ onSubmit, onCancel, isLoading, title, initialData }: Emp
                     </div>
                   </div>
                 </div>
+
+                {/* Campo de contraseña - solo para nuevos empleados */}
+                {!isEditing && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium flex items-center">
+                      <Key className="h-5 w-5 mr-2" />
+                      Contraseña de Acceso
+                    </h3>
+                    
+                    <div className="space-y-4 p-4 bg-orange-50 border border-orange-200 rounded-md">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="auto-generate"
+                          checked={autoGeneratePassword}
+                          onCheckedChange={handleAutoGenerateChange}
+                        />
+                        <Label htmlFor="auto-generate" className="text-sm font-medium">
+                          Generar contraseña automáticamente
+                        </Label>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="password">Contraseña *</Label>
+                        <div className="relative">
+                          <Input
+                            id="password"
+                            type={showPassword ? "text" : "password"}
+                            {...register('password', { 
+                              required: 'La contraseña es requerida',
+                              minLength: { value: 8, message: 'La contraseña debe tener al menos 8 caracteres' }
+                            })}
+                            placeholder={autoGeneratePassword ? 'Se generará automáticamente' : 'Mínimo 8 caracteres'}
+                            disabled={autoGeneratePassword}
+                            className={autoGeneratePassword ? 'bg-muted' : ''}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={() => setShowPassword(!showPassword)}
+                            disabled={!passwordValue}
+                          >
+                            {showPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                        {errors.password && (
+                          <p className="text-sm text-red-600">{errors.password.message}</p>
+                        )}
+                        {passwordValue && (
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => navigator.clipboard.writeText(passwordValue)}
+                            >
+                              <Copy className="h-4 w-4 mr-2" />
+                              Copiar contraseña
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="bg-orange-100 border border-orange-300 rounded-md p-3">
+                        <h5 className="text-sm font-medium text-orange-800 mb-1">⚠️ Información importante:</h5>
+                        <ul className="text-sm text-orange-700 space-y-1">
+                          <li>• El empleado usará esta contraseña para su primer inicio de sesión</li>
+                          <li>• Asegúrate de copiar y compartir la contraseña de forma segura</li>
+                          <li>• El empleado podrá cambiar su contraseña después del primer acceso</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Información de contacto */}
                 <div className="space-y-4">
