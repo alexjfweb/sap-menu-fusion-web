@@ -19,6 +19,8 @@ interface EmployeeFormProps {
 }
 
 const EmployeeForm = ({ onSubmit, onCancel, isLoading, title, initialData }: EmployeeFormProps) => {
+  const isEditing = !!initialData;
+  
   const {
     register,
     handleSubmit,
@@ -29,7 +31,7 @@ const EmployeeForm = ({ onSubmit, onCancel, isLoading, title, initialData }: Emp
     defaultValues: {
       email: initialData?.email || '',
       full_name: initialData?.full_name || '',
-      role: initialData?.role === 'superadmin' ? 'admin' : (initialData?.role || 'empleado'),
+      role: isEditing ? (initialData?.role === 'superadmin' ? 'admin' : (initialData?.role || 'empleado')) : 'empleado',
       phone_mobile: initialData?.phone_mobile || '',
       phone_landline: initialData?.phone_landline || '',
       address: initialData?.address || '',
@@ -56,7 +58,7 @@ const EmployeeForm = ({ onSubmit, onCancel, isLoading, title, initialData }: Emp
             <div>
               <h1 className="text-2xl font-bold">{title}</h1>
               <p className="text-sm text-muted-foreground">
-                {initialData ? 'Actualiza la información del empleado' : 'Completa los datos del nuevo empleado'}
+                {isEditing ? 'Actualiza la información del empleado' : 'Completa los datos del nuevo empleado'}
               </p>
             </div>
           </div>
@@ -69,7 +71,10 @@ const EmployeeForm = ({ onSubmit, onCancel, isLoading, title, initialData }: Emp
             <CardHeader>
               <CardTitle>Información del Empleado</CardTitle>
               <CardDescription>
-                Completa todos los campos requeridos para {initialData ? 'actualizar' : 'crear'} el empleado
+                {isEditing 
+                  ? 'Completa todos los campos requeridos para actualizar el empleado'
+                  : 'Completa todos los campos requeridos para crear el nuevo empleado'
+                }
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -104,7 +109,7 @@ const EmployeeForm = ({ onSubmit, onCancel, isLoading, title, initialData }: Emp
                         }
                       })}
                       placeholder="juan@empresa.com"
-                      disabled={!!initialData} // No permitir cambiar email en edición
+                      disabled={isEditing} // No permitir cambiar email en edición
                     />
                     {errors.email && (
                       <p className="text-sm text-red-600">{errors.email.message}</p>
@@ -116,14 +121,29 @@ const EmployeeForm = ({ onSubmit, onCancel, isLoading, title, initialData }: Emp
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="role">Rol *</Label>
-                    <select
-                      id="role"
-                      {...register('role', { required: 'El rol es requerido' })}
-                      className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
-                    >
-                      <option value="empleado">Empleado</option>
-                      <option value="admin">Administrador</option>
-                    </select>
+                    {isEditing ? (
+                      // Al editar: permitir cambio entre empleado y admin
+                      <select
+                        id="role"
+                        {...register('role', { required: 'El rol es requerido' })}
+                        className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+                      >
+                        <option value="empleado">Empleado</option>
+                        <option value="admin">Administrador</option>
+                      </select>
+                    ) : (
+                      // Al crear: solo empleado, con información clara
+                      <div className="space-y-2">
+                        <Input
+                          value="Empleado"
+                          disabled
+                          className="bg-muted text-muted-foreground"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Los nuevos usuarios se crean como empleados por defecto
+                        </p>
+                      </div>
+                    )}
                     {errors.role && (
                       <p className="text-sm text-red-600">{errors.role.message}</p>
                     )}
@@ -179,6 +199,18 @@ const EmployeeForm = ({ onSubmit, onCancel, isLoading, title, initialData }: Emp
                   </div>
                 </div>
 
+                {/* Información adicional para nuevos empleados */}
+                {!isEditing && (
+                  <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                    <h4 className="text-sm font-medium text-blue-800 mb-2">Información importante:</h4>
+                    <ul className="text-sm text-blue-700 space-y-1">
+                      <li>• El empleado se creará con rol de "Empleado" y estará asociado a tu cuenta</li>
+                      <li>• Se verificará que el email no esté registrado previamente</li>
+                      <li>• Podrás cambiar el rol posteriormente desde la edición</li>
+                    </ul>
+                  </div>
+                )}
+
                 {/* Botones de acción */}
                 <div className="flex items-center justify-end space-x-4 pt-6 border-t">
                   <Button
@@ -198,7 +230,7 @@ const EmployeeForm = ({ onSubmit, onCancel, isLoading, title, initialData }: Emp
                     ) : (
                       <Save className="h-4 w-4 mr-2" />
                     )}
-                    {initialData ? 'Actualizar' : 'Crear'} Empleado
+                    {isEditing ? 'Actualizar' : 'Crear'} Empleado
                   </Button>
                 </div>
               </form>

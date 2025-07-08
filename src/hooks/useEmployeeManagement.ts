@@ -33,6 +33,21 @@ export const useEmployeeManagement = () => {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
 
+  // Función para verificar si un email ya existe
+  const checkEmailExists = async (email: string): Promise<boolean> => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email.toLowerCase().trim())
+      .maybeSingle();
+
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+
+    return !!data;
+  };
+
   // Obtener empleados del administrador actual
   const { data: employees, isLoading: isLoadingEmployees, error } = useQuery({
     queryKey: ['employees', profile?.id],
@@ -58,31 +73,48 @@ export const useEmployeeManagement = () => {
     enabled: !!profile?.id && (profile.role === 'admin' || profile.role === 'superadmin'),
   });
 
-  // Crear empleado - Generando un UUID único
+  // Crear empleado con validación de email y rol correcto
   const createEmployeeMutation = useMutation({
     mutationFn: async (employeeData: EmployeeFormData) => {
       console.log('👤 [EMPLOYEE MANAGEMENT] Creating employee:', employeeData);
       
-      // Generar un UUID único para el nuevo empleado usando crypto.randomUUID()
-      const newEmployeeId = crypto.randomUUID();
+      // Validar que solo administradores puedan crear empleados
+      if (!profile?.id || (profile.role !== 'admin' && profile.role !== 'superadmin')) {
+        throw new Error('No tienes permisos para crear empleados');
+      }
 
+      // Verificar si el email ya existe
+      const emailExists = await checkEmailExists(employeeData.email);
+      if (emailExists) {
+        throw new Error('Ya existe una cuenta con este correo.');
+      }
+
+      // Crear empleado con rol forzado a 'empleado' y created_by al admin actual
       const { data, error } = await supabase
         .from('profiles')
         .insert({
-          id: newEmployeeId,
-          email: employeeData.email,
+          email: employeeData.email.toLowerCase().trim(),
           full_name: employeeData.full_name,
-          role: employeeData.role,
+          role: 'empleado', // Forzar rol de empleado, independientemente del formulario
           phone_mobile: employeeData.phone_mobile || null,
           phone_landline: employeeData.phone_landline || null,
           address: employeeData.address || null,
           is_active: employeeData.is_active,
-          created_by: profile?.id,
+          created_by: profile.id, // Asociar al administrador actual
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ [EMPLOYEE MANAGEMENT] Database error:', error);
+        
+        // Manejar errores específicos
+        if (error.code === '23505') { // Unique violation
+          throw new Error('Ya existe una cuenta con este correo.');
+        }
+        
+        throw new Error(error.message || 'Error al crear el empleado');
+      }
 
       // Registrar actividad
       if (data && profile?.id) {
@@ -92,7 +124,7 @@ export const useEmployeeManagement = () => {
           p_description: `Empleado creado: ${employeeData.full_name}`,
           p_entity_type: 'employee',
           p_entity_id: data.id,
-          p_metadata: { employee_email: employeeData.email, employee_role: employeeData.role }
+          p_metadata: { employee_email: employeeData.email, employee_role: 'empleado' }
         });
       }
 
@@ -121,6 +153,11 @@ export const useEmployeeManagement = () => {
     mutationFn: async ({ id, data: updateData }: { id: string; data: Partial<EmployeeFormData> }) => {
       console.log('✏️ [EMPLOYEE MANAGEMENT] Updating employee:', id, updateData);
       
+      // Validar permisos
+      if (!profile?.id || (profile.role !== 'admin' && profile.role !== 'superadmin')) {
+        throw new Error('No tienes permisos para actualizar empleados');
+      }
+      
       const { data, error } = await supabase
         .from('profiles')
         .update({
@@ -137,7 +174,10 @@ export const useEmployeeManagement = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ [EMPLOYEE MANAGEMENT] Update error:', error);
+        throw new Error(error.message || 'Error al actualizar el empleado');
+      }
 
       // Registrar actividad
       if (data && profile?.id) {
@@ -171,7 +211,6 @@ export const useEmployeeManagement = () => {
     },
   });
 
-  // Activar/Desactivar empleado
   const toggleEmployeeStatusMutation = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
       console.log(`🔄 [EMPLOYEE MANAGEMENT] ${is_active ? 'Activating' : 'Deactivating'} employee:`, id);
@@ -236,7 +275,6 @@ export const useEmployeeManagement = () => {
         .update({ 
           is_active: false, 
           updated_at: new Date().toISOString(),
-          // Marcar como eliminado en metadata o campo específico si es necesario
         })
         .eq('id', id)
         .eq('created_by', profile?.id)
