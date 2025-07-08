@@ -90,9 +90,9 @@ export const useEmployeeManagement = (onEmployeeCreated?: (data: { employee: Emp
         throw new Error('Email, nombre completo y contraseña son obligatorios');
       }
 
-      // Validar contraseña mínima
-      if (employeeData.password.length < 8) {
-        throw new Error('La contraseña debe tener al menos 8 caracteres');
+      // Validar contraseña mínima (ahora 6 caracteres para coincidir con Edge Function)
+      if (employeeData.password.length < 6) {
+        throw new Error('La contraseña debe tener al menos 6 caracteres');
       }
 
       // Verificar si el email ya existe (validación preventiva en frontend)

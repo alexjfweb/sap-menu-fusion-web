@@ -219,9 +219,9 @@ const EmployeeForm = ({ onSubmit, onCancel, isLoading, title, initialData }: Emp
                             type={showPassword ? "text" : "password"}
                             {...register('password', { 
                               required: 'La contraseña es requerida',
-                              minLength: { value: 8, message: 'La contraseña debe tener al menos 8 caracteres' }
+                              minLength: { value: 6, message: 'La contraseña debe tener al menos 6 caracteres' }
                             })}
-                            placeholder={autoGeneratePassword ? 'Se generará automáticamente' : 'Mínimo 8 caracteres'}
+                            placeholder={autoGeneratePassword ? 'Se generará automáticamente' : 'Mínimo 6 caracteres'}
                             disabled={autoGeneratePassword}
                             className={autoGeneratePassword ? 'bg-muted' : ''}
                           />
