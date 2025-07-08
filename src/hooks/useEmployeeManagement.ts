@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -89,10 +90,14 @@ export const useEmployeeManagement = () => {
         throw new Error('Ya existe una cuenta con este correo.');
       }
 
+      // Generar UUID para el nuevo empleado
+      const employeeId = crypto.randomUUID();
+
       // Crear empleado con rol forzado a 'empleado' y created_by al admin actual
       const { data, error } = await supabase
         .from('profiles')
         .insert({
+          id: employeeId,
           email: employeeData.email.toLowerCase().trim(),
           full_name: employeeData.full_name,
           role: 'empleado', // Forzar rol de empleado, independientemente del formulario
