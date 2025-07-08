@@ -74,66 +74,49 @@ export const useEmployeeManagement = () => {
     enabled: !!profile?.id && (profile.role === 'admin' || profile.role === 'superadmin'),
   });
 
-  // Crear empleado con validación de email y rol correcto
+  // Crear empleado usando edge function para manejar auth.users correctamente
   const createEmployeeMutation = useMutation({
     mutationFn: async (employeeData: EmployeeFormData) => {
-      console.log('👤 [EMPLOYEE MANAGEMENT] Creating employee:', employeeData);
+      console.log('👤 [EMPLOYEE MANAGEMENT] Creating employee via edge function:', employeeData);
       
       // Validar que solo administradores puedan crear empleados
       if (!profile?.id || (profile.role !== 'admin' && profile.role !== 'superadmin')) {
         throw new Error('No tienes permisos para crear empleados');
       }
 
-      // Verificar si el email ya existe
+      // Verificar si el email ya existe (validación preventiva en frontend)
       const emailExists = await checkEmailExists(employeeData.email);
       if (emailExists) {
         throw new Error('Ya existe una cuenta con este correo.');
       }
 
-      // Generar UUID para el nuevo empleado
-      const employeeId = crypto.randomUUID();
-
-      // Crear empleado con rol forzado a 'empleado' y created_by al admin actual
-      const { data, error } = await supabase
-        .from('profiles')
-        .insert({
-          id: employeeId,
-          email: employeeData.email.toLowerCase().trim(),
-          full_name: employeeData.full_name,
-          role: 'empleado', // Forzar rol de empleado, independientemente del formulario
-          phone_mobile: employeeData.phone_mobile || null,
-          phone_landline: employeeData.phone_landline || null,
-          address: employeeData.address || null,
-          is_active: employeeData.is_active,
-          created_by: profile.id, // Asociar al administrador actual
-        })
-        .select()
-        .single();
+      // Llamar a la edge function para crear el empleado
+      const { data, error } = await supabase.functions.invoke('create-employee', {
+        body: {
+          employeeData: {
+            email: employeeData.email,
+            full_name: employeeData.full_name,
+            phone_mobile: employeeData.phone_mobile,
+            phone_landline: employeeData.phone_landline,
+            address: employeeData.address,
+            is_active: employeeData.is_active
+          },
+          currentAdminId: profile.id
+        }
+      });
 
       if (error) {
-        console.error('❌ [EMPLOYEE MANAGEMENT] Database error:', error);
-        
-        // Manejar errores específicos
-        if (error.code === '23505') { // Unique violation
-          throw new Error('Ya existe una cuenta con este correo.');
-        }
-        
-        throw new Error(error.message || 'Error al crear el empleado');
+        console.error('❌ [EMPLOYEE MANAGEMENT] Edge function error:', error);
+        throw new Error(error.message || 'Error al comunicarse con el servidor');
       }
 
-      // Registrar actividad
-      if (data && profile?.id) {
-        await supabase.rpc('log_employee_activity', {
-          p_employee_id: profile.id,
-          p_activity_type: 'employee_created',
-          p_description: `Empleado creado: ${employeeData.full_name}`,
-          p_entity_type: 'employee',
-          p_entity_id: data.id,
-          p_metadata: { employee_email: employeeData.email, employee_role: 'empleado' }
-        });
+      if (!data.success) {
+        console.error('❌ [EMPLOYEE MANAGEMENT] Employee creation failed:', data.error);
+        throw new Error(data.error || 'Error al crear el empleado');
       }
 
-      return data;
+      console.log('✅ [EMPLOYEE MANAGEMENT] Employee created successfully:', data.data);
+      return data.data;
     },
     onSuccess: (data) => {
       console.log('✅ [EMPLOYEE MANAGEMENT] Employee created successfully:', data.id);
