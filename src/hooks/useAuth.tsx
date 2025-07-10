@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
@@ -107,7 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Add timeout to prevent infinite loading
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000);
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 15000);
       });
 
       const profilePromise = supabase
@@ -129,12 +128,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('✅ Perfil encontrado:', {
           email: data.email,
           role: data.role,
-          is_active: data.is_active
+          is_active: data.is_active,
+          created_at: data.created_at
         });
         setProfile(data);
       } else {
         console.log('⚠️ No se encontró perfil para el usuario. El trigger debería haberlo creado.');
-        setProfile(null);
+        
+        // Intentar crear el perfil manualmente si no existe
+        try {
+          console.log('🔄 Intentando crear perfil manualmente...');
+          const { data: newProfile, error: createError } = await supabase
+            .from('profiles')
+            .insert({
+              id: user.id,
+              email: user.email,
+              full_name: user.user_metadata?.full_name || user.email,
+              role: 'admin',
+              is_active: true
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            console.error('❌ Error creando perfil manualmente:', createError);
+            setProfile(null);
+          } else {
+            console.log('✅ Perfil creado manualmente:', newProfile);
+            setProfile(newProfile);
+          }
+        } catch (createError) {
+          console.error('❌ Error inesperado creando perfil:', createError);
+          setProfile(null);
+        }
       }
     } catch (error) {
       console.error('❌ Error inesperado obteniendo perfil:', error);

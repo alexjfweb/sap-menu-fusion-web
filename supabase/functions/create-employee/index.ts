@@ -33,11 +33,11 @@ serve(async (req) => {
     );
 
     // Parse and validate request body
-    const { employeeData, currentAdminId } = await req.json();
+    const { employeeData, currentAdminId, currentAdminEmail } = await req.json();
     
-    if (!employeeData || !currentAdminId) {
+    if (!employeeData || !currentAdminId || !currentAdminEmail) {
       console.error('❌ [CREATE-EMPLOYEE] Missing required data');
-      throw new Error('Missing required data: employeeData and currentAdminId');
+      throw new Error('Missing required data: employeeData, currentAdminId and currentAdminEmail');
     }
 
     // Strict validation of required fields
@@ -129,17 +129,21 @@ serve(async (req) => {
     console.log('📝 [CREATE-EMPLOYEE] Creating profile manually...');
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .insert({
+      .insert([{
         id: authUser.user.id,
-        email: email,
-        full_name: fullName,
+        email: employeeData.email,
+        full_name: employeeData.full_name,
         role: 'empleado',
-        created_by: currentAdminId,
         is_active: employeeData.is_active ?? true,
+        created_by: currentAdminId,
+        created_by_email: currentAdminEmail,
         phone_mobile: employeeData.phone_mobile || null,
         phone_landline: employeeData.phone_landline || null,
-        address: employeeData.address || null
-      })
+        address: employeeData.address || null,
+        avatar_url: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }])
       .select()
       .single();
 

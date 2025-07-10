@@ -358,10 +358,41 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
           phone_mobile: formData.phone_mobile || null,
           phone_landline: formData.phone_landline || null,
           address: formData.address || null,
-          role: formData.role,
           updated_at: new Date().toISOString()
         };
 
+        // Si el rol cambió, solo permitirlo a superadmin y usar la función RPC
+        if (formData.role !== user?.role) {
+          if (currentUserProfile.role !== 'superadmin') {
+            // Mostrar modal de acceso denegado
+            toast({
+              title: 'Acceso denegado',
+              description: 'Solo los superadministradores pueden cambiar roles.',
+              variant: 'destructive'
+            });
+            setLoading(false);
+            return;
+          }
+          // Llamar a la función RPC segura
+          console.log('Llamando a change_user_role RPC:', user!.id, formData.role);
+          const { data: rpcData, error: rpcError } = await supabase.rpc('change_user_role', {
+            target_id: user!.id,
+            new_role: formData.role
+          });
+          if (rpcError) {
+            toast({
+              title: 'Error',
+              description: rpcError.message || 'No se pudo cambiar el rol',
+              variant: 'destructive'
+            });
+            setLoading(false);
+            return;
+          }
+          console.log('RPC ejecutada correctamente:', rpcData);
+        }
+
+        // Actualizar otros datos (sin tocar el rol)
+        console.log('Actualizando datos generales del usuario (sin tocar el rol):', updateData);
         const { error } = await supabase
           .from('profiles')
           .update(updateData)

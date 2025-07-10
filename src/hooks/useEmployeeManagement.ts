@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -50,19 +49,22 @@ export const useEmployeeManagement = (onEmployeeCreated?: (data: { employee: Emp
     return !!data;
   };
 
-  // Obtener empleados del administrador actual
+  // Obtener empleados creados por el email del admin actual
   const { data: employees, isLoading: isLoadingEmployees, error } = useQuery({
-    queryKey: ['employees', profile?.id],
+    queryKey: ['employees', profile?.email],
     queryFn: async () => {
-      if (!profile?.id) throw new Error('No user profile found');
+      if (!profile?.email) throw new Error('No user email found');
       
-      console.log('🔍 [EMPLOYEE MANAGEMENT] Fetching employees for admin:', profile.id);
-      
+      console.log('🔍 [EMPLOYEE MANAGEMENT] Fetching employees for admin email:', profile.email);
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('created_by', profile.id)
+        .eq('created_by_email', profile.email)
         .order('created_at', { ascending: false });
+
+      if (data) {
+        console.log('🔎 [EMPLOYEE MANAGEMENT] created_by_email de empleados encontrados:', data.map(e => e.created_by_email));
+      }
 
       if (error) {
         console.error('❌ [EMPLOYEE MANAGEMENT] Error fetching employees:', error);
@@ -72,7 +74,7 @@ export const useEmployeeManagement = (onEmployeeCreated?: (data: { employee: Emp
       console.log(`✅ [EMPLOYEE MANAGEMENT] Fetched ${data?.length || 0} employees`);
       return data as Employee[];
     },
-    enabled: !!profile?.id && (profile.role === 'admin' || profile.role === 'superadmin'),
+    enabled: !!profile?.email && (profile.role === 'admin' || profile.role === 'superadmin'),
   });
 
   // Crear empleado usando edge function para manejar auth.users correctamente
@@ -80,8 +82,7 @@ export const useEmployeeManagement = (onEmployeeCreated?: (data: { employee: Emp
     mutationFn: async (employeeData: EmployeeFormData) => {
       console.log('👤 [EMPLOYEE MANAGEMENT] Creating employee via edge function:', employeeData);
       
-      // Validar que solo administradores puedan crear empleados
-      if (!profile?.id || (profile.role !== 'admin' && profile.role !== 'superadmin')) {
+      if (!profile?.id || !profile?.email || (profile.role !== 'admin' && profile.role !== 'superadmin')) {
         throw new Error('No tienes permisos para crear empleados');
       }
 
@@ -113,7 +114,8 @@ export const useEmployeeManagement = (onEmployeeCreated?: (data: { employee: Emp
             address: employeeData.address,
             is_active: employeeData.is_active
           },
-          currentAdminId: profile.id
+          currentAdminId: profile.id,
+          currentAdminEmail: profile.email
         }
       });
 

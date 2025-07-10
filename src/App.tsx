@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,6 +12,10 @@ import Dashboard from "./components/Dashboard";
 import PublicMenu from "./components/menu/PublicMenu";
 import NotFound from "./pages/NotFound";
 import ConnectionStatusIndicator from "@/components/ConnectionStatusIndicator";
+import AdminDashboard from "./components/dashboards/AdminDashboard";
+import SuperAdminDashboard from "./components/dashboards/SuperAdminDashboard";
+import EmpleadoDashboard from "./components/dashboards/EmpleadoDashboard";
+import RouteVerifier from "./components/RouteVerifier";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +35,21 @@ function App() {
               <Route path="/contact" element={<Contact />} />
               <Route path="/auth/reset-password" element={<PasswordReset />} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/admin" element={
+                <RouteVerifier requiredRole="admin">
+                  <AdminDashboard />
+                </RouteVerifier>
+              } />
+              <Route path="/superadmin" element={
+                <RouteVerifier requiredRole="superadmin">
+                  <SuperAdminDashboard />
+                </RouteVerifier>
+              } />
+              <Route path="/empleado" element={
+                <RouteVerifier requiredRole="empleado">
+                  <EmpleadoDashboard />
+                </RouteVerifier>
+              } />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

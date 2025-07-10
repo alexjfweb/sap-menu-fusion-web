@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -8,22 +7,61 @@ import FeaturesSection from '@/components/FeaturesSection';
 import PricingPlans from '@/components/PricingPlans';
 import Footer from '@/components/Footer';
 import DiagnosticPanel from '@/components/DiagnosticPanel';
+import SupabaseConnectionTest from '@/components/SupabaseConnectionTest';
 
 const Index = () => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, profile, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [profileCheckAttempts, setProfileCheckAttempts] = useState(0);
 
   useEffect(() => {
-    console.log('🏠 Index: Estado de autenticación:', { isAuthenticated, loading });
+    console.log('🏠 Index: Estado de autenticación:', { 
+      isAuthenticated, 
+      loading, 
+      hasProfile: !!profile,
+      profileRole: profile?.role,
+      userEmail: user?.email
+    });
     
-    // If user is already authenticated, redirect to dashboard
+    // If user is already authenticated, redirect based on role
     if (!loading && isAuthenticated) {
-      console.log('🔄 Index: Usuario autenticado, redirigiendo a dashboard');
-      navigate('/dashboard');
+      if (profile) {
+        console.log('Perfil cargado:', profile);
+        
+        if (profile.role === 'admin') {
+          console.log('🔄 Index: Usuario admin, redirigiendo a /admin');
+          navigate('/admin');
+        } else if (profile.role === 'superadmin') {
+          console.log('🔄 Index: Usuario superadmin, redirigiendo a /superadmin');
+          navigate('/superadmin');
+        } else if (profile.role === 'empleado') {
+          console.log('🔄 Index: Usuario empleado, redirigiendo a /empleado');
+          navigate('/empleado');
+        } else {
+          console.log('⚠️ Index: Rol desconocido:', profile.role, 'redirigiendo a dashboard');
+          navigate('/dashboard');
+        }
+      } else if (user) {
+        // Usuario autenticado pero sin perfil - podría ser un registro reciente
+        console.log('🔄 Index: Usuario autenticado sin perfil, esperando...');
+        
+        // Intentar obtener el perfil manualmente si no se ha cargado
+        if (profileCheckAttempts < 3) {
+          setTimeout(() => {
+            console.log(`🔄 Index: Reintentando obtener perfil (intento ${profileCheckAttempts + 1})`);
+            setProfileCheckAttempts(prev => prev + 1);
+            // Forzar recarga del perfil
+            window.location.reload();
+          }, 2000);
+        } else {
+          console.log('⚠️ Index: No se pudo obtener perfil después de 3 intentos, redirigiendo a dashboard');
+          navigate('/dashboard');
+        }
+      }
     }
-  }, [isAuthenticated, loading, navigate]);
+  }, [isAuthenticated, loading, profile, user, navigate, profileCheckAttempts]);
 
   // Handle scroll to section when navigating from other pages
   useEffect(() => {
@@ -62,6 +100,12 @@ const Index = () => {
         <PricingPlans />
       </div>
       
+      {/* Test de conexión temporal */}
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center">
+          <SupabaseConnectionTest />
+        </div>
+      </div>
       
       <Footer />
     </div>
