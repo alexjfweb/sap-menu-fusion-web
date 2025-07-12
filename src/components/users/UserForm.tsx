@@ -71,7 +71,7 @@ const UserForm = ({ user, onClose, onBack, onUserCreated }: UserFormProps) => {
         phone_mobile: user.phone_mobile || '',
         phone_landline: user.phone_landline || '',
         address: user.address || '',
-        role: user.role || 'empleado',
+        role: (user.role as 'admin' | 'superadmin' | 'empleado') || 'empleado',
         password: ''
       });
     }

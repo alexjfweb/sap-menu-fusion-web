@@ -138,6 +138,7 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
           full_name,
           role,
           created_by,
+          created_by_email,
           is_active,
           created_at,
           updated_at,

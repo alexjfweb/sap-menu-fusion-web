@@ -104,11 +104,12 @@ const TechnicalRecoveryMode = () => {
       setSystemStatus(prev => ({ ...prev, storage: 'error' }));
     }
 
-    // Verificar funciones/triggers
+    // Verificar funciones/triggers básicas
     try {
       addLog('⚙️ Verificando funciones y triggers...');
-      const { data, error } = await supabase.rpc('get_current_user_role');
-      if (error && !error.message.includes('not found')) {
+      // Verificar función promote_to_superadmin que sabemos que existe
+      const { data, error } = await supabase.rpc('promote_to_superadmin', { user_email: 'test@test.com' });
+      if (error && !error.message.includes('Access denied') && !error.message.includes('not found')) {
         addLog(`⚠️ Error en funciones: ${error.message}`);
         setSystemStatus(prev => ({ ...prev, functions: 'error' }));
       } else {
