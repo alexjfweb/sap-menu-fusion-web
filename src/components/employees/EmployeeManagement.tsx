@@ -23,6 +23,8 @@ import EmployeeForm from './EmployeeForm';
 import EmployeeProfile from './EmployeeProfile';
 import ActivityHistoryPanel from './ActivityHistoryPanel';
 import EmployeeCreatedModal from './EmployeeCreatedModal';
+import ToggleStatusModal from './ToggleStatusModal';
+import DeleteEmployeeModal from './DeleteEmployeeModal';
 
 interface EmployeeManagementProps {
   onBack: () => void;
@@ -34,6 +36,12 @@ const EmployeeManagement = ({ onBack }: EmployeeManagementProps) => {
   const [activeView, setActiveView] = useState<'list' | 'create' | 'edit' | 'profile' | 'activity'>('list');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [newEmployeeData, setNewEmployeeData] = useState<{ employee: Employee; password: string } | null>(null);
+  
+  // Estados para los modales
+  const [showToggleModal, setShowToggleModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [employeeToToggle, setEmployeeToToggle] = useState<Employee | null>(null);
+  const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
 
   const {
     employees,
@@ -86,13 +94,38 @@ const EmployeeManagement = ({ onBack }: EmployeeManagementProps) => {
   };
 
   const handleToggleStatus = (employee: Employee) => {
-    toggleEmployeeStatus({ id: employee.id, is_active: !employee.is_active });
+    setEmployeeToToggle(employee);
+    setShowToggleModal(true);
   };
 
   const handleDeleteEmployee = (employee: Employee) => {
-    if (window.confirm(`¿Estás seguro de que quieres eliminar a ${employee.full_name}?`)) {
-      deleteEmployee(employee.id);
+    setEmployeeToDelete(employee);
+    setShowDeleteModal(true);
+  };
+
+  const confirmToggleStatus = async () => {
+    if (employeeToToggle) {
+      await toggleEmployeeStatus({ 
+        id: employeeToToggle.id, 
+        is_active: !employeeToToggle.is_active 
+      });
     }
+  };
+
+  const confirmDeleteEmployee = async () => {
+    if (employeeToDelete) {
+      await deleteEmployee(employeeToDelete.id);
+    }
+  };
+
+  const closeToggleModal = () => {
+    setShowToggleModal(false);
+    setEmployeeToToggle(null);
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setEmployeeToDelete(null);
   };
 
   // Estadísticas
@@ -351,6 +384,7 @@ const EmployeeManagement = ({ onBack }: EmployeeManagementProps) => {
                         variant="ghost"
                         onClick={() => handleToggleStatus(employee)}
                         disabled={isTogglingStatus}
+                        title={employee.is_active ? 'Desactivar empleado' : 'Activar empleado'}
                       >
                         {employee.is_active ? (
                           <UserX className="h-4 w-4 text-red-600" />
@@ -364,6 +398,7 @@ const EmployeeManagement = ({ onBack }: EmployeeManagementProps) => {
                         onClick={() => handleDeleteEmployee(employee)}
                         disabled={isDeletingEmployee}
                         className="text-red-600 hover:text-red-700"
+                        title="Eliminar empleado"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -385,6 +420,24 @@ const EmployeeManagement = ({ onBack }: EmployeeManagementProps) => {
           password={newEmployeeData.password}
         />
       )}
+
+      {/* Modal de confirmación para cambio de estado */}
+      <ToggleStatusModal
+        isOpen={showToggleModal}
+        onClose={closeToggleModal}
+        onConfirm={confirmToggleStatus}
+        employee={employeeToToggle}
+        isLoading={isTogglingStatus}
+      />
+
+      {/* Modal de confirmación para eliminar empleado */}
+      <DeleteEmployeeModal
+        isOpen={showDeleteModal}
+        onClose={closeDeleteModal}
+        onConfirm={confirmDeleteEmployee}
+        employee={employeeToDelete}
+        isLoading={isDeletingEmployee}
+      />
     </div>
   );
 };
