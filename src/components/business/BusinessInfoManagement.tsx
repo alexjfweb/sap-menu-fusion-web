@@ -19,6 +19,7 @@ interface BusinessInfoManagementProps {
 
 const BusinessInfoManagement = ({ onBack }: BusinessInfoManagementProps) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<BusinessInfo>>({});
   const { toast } = useToast();
   const { uploadFile, uploading } = useFileUpload();
@@ -54,31 +55,65 @@ const BusinessInfoManagement = ({ onBack }: BusinessInfoManagementProps) => {
   };
 
   const handleSave = async () => {
+    // Validación básica
+    if (!formData.business_name?.trim()) {
+      toast({
+        title: "Campo requerido",
+        description: "El nombre comercial es obligatorio",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    
     try {
-      const { error } = await supabase
+      console.log('🔄 Actualizando información del negocio...');
+      
+      const { data, error } = await supabase
         .from('business_info')
         .update({
           ...formData,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', businessInfo?.id);
+        .eq('id', businessInfo?.id)
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error en UPDATE:', error);
+        throw error;
+      }
+
+      console.log('✅ Información actualizada:', data);
 
       toast({
-        title: "Información actualizada",
+        title: "¡Éxito!",
         description: "La información del negocio se actualizó correctamente",
       });
 
       setIsEditing(false);
-      refetch();
-    } catch (error) {
+      setFormData({});
+      
+      // Invalidar y refetch para asegurar datos actualizados
+      await refetch();
+      
+    } catch (error: any) {
       console.error('Error updating business info:', error);
+      
+      const errorMessage = error.message?.includes('permission denied') 
+        ? "No tienes permisos para actualizar esta información"
+        : error.message?.includes('not found')
+        ? "No se encontró la información del negocio"
+        : "No se pudo actualizar la información del negocio";
+      
       toast({
-        title: "Error",
-        description: "No se pudo actualizar la información del negocio",
+        title: "Error al guardar",
+        description: errorMessage,
         variant: "destructive",
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -155,12 +190,12 @@ const BusinessInfoManagement = ({ onBack }: BusinessInfoManagementProps) => {
                 </Button>
               ) : (
                 <>
-                  <Button variant="outline" onClick={handleCancel}>
+                  <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
                     Cancelar
                   </Button>
-                  <Button onClick={handleSave} className="flex items-center gap-2">
+                  <Button onClick={handleSave} className="flex items-center gap-2" disabled={isSaving}>
                     <Save className="h-4 w-4" />
-                    Guardar Cambios
+                    {isSaving ? 'Guardando...' : 'Guardar Cambios'}
                   </Button>
                 </>
               )}

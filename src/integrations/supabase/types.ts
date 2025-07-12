@@ -1000,6 +1000,7 @@ export type Database = {
           business_id: string | null
           created_at: string | null
           created_by: string | null
+          created_by_email: string | null
           email: string
           full_name: string | null
           id: string
@@ -1007,7 +1008,7 @@ export type Database = {
           password_hash: string | null
           phone_landline: string | null
           phone_mobile: string | null
-          role: Database["public"]["Enums"]["user_role"] | null
+          role: string
           updated_at: string | null
         }
         Insert: {
@@ -1016,6 +1017,7 @@ export type Database = {
           business_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          created_by_email?: string | null
           email: string
           full_name?: string | null
           id: string
@@ -1023,7 +1025,7 @@ export type Database = {
           password_hash?: string | null
           phone_landline?: string | null
           phone_mobile?: string | null
-          role?: Database["public"]["Enums"]["user_role"] | null
+          role?: string
           updated_at?: string | null
         }
         Update: {
@@ -1032,6 +1034,7 @@ export type Database = {
           business_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          created_by_email?: string | null
           email?: string
           full_name?: string | null
           id?: string
@@ -1039,7 +1042,7 @@ export type Database = {
           password_hash?: string | null
           phone_landline?: string | null
           phone_mobile?: string | null
-          role?: Database["public"]["Enums"]["user_role"] | null
+          role?: string
           updated_at?: string | null
         }
         Relationships: [
@@ -1106,30 +1109,39 @@ export type Database = {
       registration_logs: {
         Row: {
           attempts: number | null
+          created_at: string | null
           email: string
           error_details: Json | null
+          error_message: string | null
           id: string
           message: string | null
+          source: string | null
           status: string | null
           timestamp: string | null
           user_id: string | null
         }
         Insert: {
           attempts?: number | null
+          created_at?: string | null
           email: string
           error_details?: Json | null
+          error_message?: string | null
           id?: string
           message?: string | null
+          source?: string | null
           status?: string | null
           timestamp?: string | null
           user_id?: string | null
         }
         Update: {
           attempts?: number | null
+          created_at?: string | null
           email?: string
           error_details?: Json | null
+          error_message?: string | null
           id?: string
           message?: string | null
+          source?: string | null
           status?: string | null
           timestamp?: string | null
           user_id?: string | null
@@ -1198,6 +1210,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      role_change_attempts: {
+        Row: {
+          attempted_action: string
+          attempted_at: string
+          email: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          attempted_action: string
+          attempted_at?: string
+          email: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          attempted_action?: string
+          attempted_at?: string
+          email?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       subscription_plans: {
         Row: {
@@ -1437,6 +1476,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      change_user_role: {
+        Args:
+          | { superadmin_id: string; target_id: string; new_role: string }
+          | { target_id: string; new_role: string }
+        Returns: {
+          user_id: string
+          user_role: string
+          updated: number
+        }[]
+      }
       create_notification: {
         Args: {
           p_recipient_id: string
@@ -1480,10 +1529,6 @@ export type Database = {
         Args: { restaurant_name: string }
         Returns: string
       }
-      get_current_user_role: {
-        Args: Record<PropertyKey, never>
-        Returns: Database["public"]["Enums"]["user_role"]
-      }
       get_public_products_by_business: {
         Args: { business_uuid: string }
         Returns: {
@@ -1507,10 +1552,6 @@ export type Database = {
           product_type: Database["public"]["Enums"]["product_type"] | null
           updated_at: string | null
         }[]
-      }
-      get_user_role: {
-        Args: Record<PropertyKey, never>
-        Returns: Database["public"]["Enums"]["user_role"]
       }
       get_whatsapp_config: {
         Args: Record<PropertyKey, never>
@@ -1559,7 +1600,6 @@ export type Database = {
         | "confirmada"
         | "cancelada"
         | "completada"
-      user_role: "empleado" | "admin" | "superadmin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1701,7 +1741,6 @@ export const Constants = {
         "cancelada",
         "completada",
       ],
-      user_role: ["empleado", "admin", "superadmin"],
     },
   },
 } as const
