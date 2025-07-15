@@ -176,13 +176,16 @@ export const useEmployeeManagement = (onEmployeeCreated?: (data: { employee: Emp
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
-        .eq('created_by', profile?.id) // Solo puede actualizar empleados que creó
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('❌ [EMPLOYEE MANAGEMENT] Update error:', error);
         throw new Error(error.message || 'Error al actualizar el empleado');
+      }
+
+      if (!data) {
+        throw new Error('Empleado no encontrado o sin permisos para actualizar');
       }
 
       // Registrar actividad
@@ -225,11 +228,17 @@ export const useEmployeeManagement = (onEmployeeCreated?: (data: { employee: Emp
         .from('profiles')
         .update({ is_active, updated_at: new Date().toISOString() })
         .eq('id', id)
-        .eq('created_by', profile?.id)
         .select()
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ [EMPLOYEE MANAGEMENT] Toggle status error:', error);
+        throw new Error(error.message || 'Error al cambiar el estado del empleado');
+      }
+
+      if (!data) {
+        throw new Error('Empleado no encontrado o sin permisos para modificar');
+      }
 
       // Registrar actividad
       if (data && profile?.id) {
@@ -274,7 +283,7 @@ export const useEmployeeManagement = (onEmployeeCreated?: (data: { employee: Emp
         .from('profiles')
         .select('full_name')
         .eq('id', id)
-        .single();
+        .maybeSingle();
       
       const { data, error } = await supabase
         .from('profiles')
@@ -283,11 +292,17 @@ export const useEmployeeManagement = (onEmployeeCreated?: (data: { employee: Emp
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
-        .eq('created_by', profile?.id)
         .select()
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ [EMPLOYEE MANAGEMENT] Delete error:', error);
+        throw new Error(error.message || 'Error al eliminar el empleado');
+      }
+
+      if (!data) {
+        throw new Error('Empleado no encontrado o sin permisos para eliminar');
+      }
 
       // Registrar actividad
       if (data && profile?.id) {
