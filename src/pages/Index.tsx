@@ -8,6 +8,8 @@ import PricingPlans from '@/components/PricingPlans';
 import Footer from '@/components/Footer';
 import DiagnosticPanel from '@/components/DiagnosticPanel';
 import SupabaseConnectionTest from '@/components/SupabaseConnectionTest';
+import BusinessInfoDisplay from '@/components/menu/BusinessInfoDisplay';
+import { useBusinessInfo } from '@/hooks/useBusinessInfo';
 
 const Index = () => {
   const { isAuthenticated, loading, profile, user } = useAuth();
@@ -15,6 +17,7 @@ const Index = () => {
   const location = useLocation();
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [profileCheckAttempts, setProfileCheckAttempts] = useState(0);
+  const { data: businessInfo } = useBusinessInfo();
 
   useEffect(() => {
     console.log('🏠 Index: Estado de autenticación:', { 
@@ -93,6 +96,14 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <HeroSection />
+      
+      {/* Información del Negocio */}
+      {businessInfo && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <BusinessInfoDisplay businessInfo={businessInfo} />
+        </div>
+      )}
+      
       <div id="features">
         <FeaturesSection />
       </div>
