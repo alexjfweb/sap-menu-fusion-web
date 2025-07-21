@@ -26,7 +26,7 @@ const BusinessInfoDisplay = ({ businessInfo }: BusinessInfoDisplayProps) => {
   ].filter(link => link.url);
 
   return (
-    <div className="w-full max-w-4xl mx-auto mb-8">
+    <div className="w-full max-w-4xl mx-auto mb-8 opacity-0 animate-fade-in transition-opacity duration-700 delay-100">
       <Card 
         className="overflow-hidden border-0 shadow-lg"
         style={{ backgroundColor: colors.product_card_bg_color }}
