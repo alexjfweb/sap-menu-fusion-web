@@ -1486,6 +1486,10 @@ export type Database = {
           updated: number
         }[]
       }
+      cleanup_duplicate_products: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       create_notification: {
         Args: {
           p_recipient_id: string
@@ -1499,6 +1503,30 @@ export type Database = {
           p_expires_at?: string
         }
         Returns: string
+      }
+      get_admin_products_by_business: {
+        Args: { business_uuid: string }
+        Returns: {
+          allergens: string[] | null
+          business_id: string | null
+          calories: number | null
+          category_id: string | null
+          created_at: string | null
+          created_by: string
+          description: string | null
+          id: string
+          image_url: string | null
+          ingredients: string[] | null
+          is_available: boolean | null
+          is_gluten_free: boolean | null
+          is_vegan: boolean | null
+          is_vegetarian: boolean | null
+          name: string
+          preparation_time: number | null
+          price: number
+          product_type: Database["public"]["Enums"]["product_type"] | null
+          updated_at: string | null
+        }[]
       }
       get_business_by_id: {
         Args: { business_uuid: string }

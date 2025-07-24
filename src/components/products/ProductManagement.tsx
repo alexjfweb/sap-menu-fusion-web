@@ -9,19 +9,18 @@ import { useAuth } from '@/hooks/useAuth';
 import { 
   Plus, 
   Search, 
-  Edit, 
-  Trash2, 
-  Eye, 
-  EyeOff,
   Package,
   AlertCircle,
-  ArrowLeft
+  ArrowLeft,
+  CheckCircle,
+  Users
 } from 'lucide-react';
 import ProductForm from './ProductForm';
 import DeleteProductModal from './DeleteProductModal';
+import ProductPermissions from './ProductPermissions';
 import { Tables } from '@/integrations/supabase/types';
 import { useRestaurantContext } from '@/hooks/useRestaurantContext';
-import { useUnifiedProducts, useInvalidateProducts } from '@/hooks/useUnifiedProducts';
+import { useAdminProducts, useInvalidateAdminProducts } from '@/hooks/useAdminProducts';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -40,32 +39,33 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  // FASE 1: Usar contexto unificado del restaurante
+  // Obtener contexto del restaurante
   const { 
     data: restaurantInfo, 
     isLoading: restaurantLoading 
-  } = useRestaurantContext(); // Sin slug para vista admin
+  } = useRestaurantContext();
 
   const restaurantId = restaurantInfo?.id;
   const restaurantName = restaurantInfo?.business_name;
 
-  // FASE 2: Usar productos unificados (mismo criterio que menú público)
+  // Usar hook especializado para productos de admin
   const { 
     data: products, 
-    isLoading: loadingProducts 
-  } = useUnifiedProducts({
+    isLoading: loadingProducts,
+    error: productsError
+  } = useAdminProducts({
     businessId: restaurantId,
-    isPublic: false, // Vista admin
     enabled: !!profile?.id && !!restaurantId
   });
 
-  // Hook para invalidar cache de forma sincronizada
-  const invalidateProducts = useInvalidateProducts();
+  // Hook para invalidar cache
+  const invalidateAdminProducts = useInvalidateAdminProducts();
 
   // Fetch categories
   const { data: categories } = useQuery({
-    queryKey: ['categories-admin-unified'],
+    queryKey: ['categories-admin'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('categories')
@@ -88,17 +88,25 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
   }, [products, searchTerm, selectedCategory]);
 
   const toggleAvailability = async (product: Product) => {
+    // Verificar permisos antes de continuar
+    if (profile?.role !== 'superadmin' && product.created_by !== profile?.id) {
+      toast({
+        title: "Acceso denegado",
+        description: "Solo puedes cambiar la disponibilidad de productos que has creado",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('products')
         .update({ is_available: !product.is_available })
-        .eq('id', product.id)
-        .eq('business_id', restaurantId); // Verificar business_id
+        .eq('id', product.id);
 
       if (error) throw error;
 
-      // FASE 4: Invalidación de cache sincronizada
-      invalidateProducts(restaurantId);
+      invalidateAdminProducts(restaurantId);
       
       toast({
         title: "Producto actualizado",
@@ -108,14 +116,14 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
       console.error('Error toggling availability:', error);
       toast({
         title: "Error",
-        description: "No se pudo actualizar el producto",
+        description: "No se pudo actualizar el producto. Verifica tus permisos.",
         variant: "destructive",
       });
     }
   };
 
   const handleEdit = (product: Product) => {
-    // Verificar propiedad antes de editar
+    // Verificar permisos antes de editar
     if (profile?.role !== 'superadmin' && product.created_by !== profile?.id) {
       toast({
         title: "Acceso denegado",
@@ -130,7 +138,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
   };
 
   const handleDelete = (product: Product) => {
-    // Verificar propiedad antes de eliminar
+    // Verificar permisos antes de eliminar
     if (profile?.role !== 'superadmin' && product.created_by !== profile?.id) {
       toast({
         title: "Acceso denegado",
@@ -144,8 +152,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
   };
 
   const handleFormSave = () => {
-    // FASE 4: Invalidación sincronizada del cache
-    invalidateProducts(restaurantId);
+    invalidateAdminProducts(restaurantId);
     setShowForm(false);
     setEditingProduct(null);
   };
@@ -158,30 +165,44 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
   const handleDeleteConfirm = async () => {
     if (!deletingProduct || !restaurantId) return;
 
+    setIsDeleting(true);
+    
     try {
       const { error } = await supabase
         .from('products')
         .delete()
-        .eq('id', deletingProduct.id)
-        .eq('business_id', restaurantId); // Verificar business_id
+        .eq('id', deletingProduct.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Delete error:', error);
+        throw error;
+      }
 
-      // FASE 4: Invalidación sincronizada
-      invalidateProducts(restaurantId);
+      invalidateAdminProducts(restaurantId);
       
       toast({
         title: "Producto eliminado",
         description: "El producto ha sido eliminado correctamente",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting product:', error);
-      toast({
-        title: "Error",
-        description: "No se pudo eliminar el producto",
-        variant: "destructive",
-      });
+      
+      // Manejar errores específicos de permisos
+      if (error.message?.includes('policy')) {
+        toast({
+          title: "Acceso denegado",
+          description: "No tienes permisos para eliminar este producto",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "No se pudo eliminar el producto. Intenta nuevamente.",
+          variant: "destructive",
+        });
+      }
     } finally {
+      setIsDeleting(false);
       setDeletingProduct(null);
     }
   };
@@ -214,6 +235,22 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
     );
   }
 
+  if (productsError) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center p-8">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium">Error al cargar productos</h3>
+            <p className="text-muted-foreground">
+              {productsError.message || 'Ocurrió un error al cargar los productos'}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -228,7 +265,8 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
             <div className="flex items-center gap-3">
               <h2 className="text-2xl font-bold">Gestión de Productos</h2>
               <Badge variant="default" className="bg-green-100 text-green-800">
-                ✅ Sincronizado
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Corregido
               </Badge>
             </div>
             <p className="text-muted-foreground">
@@ -236,13 +274,16 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
             </p>
             <p className="text-xs text-muted-foreground">
               {profile.role === 'superadmin' 
-                ? `Administra todos los productos del restaurante (${products?.length || 0} productos)`
-                : `Administra los productos del restaurante (${products?.length || 0} productos)`
+                ? `Ver todos los productos del restaurante (${products?.length || 0} productos)`
+                : `Ver solo tus productos (${products?.length || 0} productos)`
               }
             </p>
-            <p className="text-xs text-blue-600 mt-1">
-              🔄 Los cambios se reflejan automáticamente en el menú público
-            </p>
+            <div className="flex items-center gap-2 mt-1">
+              <Users className="h-3 w-3 text-blue-600" />
+              <span className="text-xs text-blue-600">
+                Solo puedes editar/eliminar productos que has creado
+              </span>
+            </div>
           </div>
         </div>
         <Button onClick={() => setShowForm(true)}>
@@ -288,7 +329,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
           <CardContent className="flex items-center justify-center p-8">
             <div className="text-center">
               <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4 animate-pulse" />
-              <p className="text-muted-foreground">Cargando productos del restaurante...</p>
+              <p className="text-muted-foreground">Cargando productos...</p>
             </div>
           </CardContent>
         </Card>
@@ -298,7 +339,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
             <div className="text-center">
               <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium mb-2">
-                {products?.length === 0 ? 'No hay productos' : 'No se encontraron productos'}
+                {products?.length === 0 ? 'No tienes productos' : 'No se encontraron productos'}
               </h3>
               <p className="text-muted-foreground mb-4">
                 {products?.length === 0 
@@ -331,18 +372,6 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
                     <Package className="h-12 w-12 text-muted-foreground" />
                   </div>
                 )}
-                <div className="absolute top-2 right-2 flex gap-2">
-                  {product.is_available ? (
-                    <Badge variant="default">Disponible</Badge>
-                  ) : (
-                    <Badge variant="secondary">No disponible</Badge>
-                  )}
-                  {profile.role === 'superadmin' && product.created_by !== profile.id && (
-                    <Badge variant="outline" className="text-xs">
-                      Otro admin
-                    </Badge>
-                  )}
-                </div>
               </div>
               <CardContent className="p-4">
                 <div className="flex justify-between items-start mb-2">
@@ -354,35 +383,12 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
                     {product.description}
                   </p>
                 )}
-                <div className="flex justify-between items-center">
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(product)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toggleAvailability(product)}
-                    >
-                      {product.is_available ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDelete(product)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+                <ProductPermissions
+                  product={product}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onToggleAvailability={toggleAvailability}
+                />
               </CardContent>
             </Card>
           ))}
@@ -405,7 +411,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onBack }) => {
           onClose={() => setDeletingProduct(null)}
           onConfirm={handleDeleteConfirm}
           productName={deletingProduct.name}
-          isLoading={false}
+          isLoading={isDeleting}
         />
       )}
     </div>
