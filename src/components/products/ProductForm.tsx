@@ -12,6 +12,7 @@ import { Tables } from '@/integrations/supabase/types';
 import { ProductBasicFields } from './form/ProductBasicFields';
 import { ProductDetailsFields } from './form/ProductDetailsFields';
 import { ProductOptionsFields } from './form/ProductOptionsFields';
+import { ProductImageUpload } from './form/ProductImageUpload';
 
 type Product = Tables<'products'>;
 type Category = Tables<'categories'>;
@@ -49,6 +50,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
     calories: '',
     ingredients: '',
     allergens: '',
+    image_url: '',
   });
 
   useEffect(() => {
@@ -67,6 +69,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
         calories: product.calories?.toString() || '',
         ingredients: Array.isArray(product.ingredients) ? product.ingredients.join(', ') : '',
         allergens: Array.isArray(product.allergens) ? product.allergens.join(', ') : '',
+        image_url: product.image_url || '',
       });
     }
   }, [product]);
@@ -113,7 +116,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
         calories: formData.calories ? parseInt(formData.calories) : null,
         ingredients: formData.ingredients ? formData.ingredients.split(',').map(i => i.trim()).filter(i => i) : null,
         allergens: formData.allergens ? formData.allergens.split(',').map(a => a.trim()).filter(a => a) : null,
-        business_id: businessId, // CORRECCIÓN: Incluir business_id
+        image_url: formData.image_url || null,
+        business_id: businessId,
         created_by: profile.id,
       };
 
@@ -174,6 +178,11 @@ const ProductForm: React.FC<ProductFormProps> = ({
               formData={formData}
               categories={categories}
               onFormDataChange={handleFormDataChange}
+            />
+
+            <ProductImageUpload
+              imageUrl={formData.image_url}
+              onImageChange={(url) => handleFormDataChange({ image_url: url })}
             />
             
             <ProductDetailsFields
