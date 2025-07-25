@@ -1557,6 +1557,10 @@ export type Database = {
         Args: { restaurant_name: string }
         Returns: string
       }
+      get_current_user_role: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_public_products_by_business: {
         Args: { business_uuid: string }
         Returns: {
@@ -1610,9 +1614,17 @@ export type Database = {
         Args: { user_email: string }
         Returns: boolean
       }
+      sanitize_phone_number: {
+        Args: { phone_input: string }
+        Returns: string
+      }
       save_whatsapp_config: {
         Args: { config_data: Json; config_id?: string }
         Returns: string
+      }
+      validate_business_ownership: {
+        Args: { target_business_id: string }
+        Returns: boolean
       }
     }
     Enums: {
