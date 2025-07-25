@@ -1486,6 +1486,15 @@ export type Database = {
           updated: number
         }[]
       }
+      check_rate_limit: {
+        Args: {
+          user_identifier: string
+          action_type: string
+          max_attempts?: number
+          time_window_minutes?: number
+        }
+        Returns: boolean
+      }
       cleanup_duplicate_products: {
         Args: Record<PropertyKey, never>
         Returns: number
@@ -1598,6 +1607,10 @@ export type Database = {
           created_at: string
           updated_at: string
         }[]
+      }
+      is_valid_email: {
+        Args: { email_input: string }
+        Returns: boolean
       }
       log_employee_activity: {
         Args: {
