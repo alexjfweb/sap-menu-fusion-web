@@ -17,21 +17,29 @@ export const useUnifiedProducts = ({
   isPublic = false,
   enabled = true 
 }: UseUnifiedProductsOptions) => {
-  const { profile } = useAuth();
+  const { profile, isAuthenticated } = useAuth();
 
   return useQuery({
-    queryKey: ['unified-products', businessId, isPublic],
+    queryKey: ['unified-products', businessId, isPublic, profile?.id],
     queryFn: async () => {
       if (!businessId) {
         console.warn('⚠️ [UNIFIED PRODUCTS] No hay businessId disponible');
         return [];
       }
 
-      console.log(`🍽️ [UNIFIED PRODUCTS] Obteniendo productos del negocio (${isPublic ? 'público' : 'admin'}):`, businessId);
+      // Para acceso público, verificar que se proporcione businessId específico
+      if (isPublic) {
+        console.log(`🍽️ [UNIFIED PRODUCTS] Obteniendo productos públicos del negocio:`, businessId);
+      } else {
+        // Para acceso admin, verificar que el usuario esté autenticado y sea el propietario
+        if (!isAuthenticated || !profile?.id || profile.business_id !== businessId) {
+          console.warn('⚠️ [UNIFIED PRODUCTS] Usuario no autenticado o no es propietario del negocio');
+          return [];
+        }
+        console.log(`🍽️ [UNIFIED PRODUCTS] Obteniendo productos del admin del negocio:`, businessId);
+      }
       
       try {
-        // CORRECCIÓN CRÍTICA: Usar misma query para admin y público
-        // Ambos muestran TODOS los productos del restaurante (business_id)
         const { data, error } = await supabase
           .rpc('get_public_products_by_business', { business_uuid: businessId });
         

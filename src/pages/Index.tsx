@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -8,8 +9,6 @@ import PricingPlans from '@/components/PricingPlans';
 import Footer from '@/components/Footer';
 import DiagnosticPanel from '@/components/DiagnosticPanel';
 import SupabaseConnectionTest from '@/components/SupabaseConnectionTest';
-import BusinessInfoDisplay from '@/components/menu/BusinessInfoDisplay';
-import { useBusinessInfo } from '@/hooks/useBusinessInfo';
 
 const Index = () => {
   const { isAuthenticated, loading, profile, user } = useAuth();
@@ -17,7 +16,6 @@ const Index = () => {
   const location = useLocation();
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [profileCheckAttempts, setProfileCheckAttempts] = useState(0);
-  const { data: businessInfo } = useBusinessInfo();
 
   useEffect(() => {
     console.log('🏠 Index: Estado de autenticación:', { 
@@ -95,13 +93,6 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
-      {/* Información del Negocio - Primera sección */}
-      {businessInfo && (
-        <div className="container mx-auto px-4 md:px-8 py-8">
-          <BusinessInfoDisplay businessInfo={businessInfo} />
-        </div>
-      )}
       
       <HeroSection />
       

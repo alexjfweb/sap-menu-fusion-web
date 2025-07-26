@@ -4,60 +4,37 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
 export const useBusinessInfo = () => {
-  const { profile } = useAuth();
+  const { profile, isAuthenticated } = useAuth();
 
   return useQuery({
-    queryKey: ['business-info', profile?.id],
+    queryKey: ['business-info', profile?.id, profile?.business_id],
     queryFn: async () => {
       console.log('📋 [BUSINESS INFO] Obteniendo información del negocio...');
       
-      // Si el usuario está autenticado, obtener su business_id
-      if (profile?.id) {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('business_id')
-          .eq('id', profile.id)
-          .single();
-
-        if (profileError) {
-          console.error('❌ Error obteniendo business_id del perfil:', profileError);
-          throw profileError;
-        }
-
-        if (profileData?.business_id) {
-          // Obtener información del negocio específico del usuario
-          const { data, error } = await supabase
-            .from('business_info')
-            .select('*')
-            .eq('id', profileData.business_id)
-            .single();
-          
-          if (error) {
-            console.error('❌ Error obteniendo información del negocio:', error);
-            throw error;
-          }
-          
-          console.log('✅ Información del negocio obtenida para usuario autenticado');
-          return data;
-        }
+      // Solo proceder si el usuario está autenticado y tiene business_id
+      if (!isAuthenticated || !profile?.id || !profile?.business_id) {
+        console.log('⚠️ [BUSINESS INFO] Usuario no autenticado o sin business_id');
+        return null;
       }
-      
-      // Fallback: obtener primer negocio disponible (para usuarios no autenticados)
+
+      console.log('🔍 [BUSINESS INFO] Obteniendo para business_id:', profile.business_id);
+
+      // Obtener información del negocio específico del usuario
       const { data, error } = await supabase
         .from('business_info')
         .select('*')
-        .limit(1)
+        .eq('id', profile.business_id)
         .single();
       
-      if (error && error.code !== 'PGRST116') {
-        console.error('❌ Error obteniendo información del negocio (fallback):', error);
+      if (error) {
+        console.error('❌ Error obteniendo información del negocio:', error);
         throw error;
       }
       
-      console.log('✅ Información del negocio obtenida (fallback)');
+      console.log('✅ Información del negocio obtenida para usuario autenticado');
       return data;
     },
-    enabled: true, // Siempre habilitado
+    enabled: isAuthenticated && !!profile?.id && !!profile?.business_id,
     retry: 2,
     staleTime: 1000 * 60 * 5, // 5 minutos
   });

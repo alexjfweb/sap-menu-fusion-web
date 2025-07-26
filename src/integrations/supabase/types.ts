@@ -1566,6 +1566,10 @@ export type Database = {
         Args: { restaurant_name: string }
         Returns: string
       }
+      get_current_user_business_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string

@@ -1,13 +1,12 @@
-
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
 export const useRestaurantContext = (restaurantSlug?: string) => {
-  const { profile } = useAuth();
+  const { profile, isAuthenticated } = useAuth();
 
   return useQuery({
-    queryKey: ['restaurant-context', restaurantSlug, profile?.id],
+    queryKey: ['restaurant-context', restaurantSlug, profile?.id, profile?.business_id],
     queryFn: async () => {
       console.log('🏢 [RESTAURANT CONTEXT] Determinando contexto del restaurante...');
       
@@ -39,42 +38,20 @@ export const useRestaurantContext = (restaurantSlug?: string) => {
       }
       
       // Si hay usuario autenticado, usar su business_id (para vista admin)
-      if (profile?.id) {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('business_id')
-          .eq('id', profile.id)
-          .single();
-
-        if (profileError) {
-          console.error('❌ Error obteniendo business_id del perfil:', profileError);
-          throw profileError;
-        }
-
-        if (profileData?.business_id) {
-          const { data: businessData, error: businessError } = await supabase
-            .rpc('get_business_by_id', { business_uuid: profileData.business_id });
-          
-          if (businessError) throw businessError;
-          
-          const businessInfo = businessData?.[0];
-          console.log('✅ Negocio del usuario autenticado:', businessInfo?.business_name);
-          return businessInfo;
-        }
+      if (isAuthenticated && profile?.id && profile?.business_id) {
+        const { data: businessData, error: businessError } = await supabase
+          .rpc('get_business_by_id', { business_uuid: profile.business_id });
+        
+        if (businessError) throw businessError;
+        
+        const businessInfo = businessData?.[0];
+        console.log('✅ Negocio del usuario autenticado:', businessInfo?.business_name);
+        return businessInfo;
       }
       
-      // Fallback: primer negocio disponible
-      console.log('🔄 Fallback: usando primer negocio disponible');
-      const { data, error } = await supabase
-        .from('business_info')
-        .select('*')
-        .limit(1)
-        .single();
-      
-      if (error && error.code !== 'PGRST116') throw error;
-      
-      console.log('✅ Usando negocio por defecto:', data?.business_name);
-      return data;
+      // Sin fallback - retornar null si no hay contexto específico
+      console.log('⚠️ No hay contexto específico de restaurante');
+      return null;
     },
     enabled: true,
     retry: 2,
