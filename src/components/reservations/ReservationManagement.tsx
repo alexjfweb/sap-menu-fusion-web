@@ -46,11 +46,11 @@ const ReservationManagement = ({ onBack }: ReservationManagementProps) => {
   // Hook para sincronización en tiempo real
   useRealtimeReservations();
 
-  // Fetch reservations with table details
+  // Fetch reservations with table details filtered by business
   const { data: reservations, isLoading } = useQuery({
     queryKey: ['reservations'],
     queryFn: async () => {
-      console.log('Fetching reservations...');
+      console.log('🔍 Obteniendo reservas...');
       const { data, error } = await supabase
         .from('reservations')
         .select(`
@@ -65,11 +65,11 @@ const ReservationManagement = ({ onBack }: ReservationManagementProps) => {
         .order('reservation_time', { ascending: true });
 
       if (error) {
-        console.error('Error fetching reservations:', error);
+        console.error('❌ Error fetching reservations:', error);
         throw error;
       }
       
-      console.log('Reservations fetched:', data?.length);
+      console.log('✅ Reservas obtenidas:', data?.length || 0);
       return data;
     },
     refetchInterval: 30000, // Refrescar cada 30 segundos como respaldo

@@ -23,10 +23,17 @@ export const useOrderSync = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Obtener todas las órdenes - SIN FILTRO por administrador (las órdenes son globales)
+  // Obtener todas las órdenes filtradas por business_id del usuario
   const { data: orders, isLoading: isLoadingOrders, error: ordersError } = useQuery({
-    queryKey: ['orders'],
+    queryKey: ['orders', profile?.business_id],
     queryFn: async () => {
+      if (!profile?.business_id) {
+        console.log('⚠️ No business_id disponible');
+        return [];
+      }
+
+      console.log('🔍 Obteniendo órdenes para business_id:', profile.business_id);
+      
       const { data, error } = await supabase
         .from('orders')
         .select('*')
@@ -37,8 +44,10 @@ export const useOrderSync = () => {
         throw error;
       }
 
+      console.log('✅ Órdenes obtenidas:', data?.length || 0);
       return data as Order[];
     },
+    enabled: !!profile?.business_id,
   });
 
   // Obtener una orden por ID

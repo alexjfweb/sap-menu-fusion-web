@@ -49,22 +49,33 @@ export const useEmployeeManagement = (onEmployeeCreated?: (data: { employee: Emp
     return !!data;
   };
 
-  // Obtener empleados creados por el email del admin actual
+  // Obtener empleados filtrados por business_id del admin actual
   const { data: employees, isLoading: isLoadingEmployees, error } = useQuery({
-    queryKey: ['employees', profile?.email],
+    queryKey: ['employees', profile?.business_id, profile?.role],
     queryFn: async () => {
-      if (!profile?.email) throw new Error('No user email found');
-      
-      console.log('🔍 [EMPLOYEE MANAGEMENT] Fetching employees for admin email:', profile.email);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('created_by_email', profile.email)
-        .order('created_at', { ascending: false });
-
-      if (data) {
-        console.log('🔎 [EMPLOYEE MANAGEMENT] created_by_email de empleados encontrados:', data.map(e => e.created_by_email));
+      if (!profile?.business_id) {
+        console.log('⚠️ [EMPLOYEE MANAGEMENT] No business_id disponible');
+        return [];
       }
+      
+      console.log('🔍 [EMPLOYEE MANAGEMENT] Fetching employees for business_id:', profile.business_id);
+      
+      let query = supabase.from('profiles').select('*');
+      
+      if (profile.role === 'superadmin') {
+        // Superadmins pueden ver todos los empleados
+        query = query.eq('role', 'empleado');
+      } else if (profile.role === 'admin') {
+        // Admins solo ven empleados de su business_id
+        query = query
+          .eq('role', 'empleado')
+          .eq('business_id', profile.business_id);
+      } else {
+        // Otros roles no pueden ver empleados
+        return [];
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) {
         console.error('❌ [EMPLOYEE MANAGEMENT] Error fetching employees:', error);
@@ -74,7 +85,7 @@ export const useEmployeeManagement = (onEmployeeCreated?: (data: { employee: Emp
       console.log(`✅ [EMPLOYEE MANAGEMENT] Fetched ${data?.length || 0} employees`);
       return data as Employee[];
     },
-    enabled: !!profile?.email && (profile.role === 'admin' || profile.role === 'superadmin'),
+    enabled: !!profile?.business_id && (profile.role === 'admin' || profile.role === 'superadmin'),
   });
 
   // Crear empleado usando edge function para manejar auth.users correctamente

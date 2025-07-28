@@ -46,14 +46,14 @@ const ReportsManagement = ({ onBack }: ReportsManagementProps) => {
           break;
       }
 
-      // Fetch orders data
+      // Fetch orders data (filtrado por RLS automáticamente)
       const { data: orders } = await supabase
         .from('orders')
         .select('total_amount, created_at, status')
         .gte('created_at', startDate.toISOString())
         .lte('created_at', endDate.toISOString());
 
-      // Fetch reservations data
+      // Fetch reservations data (filtrado por RLS automáticamente)
       const { data: reservations } = await supabase
         .from('reservations')
         .select('id, created_at, status, party_size')
