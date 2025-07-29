@@ -1,15 +1,18 @@
 
 import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Palette, Save, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Palette, Save, RotateCcw, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Tables } from '@/integrations/supabase/types';
+import { useBusinessInfo } from '@/hooks/useBusinessInfo';
+import { useMenuCustomization } from '@/hooks/useMenuCustomization';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 type MenuCustomization = Tables<'menu_customization'>;
 type BusinessInfo = Tables<'business_info'>;
@@ -40,37 +43,11 @@ const MenuCustomization = ({ onBack }: MenuCustomizationProps) => {
     social_links_color: '#007bff',
   });
 
-  // Obtener información del negocio
-  const { data: businessInfo } = useQuery({
-    queryKey: ['business-info'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('business_info')
-        .select('*')
-        .single();
-      
-      if (error) throw error;
-      return data;
-    },
-  });
+  // Obtener información del negocio usando el hook mejorado
+  const { data: businessInfo, error: businessError, isLoading: businessLoading } = useBusinessInfo();
 
-  // Obtener configuración de personalización existente
-  const { data: customization, isLoading } = useQuery({
-    queryKey: ['menu-customization', businessInfo?.id],
-    queryFn: async () => {
-      if (!businessInfo?.id) return null;
-      
-      const { data, error } = await supabase
-        .from('menu_customization')
-        .select('*')
-        .eq('business_id', businessInfo.id)
-        .single();
-      
-      if (error && error.code !== 'PGRST116') throw error;
-      return data;
-    },
-    enabled: !!businessInfo?.id,
-  });
+  // Obtener configuración de personalización existente usando el hook
+  const { data: customization, isLoading: customizationLoading } = useMenuCustomization(businessInfo?.id);
 
   // Cargar colores existentes
   useEffect(() => {
@@ -79,23 +56,49 @@ const MenuCustomization = ({ onBack }: MenuCustomizationProps) => {
     }
   }, [customization]);
 
-  // Mutación para guardar cambios
+  // Mutación para guardar cambios con manejo mejorado de errores
   const saveCustomization = useMutation({
     mutationFn: async (colorData: Partial<MenuCustomization>) => {
-      if (!businessInfo?.id) throw new Error('No business info found');
+      // Validación previa
+      if (!businessInfo?.id) {
+        throw new Error('No se encontró información del negocio. Por favor, configure primero la información básica de su negocio.');
+      }
 
-      const { data, error } = await supabase
-        .from('menu_customization')
-        .upsert({
-          business_id: businessInfo.id,
-          ...colorData,
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
+      console.log('💾 [SAVE CUSTOMIZATION] Guardando para business_id:', businessInfo.id);
 
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase
+          .from('menu_customization')
+          .upsert({
+            business_id: businessInfo.id,
+            ...colorData,
+            updated_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('❌ [SAVE CUSTOMIZATION] Error de Supabase:', error);
+          
+          // Manejar errores específicos
+          if (error.code === 'PGRST116') {
+            throw new Error('No se pudo crear la configuración de personalización. Verifique que su negocio esté configurado correctamente.');
+          }
+          
+          throw error;
+        }
+
+        if (!data) {
+          throw new Error('No se recibió confirmación del guardado. Intente nuevamente.');
+        }
+
+        console.log('✅ [SAVE CUSTOMIZATION] Guardado exitoso:', data.id);
+        return data;
+        
+      } catch (error) {
+        console.error('💥 [SAVE CUSTOMIZATION] Error inesperado:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       toast({
@@ -103,12 +106,20 @@ const MenuCustomization = ({ onBack }: MenuCustomizationProps) => {
         description: "Los colores de tu menú han sido actualizados exitosamente.",
       });
       queryClient.invalidateQueries({ queryKey: ['menu-customization'] });
+      queryClient.invalidateQueries({ queryKey: ['public-menu-customization'] });
     },
     onError: (error) => {
-      console.error('Error saving customization:', error);
+      console.error('💥 [SAVE CUSTOMIZATION] Error final:', error);
+      
+      let errorMessage = "No se pudo guardar la personalización.";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       toast({
-        title: "Error",
-        description: "No se pudo guardar la personalización.",
+        title: "Error al guardar",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -143,12 +154,37 @@ const MenuCustomization = ({ onBack }: MenuCustomizationProps) => {
     setColors(defaultColors);
   };
 
+  // Estados de carga y error
+  const isLoading = businessLoading || customizationLoading;
+  
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Cargando personalización...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar error si hay problemas con la información del negocio
+  if (businessError || !businessInfo) {
+    return (
+      <div className="min-h-screen bg-background p-4">
+        <div className="container mx-auto max-w-2xl pt-8">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {businessError?.message || 'No se pudo cargar la información del negocio. Por favor, configure primero la información básica de su restaurante desde el panel de administración.'}
+            </AlertDescription>
+          </Alert>
+          <div className="mt-4">
+            <Button variant="outline" onClick={onBack}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Volver al Panel
+            </Button>
+          </div>
         </div>
       </div>
     );

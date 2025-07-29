@@ -1495,6 +1495,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      cleanup_duplicate_business_records: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          cleaned_count: number
+          remaining_count: number
+        }[]
+      }
       cleanup_duplicate_products: {
         Args: Record<PropertyKey, never>
         Returns: number
@@ -1596,6 +1603,31 @@ export type Database = {
           price: number
           product_type: Database["public"]["Enums"]["product_type"] | null
           updated_at: string | null
+        }[]
+      }
+      get_unique_business_info: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          business_name: string
+          description: string
+          tax_id: string
+          phone: string
+          address: string
+          email: string
+          logo_url: string
+          cover_image_url: string
+          facebook_url: string
+          instagram_url: string
+          twitter_url: string
+          website_url: string
+          public_menu_url: string
+          whatsapp_url: string
+          tiktok_url: string
+          nequi_number: string
+          nequi_qr_url: string
+          created_at: string
+          updated_at: string
         }[]
       }
       get_whatsapp_config: {

@@ -11,31 +11,54 @@ export const useBusinessInfo = () => {
     queryFn: async () => {
       console.log('📋 [BUSINESS INFO] Obteniendo información del negocio...');
       
-      // Solo proceder si el usuario está autenticado y tiene business_id
-      if (!isAuthenticated || !profile?.id || !profile?.business_id) {
-        console.log('⚠️ [BUSINESS INFO] Usuario no autenticado o sin business_id');
+      // Solo proceder si el usuario está autenticado
+      if (!isAuthenticated || !profile?.id) {
+        console.log('⚠️ [BUSINESS INFO] Usuario no autenticado');
         return null;
       }
 
-      console.log('🔍 [BUSINESS INFO] Obteniendo para business_id:', profile.business_id);
+      console.log('🔍 [BUSINESS INFO] Obteniendo usando función segura...');
 
-      // Obtener información del negocio específico del usuario
-      const { data, error } = await supabase
-        .from('business_info')
-        .select('*')
-        .eq('id', profile.business_id)
-        .single();
-      
-      if (error) {
-        console.error('❌ Error obteniendo información del negocio:', error);
+      try {
+        // Usar la función de base de datos que valida unicidad
+        const { data, error } = await supabase
+          .rpc('get_unique_business_info');
+        
+        if (error) {
+          console.error('❌ Error obteniendo información del negocio:', error);
+          
+          // Manejar errores específicos
+          if (error.code === 'check_violation') {
+            throw new Error('Se encontraron múltiples registros de negocio. Contacte soporte técnico.');
+          }
+          
+          throw error;
+        }
+        
+        // La función RPC retorna un array, tomar el primer elemento
+        const businessInfo = data && data.length > 0 ? data[0] : null;
+        
+        if (!businessInfo) {
+          console.log('⚠️ [BUSINESS INFO] No se encontró información del negocio');
+          return null;
+        }
+        
+        console.log('✅ Información del negocio obtenida correctamente');
+        return businessInfo;
+        
+      } catch (error) {
+        console.error('💥 [BUSINESS INFO] Error inesperado:', error);
         throw error;
       }
-      
-      console.log('✅ Información del negocio obtenida para usuario autenticado');
-      return data;
     },
-    enabled: isAuthenticated && !!profile?.id && !!profile?.business_id,
-    retry: 2,
+    enabled: isAuthenticated && !!profile?.id,
+    retry: (failureCount, error) => {
+      // No reintentar si es un error de validación
+      if (error?.message?.includes('múltiples registros')) {
+        return false;
+      }
+      return failureCount < 2;
+    },
     staleTime: 1000 * 60 * 5, // 5 minutos
   });
 };
