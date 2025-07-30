@@ -9,20 +9,41 @@ import { useToast } from '@/hooks/use-toast';
 interface ShareModalProps {
   isOpen: boolean;
   onClose: () => void;
+  restaurantInfo?: {
+    business_name: string;
+    id: string;
+  };
 }
 
-const ShareModal = ({ isOpen, onClose }: ShareModalProps) => {
+const ShareModal = ({ isOpen, onClose, restaurantInfo }: ShareModalProps) => {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
   
-  // Generar la URL del menú público correctamente con logging mejorado
+  // Generar la URL del menú público con slug del restaurante
   const baseUrl = window.location.origin;
-  const menuUrl = `${baseUrl}/menu`;
-  const shareText = "¡Echa un vistazo a este delicioso menú del restaurante!";
+  const restaurantSlug = restaurantInfo?.business_name ? 
+    restaurantInfo.business_name
+      .toLowerCase()
+      .replace(/[áàäâ]/g, 'a')
+      .replace(/[éèëê]/g, 'e')
+      .replace(/[íìïî]/g, 'i')
+      .replace(/[óòöô]/g, 'o')
+      .replace(/[úùüû]/g, 'u')
+      .replace(/[ñ]/g, 'n')
+      .replace(/[ç]/g, 'c')
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .trim() : '';
+  
+  const menuUrl = restaurantSlug ? `${baseUrl}/menu/${restaurantSlug}` : `${baseUrl}/menu`;
+  const shareText = `¡Echa un vistazo al delicioso menú de ${restaurantInfo?.business_name || 'este restaurante'}!`;
   
   console.log('ShareModal - Generated URLs:', {
     baseUrl,
     menuUrl,
+    restaurantSlug,
+    restaurantName: restaurantInfo?.business_name,
     currentLocation: window.location.href
   });
 

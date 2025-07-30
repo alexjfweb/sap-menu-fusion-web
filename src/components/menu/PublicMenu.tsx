@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,10 +27,10 @@ type Category = Tables<'categories'>;
 
 interface PublicMenuProps {
   onBack?: () => void;
-  restaurantSlug?: string; // Nuevo: slug del restaurante desde URL
 }
 
-const PublicMenu = ({ onBack, restaurantSlug }: PublicMenuProps) => {
+const PublicMenu = ({ onBack }: { onBack?: () => void }) => {
+  const { restaurantSlug } = useParams<{ restaurantSlug?: string }>();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showCart, setShowCart] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -947,6 +948,7 @@ const PublicMenu = ({ onBack, restaurantSlug }: PublicMenuProps) => {
         <ShareModal
           isOpen={showShare}
           onClose={() => setShowShare(false)}
+          restaurantInfo={restaurantInfo}
         />
       )}
 

@@ -56,7 +56,7 @@ export const useRestaurantContext = (restaurantSlug?: string) => {
         .select('*')
         .neq('business_name', 'Mi Restaurante')
         .limit(1)
-        .single();
+        .maybeSingle();
       
       if (fallbackError) {
         console.error('❌ Error buscando negocio fallback:', fallbackError);

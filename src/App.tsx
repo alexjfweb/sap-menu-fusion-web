@@ -31,6 +31,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/menu" element={<PublicMenu />} />
+              <Route path="/menu/:restaurantSlug" element={<PublicMenu />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/auth/reset-password" element={<PasswordReset />} />
