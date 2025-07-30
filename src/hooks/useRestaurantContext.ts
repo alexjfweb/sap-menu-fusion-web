@@ -49,9 +49,22 @@ export const useRestaurantContext = (restaurantSlug?: string) => {
         return businessInfo;
       }
       
-      // Sin fallback - retornar null si no hay contexto específico
-      console.log('⚠️ No hay contexto específico de restaurante');
-      return null;
+      // Fallback: mostrar el primer negocio disponible para URLs públicas
+      console.log('🔄 Buscando primer negocio disponible para menú público...');
+      const { data: fallbackBusinessData, error: fallbackError } = await supabase
+        .from('business_info')
+        .select('*')
+        .neq('business_name', 'Mi Restaurante')
+        .limit(1)
+        .single();
+      
+      if (fallbackError) {
+        console.error('❌ Error buscando negocio fallback:', fallbackError);
+        return null;
+      }
+      
+      console.log('✅ Negocio fallback encontrado:', fallbackBusinessData?.business_name);
+      return fallbackBusinessData;
     },
     enabled: true,
     retry: 2,
