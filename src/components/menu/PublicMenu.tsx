@@ -62,7 +62,7 @@ const PublicMenu = ({ onBack }: { onBack?: () => void }) => {
   } = useUnifiedProducts({
     businessId: restaurantId,
     isPublic: true,
-    enabled: isInitialized && !!restaurantId
+    enabled: !!restaurantId // Simplificado: solo necesita restaurantId
   });
 
   // CORRECCIÓN CRÍTICA: Inicialización controlada
@@ -336,7 +336,10 @@ const PublicMenu = ({ onBack }: { onBack?: () => void }) => {
   };
 
   // Estados de carga y error mejorados
-  const isLoading = !isInitialized || productsLoading || categoriesLoading || restaurantLoading;
+  const isLoading = restaurantLoading || 
+                   (!restaurantId && !restaurantError) || 
+                   (restaurantId && productsLoading && !productsError) || 
+                   customizationLoading;
   const hasError = productsError || categoriesError || restaurantError;
 
   console.log('🎯 [RENDER] Estado actual:', {
@@ -473,8 +476,8 @@ const PublicMenu = ({ onBack }: { onBack?: () => void }) => {
     );
   }
 
-  // CORRECCIÓN CRÍTICA: Validación de productos mejorada
-  if (!products || !Array.isArray(products) || products.length === 0) {
+  // CORRECCIÓN CRÍTICA: Validación de productos mejorada - solo después de que se complete la carga
+  if (!isLoading && !productsError && (!products || !Array.isArray(products) || products.length === 0)) {
     console.warn('⚠️ [RENDER] No hay productos disponibles para el restaurante');
     
     return (

@@ -9,6 +9,7 @@ export const useRestaurantContext = (restaurantSlug?: string) => {
     queryKey: ['restaurant-context', restaurantSlug, profile?.id, profile?.business_id],
     queryFn: async () => {
       console.log('🏢 [RESTAURANT CONTEXT] Determinando contexto del restaurante...');
+      console.log('🔍 Parámetros:', { restaurantSlug, profileId: profile?.id, businessId: profile?.business_id, isAuthenticated });
       
       // Si hay restaurantSlug en URL, usar ese (para menú público)
       if (restaurantSlug) {
@@ -55,6 +56,7 @@ export const useRestaurantContext = (restaurantSlug?: string) => {
         .from('business_info')
         .select('*')
         .neq('business_name', 'Mi Restaurante')
+        .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
       
