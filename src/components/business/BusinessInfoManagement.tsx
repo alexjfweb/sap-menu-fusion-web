@@ -1,5 +1,4 @@
 import React, { useState, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +8,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Building, Save, Upload, Globe, Facebook, Instagram, Twitter, MessageCircle, Hash, Image, CreditCard, QrCode } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFileUpload } from '@/hooks/useFileUpload';
+import { useBusinessInfo } from '@/hooks/useBusinessInfo';
+import { useAuth } from '@/hooks/useAuth';
 import { Tables } from '@/integrations/supabase/types';
 
 type BusinessInfo = Tables<'business_info'>;
@@ -23,26 +24,13 @@ const BusinessInfoManagement = ({ onBack }: BusinessInfoManagementProps) => {
   const [formData, setFormData] = useState<Partial<BusinessInfo>>({});
   const { toast } = useToast();
   const { uploadFile, uploading } = useFileUpload();
+  const { profile } = useAuth();
   const logoFileRef = useRef<HTMLInputElement>(null);
   const coverFileRef = useRef<HTMLInputElement>(null);
   const nequiQrFileRef = useRef<HTMLInputElement>(null);
 
-  const { data: businessInfo, isLoading, refetch } = useQuery({
-    queryKey: ['business-info'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('business_info')
-        .select('*')
-        .single();
-      
-      if (error) {
-        console.error('Error fetching business info:', error);
-        throw error;
-      }
-      
-      return data;
-    },
-  });
+  // Use existing useBusinessInfo hook instead of manual query
+  const { data: businessInfo, isLoading, refetch } = useBusinessInfo();
 
   const handleEdit = () => {
     setFormData(businessInfo || {});
@@ -65,18 +53,28 @@ const BusinessInfoManagement = ({ onBack }: BusinessInfoManagementProps) => {
       return;
     }
 
+    if (!profile?.business_id) {
+      toast({
+        title: "Error de autorización",
+        description: "No se encontró información del negocio asociado",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSaving(true);
     
     try {
       console.log('🔄 Actualizando información del negocio...');
       
+      // Use the correct business_id from the user's profile to ensure RLS compliance
       const { data, error } = await supabase
         .from('business_info')
         .update({
           ...formData,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', businessInfo?.id)
+        .eq('id', profile.business_id)
         .select()
         .single();
 
