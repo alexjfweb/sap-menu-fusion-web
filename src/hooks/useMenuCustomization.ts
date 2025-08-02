@@ -85,7 +85,7 @@ export const getDefaultCustomization = (): Partial<MenuCustomization> => ({
   menu_bg_color: '#ffffff',
   header_bg_color: '#f8f9fa',
   text_color: '#333333',
-  header_text_color: '#ffffff',
+  header_text_color: '#333333',
   button_bg_color: '#007bff',
   button_text_color: '#ffffff',
   contact_button_bg_color: '#25d366',
