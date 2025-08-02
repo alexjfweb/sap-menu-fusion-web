@@ -56,6 +56,20 @@ const ReservationModal = ({ isOpen, onClose }: ReservationModalProps) => {
     setIsSubmitting(true);
 
     try {
+      console.log('🔄 [RESERVATION] Enviando datos de reserva:', {
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        customer_email: customerEmail || null,
+        party_size: parseInt(partySize),
+        reservation_date: reservationDate,
+        reservation_time: reservationTime,
+        special_requests: specialRequests || null,
+        payment_method: paymentMethod,
+        payment_status: 'pending',
+        status: 'pending',
+        total_amount: 0,
+      });
+
       const { data, error } = await supabase
         .from('payment_reservations')
         .insert({
@@ -72,7 +86,12 @@ const ReservationModal = ({ isOpen, onClose }: ReservationModalProps) => {
           total_amount: 0,
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ [RESERVATION] Error en base de datos:', error);
+        throw error;
+      }
+
+      console.log('✅ [RESERVATION] Reserva guardada en BD:', data);
 
       // Enviar por WhatsApp
       const result = await sendReservationToWhatsApp({
