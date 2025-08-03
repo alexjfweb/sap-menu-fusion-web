@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Copy, Facebook, Twitter, Instagram, MessageCircle, Check } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Copy, Facebook, Twitter, Instagram, MessageCircle, Check, Upload, RotateCcw, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useFileUpload } from '@/hooks/useFileUpload';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -17,7 +20,12 @@ interface ShareModalProps {
 
 const ShareModal = ({ isOpen, onClose, restaurantInfo }: ShareModalProps) => {
   const [copied, setCopied] = useState(false);
+  const [customMessage, setCustomMessage] = useState('');
+  const [customImageUrl, setCustomImageUrl] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+  const { uploadFile, uploading } = useFileUpload();
   
   // Generar la URL del menú público con slug del restaurante
   const baseUrl = window.location.origin;
@@ -37,15 +45,120 @@ const ShareModal = ({ isOpen, onClose, restaurantInfo }: ShareModalProps) => {
       .trim() : '';
   
   const menuUrl = restaurantSlug ? `${baseUrl}/menu/${restaurantSlug}` : `${baseUrl}/menu`;
-  const shareText = `¡Echa un vistazo al delicioso menú de ${restaurantInfo?.business_name || 'este restaurante'}!`;
+  const defaultShareText = `¡Echa un vistazo al delicioso menú de ${restaurantInfo?.business_name || 'este restaurante'}!`;
+  const shareText = customMessage || defaultShareText;
   
-  console.log('ShareModal - Generated URLs:', {
-    baseUrl,
-    menuUrl,
-    restaurantSlug,
-    restaurantName: restaurantInfo?.business_name,
-    currentLocation: window.location.href
-  });
+  // Load custom share content when modal opens
+  useEffect(() => {
+    if (isOpen && restaurantInfo?.id) {
+      loadCustomShareContent();
+    }
+  }, [isOpen, restaurantInfo?.id]);
+
+  const loadCustomShareContent = async () => {
+    if (!restaurantInfo?.id) return;
+    
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('business_info')
+        .select('custom_share_message, custom_share_image_url')
+        .eq('id', restaurantInfo.id)
+        .single();
+
+      if (error) throw error;
+
+      setCustomMessage(data?.custom_share_message || '');
+      setCustomImageUrl(data?.custom_share_image_url || '');
+    } catch (error) {
+      console.error('Error loading custom share content:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const saveCustomContent = async () => {
+    if (!restaurantInfo?.id) return;
+
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('business_info')
+        .update({
+          custom_share_message: customMessage || null,
+          custom_share_image_url: customImageUrl || null
+        })
+        .eq('id', restaurantInfo.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "¡Guardado!",
+        description: "Tu personalización se ha guardado correctamente",
+      });
+    } catch (error) {
+      console.error('Error saving custom content:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo guardar la personalización",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const resetToDefault = async () => {
+    if (!restaurantInfo?.id) return;
+
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('business_info')
+        .update({
+          custom_share_message: null,
+          custom_share_image_url: null
+        })
+        .eq('id', restaurantInfo.id);
+
+      if (error) throw error;
+
+      setCustomMessage('');
+      setCustomImageUrl('');
+
+      toast({
+        title: "Restablecido",
+        description: "Se ha vuelto al contenido predeterminado",
+      });
+    } catch (error) {
+      console.error('Error resetting content:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo restablecer el contenido",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const uploadedUrl = await uploadFile(file, 'share-images');
+      if (uploadedUrl) {
+        setCustomImageUrl(uploadedUrl);
+        toast({
+          title: "Imagen subida",
+          description: "La imagen se ha subido correctamente",
+        });
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+    }
+  };
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -107,6 +220,84 @@ const ShareModal = ({ isOpen, onClose, restaurantInfo }: ShareModalProps) => {
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Personalización */}
+          <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-medium">Personalizar contenido</Label>
+              <div className="flex space-x-2">
+                <Button 
+                  size="sm" 
+                  onClick={saveCustomContent}
+                  disabled={isSaving || isLoading}
+                >
+                  <Save className="h-4 w-4 mr-1" />
+                  Guardar
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={resetToDefault}
+                  disabled={isSaving || isLoading}
+                >
+                  <RotateCcw className="h-4 w-4 mr-1" />
+                  Resetear
+                </Button>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="custom-message">Mensaje personalizado</Label>
+                <Textarea
+                  id="custom-message"
+                  placeholder={defaultShareText}
+                  value={customMessage}
+                  onChange={(e) => setCustomMessage(e.target.value)}
+                  className="mt-1"
+                  rows={3}
+                  maxLength={280}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {customMessage.length}/280 caracteres
+                </p>
+              </div>
+              
+              <div>
+                <Label htmlFor="custom-image">Imagen personalizada</Label>
+                <div className="mt-1">
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      type="file"
+                      id="custom-image"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      disabled={uploading}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => document.getElementById('custom-image')?.click()}
+                      disabled={uploading}
+                    >
+                      <Upload className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {customImageUrl && (
+                    <div className="mt-2">
+                      <img 
+                        src={customImageUrl} 
+                        alt="Preview" 
+                        className="w-20 h-20 object-cover rounded border"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Copy Link */}
           <div className="space-y-2">
             <Label>Enlace del menú</Label>
@@ -169,9 +360,9 @@ const ShareModal = ({ isOpen, onClose, restaurantInfo }: ShareModalProps) => {
             </div>
           </div>
 
-          {/* Share Text */}
+          {/* Share Text Preview */}
           <div className="space-y-2">
-            <Label>Texto para compartir</Label>
+            <Label>Vista previa del texto</Label>
             <div className="flex space-x-2">
               <Input 
                 value={shareText} 

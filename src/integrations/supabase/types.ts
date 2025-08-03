@@ -20,6 +20,8 @@ export type Database = {
           business_name: string
           cover_image_url: string | null
           created_at: string
+          custom_share_image_url: string | null
+          custom_share_message: string | null
           description: string | null
           email: string | null
           facebook_url: string | null
@@ -42,6 +44,8 @@ export type Database = {
           business_name: string
           cover_image_url?: string | null
           created_at?: string
+          custom_share_image_url?: string | null
+          custom_share_message?: string | null
           description?: string | null
           email?: string | null
           facebook_url?: string | null
@@ -64,6 +68,8 @@ export type Database = {
           business_name?: string
           cover_image_url?: string | null
           created_at?: string
+          custom_share_image_url?: string | null
+          custom_share_message?: string | null
           description?: string | null
           email?: string | null
           facebook_url?: string | null
@@ -1551,6 +1557,8 @@ export type Database = {
           business_name: string
           cover_image_url: string | null
           created_at: string
+          custom_share_image_url: string | null
+          custom_share_message: string | null
           description: string | null
           email: string | null
           facebook_url: string | null
