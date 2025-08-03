@@ -192,7 +192,12 @@ const ShareModal = ({ isOpen, onClose, restaurantInfo }: ShareModalProps) => {
         shareUrl = `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`;
         break;
       case 'whatsapp':
-        shareUrl = `https://wa.me/?text=${encodedText} ${encodedUrl}`;
+        // Para WhatsApp, incluir imagen personalizada en el mensaje si existe
+        const whatsappText = customImageUrl 
+          ? `${shareText}\n\n🖼️ Imagen: ${customImageUrl}\n\n📱 Menú completo:`
+          : shareText;
+        const encodedWhatsAppText = encodeURIComponent(whatsappText);
+        shareUrl = `https://wa.me/?text=${encodedWhatsAppText} ${encodedUrl}`;
         break;
       case 'instagram':
         // Instagram doesn't support direct URL sharing, so we copy the link
