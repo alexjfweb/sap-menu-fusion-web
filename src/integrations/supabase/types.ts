@@ -402,6 +402,62 @@ export type Database = {
           },
         ]
       }
+      navigation_config: {
+        Row: {
+          auth_required: boolean
+          created_at: string
+          id: string
+          is_visible: boolean
+          item_icon: string
+          item_label: string
+          item_name: string
+          nav_type: string
+          parent_id: string | null
+          position: number
+          required_role: string
+          route_path: string
+          updated_at: string
+        }
+        Insert: {
+          auth_required?: boolean
+          created_at?: string
+          id?: string
+          is_visible?: boolean
+          item_icon?: string
+          item_label: string
+          item_name: string
+          nav_type: string
+          parent_id?: string | null
+          position?: number
+          required_role?: string
+          route_path: string
+          updated_at?: string
+        }
+        Update: {
+          auth_required?: boolean
+          created_at?: string
+          id?: string
+          is_visible?: boolean
+          item_icon?: string
+          item_label?: string
+          item_name?: string
+          nav_type?: string
+          parent_id?: string | null
+          position?: number
+          required_role?: string
+          route_path?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "navigation_config_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "navigation_config"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string | null

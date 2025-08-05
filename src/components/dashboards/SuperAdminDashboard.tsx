@@ -20,7 +20,9 @@ import {
   Database,
   Bell,
   Shield,
-  UserCheck
+  UserCheck,
+  Menu,
+  ArrowLeft
 } from 'lucide-react';
 import { usePublicMenuCustomization, getDefaultCustomization } from '@/hooks/useMenuCustomization';
 import OrderManagement from '../orders/OrderManagement';
@@ -43,6 +45,7 @@ import SuperAdminPanel from '../SuperAdminPanel';
 import PaymentConfiguration from '../PaymentConfiguration';
 import SubscriptionPlansManagement from '../subscriptions/SubscriptionPlansManagement';
 import WhatsappConfiguration from '../whatsapp/WhatsappConfiguration';
+import { NavigationConfigPanel } from '../navigation/NavigationConfigPanel';
 
 const SuperAdminDashboard = () => {
   const { profile, signOut } = useAuth();
@@ -228,6 +231,20 @@ const SuperAdminDashboard = () => {
 
   if (activeSection === 'payment-reminders') {
     return <PaymentReminderManagement onBack={handleBackToDashboard} />;
+  }
+
+  if (activeSection === 'navigation-config') {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="mb-6">
+          <Button variant="outline" onClick={handleBackToDashboard}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Volver al Dashboard
+          </Button>
+        </div>
+        <NavigationConfigPanel />
+      </div>
+    );
   }
 
   return (
@@ -679,6 +696,27 @@ const SuperAdminDashboard = () => {
                 onClick={() => setActiveSection('maintenance')}
               >
                 Herramientas
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Configuración de Navegación */}
+          <Card className="hover:shadow-lg transition-shadow duration-300 border-indigo-200">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Menu className="h-5 w-5 text-indigo-600" />
+                <span>Configuración de Navegación</span>
+              </CardTitle>
+              <CardDescription>
+                Personalizar menús y navegación del sistema
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('navigation-config')}
+              >
+                Configurar Navegación
               </Button>
             </CardContent>
           </Card>
