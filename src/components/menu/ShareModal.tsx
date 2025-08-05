@@ -22,6 +22,7 @@ const ShareModal = ({ isOpen, onClose, restaurantInfo }: ShareModalProps) => {
   const [copied, setCopied] = useState(false);
   const [customMessage, setCustomMessage] = useState('');
   const [customImageUrl, setCustomImageUrl] = useState('');
+  const [customImageUrlInput, setCustomImageUrlInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
@@ -70,6 +71,7 @@ const ShareModal = ({ isOpen, onClose, restaurantInfo }: ShareModalProps) => {
 
       setCustomMessage(data?.custom_share_message || '');
       setCustomImageUrl(data?.custom_share_image_url || '');
+      setCustomImageUrlInput(data?.custom_share_image_url || '');
     } catch (error) {
       console.error('Error loading custom share content:', error);
     } finally {
@@ -82,11 +84,14 @@ const ShareModal = ({ isOpen, onClose, restaurantInfo }: ShareModalProps) => {
 
     setIsSaving(true);
     try {
+      // Priorizar URL ingresada manualmente sobre imagen subida
+      const finalImageUrl = customImageUrlInput.trim() || customImageUrl;
+      
       const { error } = await supabase
         .from('business_info')
         .update({
           custom_share_message: customMessage || null,
-          custom_share_image_url: customImageUrl || null
+          custom_share_image_url: finalImageUrl || null
         })
         .eq('id', restaurantInfo.id);
 
@@ -125,6 +130,7 @@ const ShareModal = ({ isOpen, onClose, restaurantInfo }: ShareModalProps) => {
 
       setCustomMessage('');
       setCustomImageUrl('');
+      setCustomImageUrlInput('');
 
       toast({
         title: "Restablecido",
@@ -193,8 +199,9 @@ const ShareModal = ({ isOpen, onClose, restaurantInfo }: ShareModalProps) => {
         break;
       case 'whatsapp':
         // Para WhatsApp, incluir imagen personalizada en el mensaje si existe
-        const whatsappText = customImageUrl 
-          ? `${shareText}\n\n🖼️ Imagen: ${customImageUrl}\n\n📱 Menú completo:`
+        const finalImageUrl = customImageUrlInput.trim() || customImageUrl;
+        const whatsappText = finalImageUrl 
+          ? `${shareText}\n\n🖼️ Imagen: ${finalImageUrl}\n\n📱 Menú completo:`
           : shareText;
         const encodedWhatsAppText = encodeURIComponent(whatsappText);
         shareUrl = `https://wa.me/?text=${encodedWhatsAppText} ${encodedUrl}`;
@@ -299,6 +306,21 @@ const ShareModal = ({ isOpen, onClose, restaurantInfo }: ShareModalProps) => {
                     </div>
                   )}
                 </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="custom-image-url">URL de imagen personalizada</Label>
+                <Input
+                  id="custom-image-url"
+                  type="url"
+                  placeholder="https://ejemplo.com/imagen.jpg"
+                  value={customImageUrlInput}
+                  onChange={(e) => setCustomImageUrlInput(e.target.value)}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Opcional: Ingresa una URL directa de imagen
+                </p>
               </div>
             </div>
           </div>
