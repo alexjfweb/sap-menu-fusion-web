@@ -55,10 +55,11 @@ export const usePaymentMethodValidation = () => {
         break;
       
       case 'mercado_pago':
-        if (!method.configuration?.public_key) {
+        // Verificar que tenga tanto public_key como private_key
+        if (!method.configuration?.public_key || !method.configuration?.private_key) {
           return { 
             isValid: false, 
-            message: 'Configuración incompleta - Falta clave pública' 
+            message: 'Configuración incompleta - Faltan claves de Mercado Pago' 
           };
         }
         break;
@@ -105,10 +106,17 @@ export const usePaymentMethodValidation = () => {
   const getValidatedMethods = () => {
     if (!paymentMethods) return [];
     
-    return paymentMethods.map(method => ({
+    const validated = paymentMethods.map(method => ({
       ...method,
       validation: validatePaymentMethod(method)
     }));
+    
+    // Debug logs para identificar el problema
+    console.log('🔍 [Payment Validation] Métodos encontrados:', paymentMethods.length);
+    console.log('📋 [Payment Validation] Datos:', paymentMethods);
+    console.log('✅ [Payment Validation] Métodos validados:', validated);
+    
+    return validated;
   };
 
   const getAvailableMethods = () => {
