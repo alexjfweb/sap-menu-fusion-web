@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { Check, Star, Users, Zap, Crown, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PaymentModal from './PaymentModal';
-import MercadoPagoPaymentModal from './MercadoPagoPaymentModal';
 import { useSmartNavigation } from '@/hooks/useSmartNavigation';
 import DemoModal from '@/components/modals/DemoModal';
 import { supabase } from '@/integrations/supabase/client';
@@ -55,7 +54,6 @@ const colorClasses = {
 const PricingSection = () => {
   const [selectedPlan, setSelectedPlan] = useState<PlanWithLimits | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showMercadoPagoModal, setShowMercadoPagoModal] = useState(false);
   const [showSalesModal, setShowSalesModal] = useState(false);
   const { navigateToAuth, isNavigating } = useSmartNavigation();
 
@@ -339,22 +337,6 @@ const PricingSection = () => {
           }}
           onClose={() => {
             setShowPaymentModal(false);
-            setSelectedPlan(null);
-          }}
-        />
-      )}
-
-      {showMercadoPagoModal && selectedPlan && (
-        <MercadoPagoPaymentModal
-          isOpen={showMercadoPagoModal}
-          plan={{
-            id: selectedPlan.id,
-            name: selectedPlan.name,
-            price: Number(selectedPlan.price),
-            currency: selectedPlan.currency || 'USD'
-          }}
-          onClose={() => {
-            setShowMercadoPagoModal(false);
             setSelectedPlan(null);
           }}
         />
