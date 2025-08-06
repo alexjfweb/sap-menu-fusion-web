@@ -4,11 +4,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { CreditCard, Smartphone, QrCode, Shield, Check, DollarSign, AlertTriangle } from 'lucide-react';
+import { CreditCard, Smartphone, Shield, Check, DollarSign, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import StripePayment from './payments/StripePayment';
 import NequiPayment from './payments/NequiPayment';
-import QRPayment from './payments/QRPayment';
 import MercadoPagoPayment from './payments/MercadoPagoPayment';
 import { usePaymentMethodValidation } from '@/hooks/usePaymentMethodValidation';
 
@@ -23,7 +22,7 @@ interface PaymentModalProps {
   onClose: () => void;
 }
 
-type PaymentMethod = 'stripe' | 'nequi' | 'qr_code' | 'mercado_pago';
+type PaymentMethod = 'stripe' | 'nequi' | 'mercado_pago';
 
 const PaymentModal = ({ plan, onClose }: PaymentModalProps) => {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
@@ -52,13 +51,6 @@ const PaymentModal = ({ plan, onClose }: PaymentModalProps) => {
         icon: Smartphone,
         badges: ['Colombia'],
         features: ['Hasta $10M COP', 'Confirmación automática', 'Sin comisiones extra']
-      },
-      'qr_code': {
-        name: 'Código QR',
-        description: 'Bancolombia, Daviplata, Mercado Pago',
-        icon: QrCode,
-        badges: ['Latam'],
-        features: ['Validación < 2min', 'Sin registro', 'Múltiples bancos']
       },
       'mercado_pago': {
         name: 'Mercado Pago',
@@ -94,8 +86,6 @@ const PaymentModal = ({ plan, onClose }: PaymentModalProps) => {
         return <StripePayment plan={plan} onSuccess={() => setStep('confirmation')} />;
       case 'nequi':
         return <NequiPayment plan={plan} onSuccess={() => setStep('confirmation')} />;
-      case 'qr_code':
-        return <QRPayment plan={plan} onSuccess={() => setStep('confirmation')} />;
       case 'mercado_pago':
         return <MercadoPagoPayment plan={plan} onSuccess={() => setStep('confirmation')} />;
       default:

@@ -3,11 +3,10 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, CreditCard, Settings, BarChart3, QrCode } from 'lucide-react';
+import { ArrowLeft, CreditCard, Settings, BarChart3 } from 'lucide-react';
 import SubscriptionPlans from './SubscriptionPlans';
 import PaymentMethods from './PaymentMethods';
 import TransactionHistory from './TransactionHistory';
-import QRCodeManagement from './QRCodeManagement';
 
 interface SubscriptionManagementProps {
   onBack: () => void;
@@ -40,7 +39,7 @@ const SubscriptionManagement = ({ onBack }: SubscriptionManagementProps) => {
         </div>
 
         <Tabs defaultValue="plans" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="plans" className="flex items-center space-x-2">
               <CreditCard className="h-4 w-4" />
               <span>Planes</span>
@@ -52,10 +51,6 @@ const SubscriptionManagement = ({ onBack }: SubscriptionManagementProps) => {
             <TabsTrigger value="transactions" className="flex items-center space-x-2">
               <BarChart3 className="h-4 w-4" />
               <span>Transacciones</span>
-            </TabsTrigger>
-            <TabsTrigger value="qr-codes" className="flex items-center space-x-2">
-              <QrCode className="h-4 w-4" />
-              <span>Códigos QR</span>
             </TabsTrigger>
           </TabsList>
 
@@ -69,10 +64,6 @@ const SubscriptionManagement = ({ onBack }: SubscriptionManagementProps) => {
 
           <TabsContent value="transactions">
             <TransactionHistory />
-          </TabsContent>
-
-          <TabsContent value="qr-codes">
-            <QRCodeManagement />
           </TabsContent>
         </Tabs>
       </main>
