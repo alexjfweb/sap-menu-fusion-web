@@ -81,9 +81,20 @@ const SubscriptionPlansManagement = () => {
 
   const savePlanMutation = useMutation({
     mutationFn: async (plan: SubscriptionPlan) => {
+      // Validar campos requeridos
+      if (!plan.name?.trim()) {
+        throw new Error('El nombre del plan es requerido');
+      }
+      if (!plan.price || plan.price <= 0) {
+        throw new Error('El precio debe ser mayor a 0');
+      }
+      if (!plan.billing_interval) {
+        throw new Error('El intervalo de facturación es requerido');
+      }
+
       const planData = {
-        name: plan.name,
-        description: plan.description,
+        name: plan.name.trim(),
+        description: plan.description?.trim() || null,
         price: plan.price,
         currency: plan.currency || 'USD',
         billing_interval: plan.billing_interval,
@@ -92,7 +103,7 @@ const SubscriptionPlansManagement = () => {
         is_featured: plan.is_featured ?? false,
         max_subscribers: plan.max_subscribers || null,
         trial_days: plan.trial_days || 0,
-        updated_at: new Date().toISOString()
+        sort_order: plan.sort_order || 0
       };
 
       if (plan.id) {
@@ -152,11 +163,28 @@ const SubscriptionPlansManagement = () => {
         queryClient.setQueryData(['subscription-plans'], context.previousPlans);
       }
       
-      console.error('Error al guardar plan:', error);
+      console.error('Error detallado al guardar plan:', error);
+      
+      // Parsear errores específicos
+      let errorMessage = 'Error desconocido';
+      if (error instanceof Error) {
+        if (error.message.includes('violates row-level security')) {
+          errorMessage = 'No tienes permisos para realizar esta acción. Contacta al administrador.';
+        } else if (error.message.includes('duplicate key')) {
+          errorMessage = 'Ya existe un plan con este nombre.';
+        } else if (error.message.includes('foreign key')) {
+          errorMessage = 'Error de referencia en los datos. Verifica la información.';
+        } else if (error.message.includes('not null')) {
+          errorMessage = 'Faltan campos requeridos.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
       toast({
         variant: 'destructive',
         title: 'Error al guardar',
-        description: `No se pudo guardar el plan: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+        description: errorMessage,
       });
     },
     onSettled: (_, __, plan) => {
@@ -171,8 +199,7 @@ const SubscriptionPlansManagement = () => {
       const { data, error } = await supabase
         .from('subscription_plans')
         .update({ 
-          is_active: isActive,
-          updated_at: new Date().toISOString()
+          is_active: isActive
         })
         .eq('id', planId)
         .select()
@@ -266,9 +293,37 @@ const SubscriptionPlansManagement = () => {
   };
 
   const handleSavePlan = () => {
-    if (editingPlan) {
-      savePlanMutation.mutate(editingPlan);
+    if (!editingPlan) return;
+
+    // Validación en el frontend antes del envío
+    if (!editingPlan.name?.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Error de validación',
+        description: 'El nombre del plan es requerido',
+      });
+      return;
     }
+
+    if (!editingPlan.price || editingPlan.price <= 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Error de validación',
+        description: 'El precio debe ser mayor a 0',
+      });
+      return;
+    }
+
+    if (!editingPlan.billing_interval) {
+      toast({
+        variant: 'destructive',
+        title: 'Error de validación',
+        description: 'El intervalo de facturación es requerido',
+      });
+      return;
+    }
+
+    savePlanMutation.mutate(editingPlan);
   };
 
   if (isLoading) {
@@ -386,41 +441,63 @@ const SubscriptionPlansManagement = () => {
 
       {/* Dialog para editar/crear plan */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" aria-describedby="plan-form-description">
           <DialogHeader>
             <DialogTitle>
               {editingPlan?.id ? 'Editar Plan' : 'Nuevo Plan'}
             </DialogTitle>
+            <p id="plan-form-description" className="text-sm text-muted-foreground">
+              {editingPlan?.id 
+                ? 'Modifica los detalles del plan de suscripción seleccionado'
+                : 'Crea un nuevo plan de suscripción con precios y características personalizadas'
+              }
+            </p>
           </DialogHeader>
           
           {editingPlan && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Nombre del Plan</Label>
+                  <Label htmlFor="plan-name">Nombre del Plan *</Label>
                   <Input
+                    id="plan-name"
                     value={editingPlan.name}
                     onChange={(e) => setEditingPlan({...editingPlan, name: e.target.value})}
                     placeholder="Ej: Plan Básico"
+                    required
+                    aria-invalid={!editingPlan.name?.trim()}
                   />
+                  {!editingPlan.name?.trim() && (
+                    <p className="text-sm text-destructive">El nombre es requerido</p>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <Label>Precio</Label>
+                  <Label htmlFor="plan-price">Precio *</Label>
                   <Input
+                    id="plan-price"
                     type="number"
+                    step="0.01"
+                    min="0.01"
                     value={editingPlan.price}
                     onChange={(e) => setEditingPlan({...editingPlan, price: parseFloat(e.target.value) || 0})}
                     placeholder="0.00"
+                    required
+                    aria-invalid={!editingPlan.price || editingPlan.price <= 0}
                   />
+                  {(!editingPlan.price || editingPlan.price <= 0) && (
+                    <p className="text-sm text-destructive">El precio debe ser mayor a 0</p>
+                  )}
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>Descripción</Label>
+                <Label htmlFor="plan-description">Descripción</Label>
                 <Textarea
-                  value={editingPlan.description}
+                  id="plan-description"
+                  value={editingPlan.description || ''}
                   onChange={(e) => setEditingPlan({...editingPlan, description: e.target.value})}
                   placeholder="Descripción del plan..."
+                  rows={3}
                 />
               </div>
 
@@ -438,15 +515,22 @@ const SubscriptionPlansManagement = () => {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Intervalo de Facturación</Label>
+                  <Label htmlFor="billing-interval">Intervalo de Facturación *</Label>
                   <select
+                    id="billing-interval"
                     className="w-full p-2 border rounded-md"
                     value={editingPlan.billing_interval}
                     onChange={(e) => setEditingPlan({...editingPlan, billing_interval: e.target.value})}
+                    required
+                    aria-invalid={!editingPlan.billing_interval}
                   >
+                    <option value="">Seleccionar intervalo</option>
                     <option value="monthly">Mensual</option>
                     <option value="yearly">Anual</option>
                   </select>
+                  {!editingPlan.billing_interval && (
+                    <p className="text-sm text-destructive">El intervalo de facturación es requerido</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Días de Prueba</Label>
@@ -520,18 +604,19 @@ const SubscriptionPlansManagement = () => {
                   Cancelar
                 </Button>
                 <Button 
-                  onClick={handleSavePlan} 
-                  disabled={savePlanMutation.isPending}
-                  className="min-w-[120px]"
+                  onClick={handleSavePlan}
+                  disabled={
+                    actionStates[`save-${editingPlan.id || 'new'}`] ||
+                    !editingPlan.name?.trim() ||
+                    !editingPlan.price ||
+                    editingPlan.price <= 0 ||
+                    !editingPlan.billing_interval
+                  }
                 >
-                  {savePlanMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Guardando...
-                    </>
-                  ) : (
-                    'Guardar Plan'
+                  {actionStates[`save-${editingPlan.id || 'new'}`] && (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   )}
+                  {editingPlan?.id ? 'Actualizar' : 'Crear'} Plan
                 </Button>
               </div>
             </div>
