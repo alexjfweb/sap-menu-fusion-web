@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Check, Star, Users, Zap, Crown, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import PaymentModal from './PaymentModal';
+import PaymentFormModal from './PaymentFormModal';
 import { useSmartNavigation } from '@/hooks/useSmartNavigation';
 import DemoModal from '@/components/modals/DemoModal';
 import { supabase } from '@/integrations/supabase/client';
@@ -327,7 +327,7 @@ const PricingSection = () => {
       </div>
 
       {showPaymentModal && selectedPlan && (
-        <PaymentModal
+        <PaymentFormModal
           plan={{
             id: selectedPlan.id,
             name: selectedPlan.name,
