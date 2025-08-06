@@ -276,7 +276,7 @@ const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
 
             {/* Payment Methods */}
             <div className="space-y-4">
-              <h4 className="text-lg font-semibold">Selecciona tu método de pago:</h4>
+              <h4 className="text-lg font-semibold">🔄 Selecciona tu método de pago:</h4>
               
               {availableMethods.length === 0 ? (
                 <div className="bg-destructive/5 border border-destructive/20 p-6 rounded-lg text-center">
