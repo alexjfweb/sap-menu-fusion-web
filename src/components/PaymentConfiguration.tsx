@@ -61,11 +61,10 @@ const PaymentConfiguration = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // NUEVO: Métodos de pago predefinidos con Bancolombia agregado
+  // Métodos de pago predefinidos alineados con constraint de BD
   const defaultMethods = [
     { name: 'Contra Entrega', type: 'cash_on_delivery', icon: Truck },
     { name: 'Código QR', type: 'qr_code', icon: QrCode },
-    { name: 'Bancolombia', type: 'bancolombia', icon: QrCode },
     { name: 'Nequi', type: 'nequi', icon: Smartphone },
     { name: 'Daviplata', type: 'daviplata', icon: Smartphone },
     { name: 'Mercado Pago', type: 'mercado_pago', icon: DollarSign },
@@ -169,7 +168,6 @@ const PaymentConfiguration = () => {
         }
         break;
       case 'qr_code':
-      case 'bancolombia':
       case 'daviplata':
         // Validación específica para códigos QR
         if (!config.logo_url && !config.logo_file) {
@@ -457,21 +455,6 @@ const PaymentConfiguration = () => {
           </div>
         );
       
-      case 'bancolombia':
-        // Campos específicos para Bancolombia
-        return (
-          <div className="space-y-2">
-            <Label>Número de Cuenta Bancolombia</Label>
-            <Input
-              placeholder="0123456789"
-              value={config.configuration.account_number || ''}
-              onChange={(e) => handleConfigChange(index, 'account_number', e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Número de cuenta asociado al código QR de Bancolombia
-            </p>
-          </div>
-        );
       
       case 'daviplata':
         // Campos específicos para Daviplata

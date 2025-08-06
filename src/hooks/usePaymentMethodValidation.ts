@@ -79,7 +79,6 @@ export const usePaymentMethodValidation = () => {
         break;
       
       case 'qr_code':
-      case 'bancolombia':
       case 'daviplata':
         if (!method.webhook_url || method.webhook_url.trim() === '') {
           return { 
