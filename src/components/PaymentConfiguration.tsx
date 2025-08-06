@@ -65,8 +65,6 @@ const PaymentConfiguration = () => {
   // Métodos de pago predefinidos alineados con constraint de BD
   const defaultMethods = [
     { name: 'Contra Entrega', type: 'cash_on_delivery', icon: Truck },
-    { name: 'Código QR', type: 'qr_code', icon: QrCode },
-    { name: 'Bancolombia QR', type: 'qr_code', icon: QrCode, subtype: 'bancolombia' },
     { name: 'Nequi', type: 'nequi', icon: Smartphone },
     { name: 'Daviplata', type: 'daviplata', icon: Smartphone },
     { name: 'Mercado Pago', type: 'mercado_pago', icon: DollarSign },
@@ -98,14 +96,12 @@ const PaymentConfiguration = () => {
       // Combinar métodos predefinidos con los existentes
       const combinedConfigs = defaultMethods.map(defaultMethod => {
         const existing = existingMethods.find(em => 
-          em.type === defaultMethod.type && 
-          (defaultMethod.subtype ? em.name === defaultMethod.name : !defaultMethod.subtype)
+          em.type === defaultMethod.type && em.name === defaultMethod.name
         );
         return {
           id: existing?.id,
           name: defaultMethod.name,
           type: defaultMethod.type,
-          subtype: defaultMethod.subtype,
           is_active: existing?.is_active || false,
           configuration: existing?.configuration || {},
           logo_url: existing?.webhook_url || '',
@@ -171,16 +167,6 @@ const PaymentConfiguration = () => {
         }
         if (!/^\d{10}$/.test(config.configuration.phone_number)) {
           return `${config.name}: El número debe tener exactamente 10 dígitos`;
-        }
-        break;
-      case 'qr_code':
-      case 'daviplata':
-        // Validación específica para códigos QR
-        if (!config.logo_url && !config.logo_file) {
-          return `${config.name}: Debe proporcionar un código QR (imagen o URL)`;
-        }
-        if (config.logo_url && config.logo_file) {
-          return `${config.name}: Solo puede usar imagen O URL, no ambas`;
         }
         break;
     }
@@ -445,40 +431,6 @@ const PaymentConfiguration = () => {
           </div>
         );
 
-      case 'qr_code':
-        if (config.subtype === 'bancolombia') {
-          // Configuración específica para Bancolombia QR
-          return (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Número de Cuenta Bancolombia</Label>
-                <Input
-                  placeholder="0123456789"
-                  value={config.configuration.account_number || ''}
-                  onChange={(e) => handleConfigChange(index, 'account_number', e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Número de cuenta asociado al código QR de Bancolombia
-                </p>
-              </div>
-            </div>
-          );
-        } else {
-          // Campos específicos para QR Code general
-          return (
-            <div className="space-y-2">
-              <Label>Código Merchant (Opcional)</Label>
-              <Input
-                placeholder="Código identificador del comercio"
-                value={config.configuration.merchant_code || ''}
-                onChange={(e) => handleConfigChange(index, 'merchant_code', e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Código único de tu comercio para identificar los pagos QR
-              </p>
-            </div>
-          );
-        }
       
       
       case 'daviplata':
@@ -511,61 +463,6 @@ const PaymentConfiguration = () => {
   const renderLogoSection = (config: PaymentMethodConfig, index: number) => {
     if (!config.is_active) return null;
 
-    // Sección específica para códigos QR (QR Code general, Bancolombia QR, Daviplata)
-    if (config.type === 'qr_code' || config.type === 'daviplata') {
-      return (
-          <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label>Código QR - {config.name}</Label>
-            {config.logo_url && (
-              <img 
-                src={config.logo_url} 
-                alt={`${config.name} QR Code preview`} 
-                className="h-16 w-16 object-contain rounded border"
-              />
-            )}
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Upload className="h-4 w-4" />
-                Subir Imagen QR
-              </Label>
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    handleLogoChange(index, 'logo_file', file);
-                  }
-                }}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Link className="h-4 w-4" />
-                URL del Código QR
-              </Label>
-              <Input
-                placeholder="https://ejemplo.com/mi-qr.png"
-                value={config.logo_url || ''}
-                onChange={(e) => handleLogoChange(index, 'logo_url', e.target.value)}
-              />
-            </div>
-          </div>
-          
-          <Alert>
-            <QrCode className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Uso exclusivo:</strong> Puedes subir una imagen QR O usar una URL externa, pero no ambas opciones al mismo tiempo.
-            </AlertDescription>
-          </Alert>
-        </div>
-      );
-    }
 
     // Para otros métodos de pago
     return (

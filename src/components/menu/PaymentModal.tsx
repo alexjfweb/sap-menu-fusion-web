@@ -53,12 +53,8 @@ const PaymentModal = ({ isOpen, onClose, cartItems, totalAmount, sessionId, onPa
 
   // Helper function to get payment method value for form
   const getPaymentMethodValue = (method: any) => {
-    if (method.type === 'qr_code' && method.name === 'Bancolombia QR') {
-      return 'bancolombia';
-    }
     switch (method.type) {
       case 'cash_on_delivery': return 'contra-entrega';
-      case 'qr_code': return 'qr';
       case 'nequi': return 'nequi';
       case 'daviplata': return 'daviplata';
       case 'mercado_pago': return 'mercado-pago';
@@ -70,12 +66,8 @@ const PaymentModal = ({ isOpen, onClose, cartItems, totalAmount, sessionId, onPa
 
   // Helper function to get icon for payment method
   const getPaymentMethodIcon = (method: any) => {
-    if (method.type === 'qr_code' && method.name === 'Bancolombia QR') {
-      return QrCode;
-    }
     switch (method.type) {
       case 'cash_on_delivery': return Truck;
-      case 'qr_code': return QrCode;
       case 'nequi': return Smartphone;
       case 'daviplata': return Smartphone;
       case 'mercado_pago': return DollarSign;

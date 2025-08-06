@@ -419,7 +419,7 @@ const BusinessInfoManagement = ({ onBack }: BusinessInfoManagementProps) => {
             <CardHeader>
               <CardTitle>Configuración de Nequi</CardTitle>
               <CardDescription>
-                Configura tu número Nequi y código QR para pagos
+                Configura tu número Nequi para pagos
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -437,68 +437,6 @@ const BusinessInfoManagement = ({ onBack }: BusinessInfoManagementProps) => {
                     disabled={!isEditing}
                     placeholder="+57 300 000 0000"
                   />
-                </div>
-
-                {/* Código QR de Nequi */}
-                <div className="space-y-4">
-                  <Label className="text-base font-medium flex items-center gap-2">
-                    <QrCode className="h-4 w-4" />
-                    Código QR de Nequi
-                  </Label>
-                  <div className="space-y-3">
-                    <div className="flex space-x-2">
-                      <Input
-                        id="nequi_qr_url"
-                        value={isEditing ? formData.nequi_qr_url || '' : businessInfo?.nequi_qr_url || ''}
-                        onChange={(e) => handleInputChange('nequi_qr_url', e.target.value)}
-                        disabled={!isEditing}
-                        placeholder="https://ejemplo.com/qr-nequi.png"
-                        className="flex-1"
-                      />
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        disabled={!isEditing || uploading}
-                        className="flex items-center gap-2"
-                      >
-                        <Upload className="h-4 w-4" />
-                        URL
-                      </Button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        disabled={!isEditing || uploading}
-                        onClick={() => nequiQrFileRef.current?.click()}
-                        className="flex items-center gap-2"
-                      >
-                        <Image className="h-4 w-4" />
-                        {uploading ? 'Subiendo...' : 'Subir desde PC'}
-                      </Button>
-                      <input
-                        ref={nequiQrFileRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleNequiQrFileSelect}
-                        className="hidden"
-                      />
-                      <span className="text-sm text-muted-foreground">
-                        JPG, PNG, GIF hasta 5MB
-                      </span>
-                    </div>
-                    {(formData.nequi_qr_url || businessInfo?.nequi_qr_url) && (
-                      <div className="mt-2">
-                        <img
-                          src={isEditing ? formData.nequi_qr_url || '' : businessInfo?.nequi_qr_url || ''}
-                          alt="Nequi QR preview"
-                          className="h-32 w-32 object-cover rounded-md border"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
                 </div>
               </div>
             </CardContent>
