@@ -15,7 +15,7 @@ export const useMenuCustomization = (businessId?: string) => {
         .from('menu_customization')
         .select('*')
         .eq('business_id', businessId)
-        .single();
+        .maybeSingle();
       
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching menu customization:', error);
