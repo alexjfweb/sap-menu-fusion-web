@@ -75,6 +75,16 @@ export const usePaymentMethodValidation = () => {
         }
         break;
       
+      case 'bancolombia':
+        // Verificar que tenga account_number y merchant_code
+        if (!method.configuration?.account_number || !method.configuration?.merchant_code) {
+          return { 
+            isValid: false, 
+            message: 'Configuración incompleta - Faltan datos de cuenta Bancolombia' 
+          };
+        }
+        break;
+      
       case 'qr_code':
       case 'daviplata':
         if (!method.webhook_url || method.webhook_url.trim() === '') {
