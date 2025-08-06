@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -142,6 +142,9 @@ const PaymentModal = ({ plan, onClose }: PaymentModalProps) => {
             <Shield className="h-5 w-5 text-green-600" />
             <span>Suscripción Segura - {plan.name}</span>
           </DialogTitle>
+          <DialogDescription>
+            Elige tu método de pago preferido para completar la suscripción
+          </DialogDescription>
         </DialogHeader>
 
         {step === 'method' && (

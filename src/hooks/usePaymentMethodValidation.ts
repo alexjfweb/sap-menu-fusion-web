@@ -37,10 +37,11 @@ export const usePaymentMethodValidation = () => {
 
     switch (method.type) {
       case 'stripe':
-        if (!method.configuration?.public_key || !method.configuration?.secret_key) {
+        // Usar los campos correctos de la BD: publishable_key y webhook_secret
+        if (!method.configuration?.publishable_key) {
           return { 
             isValid: false, 
-            message: 'Configuración incompleta - Faltan claves de API' 
+            message: 'Configuración incompleta - Falta clave pública de Stripe' 
           };
         }
         break;
@@ -65,16 +66,11 @@ export const usePaymentMethodValidation = () => {
         break;
       
       case 'nequi':
-        if (!method.configuration?.phone_number) {
+        // Por ahora validar que tenga api_key (según la BD actual)
+        if (!method.configuration?.api_key) {
           return { 
             isValid: false, 
-            message: 'Configuración incompleta - Falta número de teléfono' 
-          };
-        }
-        if (!/^\d{10}$/.test(method.configuration.phone_number)) {
-          return { 
-            isValid: false, 
-            message: 'Configuración inválida - Número de teléfono debe tener 10 dígitos' 
+            message: 'Configuración incompleta - Falta API key de Nequi' 
           };
         }
         break;
@@ -106,10 +102,20 @@ export const usePaymentMethodValidation = () => {
   const getValidatedMethods = () => {
     if (!paymentMethods) return [];
     
-    return paymentMethods.map(method => ({
+    const validated = paymentMethods.map(method => ({
       ...method,
       validation: validatePaymentMethod(method)
     }));
+    
+    // Debug temporal para verificar validación
+    console.log('🔍 [DEBUG] Métodos validados:', validated.map(m => ({
+      type: m.type, 
+      isValid: m.validation.isValid, 
+      message: m.validation.message,
+      config: m.configuration
+    })));
+    
+    return validated;
   };
 
   const getAvailableMethods = () => {
