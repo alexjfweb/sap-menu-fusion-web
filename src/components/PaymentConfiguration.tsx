@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import ErrorModal from '@/components/ErrorModal';
+import PaymentMethodStatus from '@/components/PaymentMethodStatus';
 import { 
   CreditCard, 
   Smartphone, 
@@ -293,7 +294,12 @@ const PaymentConfiguration = () => {
         description: 'Los métodos de pago han sido configurados exitosamente.',
       });
 
+      // Invalidar múltiples queries para sincronización
       queryClient.invalidateQueries({ queryKey: ['payment-methods-config'] });
+      queryClient.invalidateQueries({ queryKey: ['payment-methods-validation'] });
+      queryClient.invalidateQueries({ queryKey: ['active-payment-methods'] });
+      queryClient.invalidateQueries({ queryKey: ['available-qr-configs'] });
+      queryClient.invalidateQueries({ queryKey: ['bank-qr-configs'] });
     } catch (error: any) {
       console.error('❌ Error crítico guardando configuración:', error);
       
@@ -625,6 +631,9 @@ const PaymentConfiguration = () => {
           Esta configuración es solo para entorno de pruebas. No se realizarán transacciones reales.
         </AlertDescription>
       </Alert>
+
+      {/* Estado de métodos de pago */}
+      <PaymentMethodStatus />
 
       <div className="grid gap-6">
         {configs.map((config, index) => {

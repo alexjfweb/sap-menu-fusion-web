@@ -1,17 +1,16 @@
 
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { CreditCard, Smartphone, QrCode, Shield, Check, DollarSign } from 'lucide-react';
+import { CreditCard, Smartphone, QrCode, Shield, Check, DollarSign, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
 import StripePayment from './payments/StripePayment';
 import NequiPayment from './payments/NequiPayment';
 import QRPayment from './payments/QRPayment';
 import MercadoPagoPayment from './payments/MercadoPagoPayment';
+import { usePaymentMethodValidation } from '@/hooks/usePaymentMethodValidation';
 
 interface PaymentModalProps {
   plan: {
@@ -30,20 +29,12 @@ const PaymentModal = ({ plan, onClose }: PaymentModalProps) => {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [step, setStep] = useState<'method' | 'payment' | 'confirmation'>('method');
 
-  // Cargar métodos de pago activos desde Supabase
-  const { data: activePaymentMethods, isLoading } = useQuery({
-    queryKey: ['active-payment-methods'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('payment_methods')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: true });
-      
-      if (error) throw error;
-      return data || [];
-    },
-  });
+  // Usar hook de validación
+  const { 
+    isLoading, 
+    getAvailableMethods, 
+    getUnavailableMethods 
+  } = usePaymentMethodValidation();
 
   // Mapeo de tipos a configuraciones de UI
   const getMethodConfig = (type: string) => {
@@ -80,12 +71,20 @@ const PaymentModal = ({ plan, onClose }: PaymentModalProps) => {
     return configs[type as keyof typeof configs];
   };
 
-  // Generar métodos disponibles basados en configuración del Super Admin
-  const paymentMethods = activePaymentMethods?.map(method => ({
+  // Generar métodos disponibles y no disponibles
+  const availableMethods = getAvailableMethods().map(method => ({
     id: method.type as PaymentMethod,
     ...getMethodConfig(method.type),
-    isConfigured: true
-  })).filter(method => method.name) || [];
+    isConfigured: true,
+    validationMessage: method.validation.message
+  })).filter(method => method.name);
+
+  const unavailableMethods = getUnavailableMethods().map(method => ({
+    id: method.type as PaymentMethod,
+    ...getMethodConfig(method.type),
+    isConfigured: false,
+    validationMessage: method.validation.message
+  })).filter(method => method.name);
 
   const renderPaymentMethod = () => {
     if (!selectedMethod) return null;
@@ -163,54 +162,94 @@ const PaymentModal = ({ plan, onClose }: PaymentModalProps) => {
                 <div className="bg-muted p-4 rounded-lg text-center">
                   <p className="text-sm text-muted-foreground">Cargando métodos de pago disponibles...</p>
                 </div>
-              ) : paymentMethods.length === 0 ? (
+              ) : availableMethods.length === 0 && unavailableMethods.length === 0 ? (
                 <div className="bg-destructive/5 border border-destructive/20 p-4 rounded-lg text-center">
                   <p className="text-sm text-destructive">
                     No hay métodos de pago configurados. Contacta al administrador para habilitar opciones de pago.
                   </p>
                 </div>
               ) : (
-                paymentMethods.map((method) => {
-                  const IconComponent = method.icon;
-                  return (
-                    <div
-                      key={method.id}
-                      className={cn(
-                        "border rounded-lg p-4 cursor-pointer transition-colors",
-                        selectedMethod === method.id
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/50"
-                      )}
-                      onClick={() => setSelectedMethod(method.id)}
-                    >
-                      <div className="flex items-start space-x-3">
-                        <div className="flex-shrink-0">
-                          <IconComponent className="h-6 w-6 text-primary" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <h5 className="font-medium">{method.name}</h5>
-                            {method.badges?.map((badge) => (
-                              <Badge key={badge} variant="secondary" className="text-xs">
-                                {badge}
-                              </Badge>
-                            ))}
+                <>
+                  {/* Métodos disponibles */}
+                  {availableMethods.map((method) => {
+                    const IconComponent = method.icon;
+                    return (
+                      <div
+                        key={method.id}
+                        className={cn(
+                          "border rounded-lg p-4 cursor-pointer transition-colors",
+                          selectedMethod === method.id
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50"
+                        )}
+                        onClick={() => setSelectedMethod(method.id)}
+                      >
+                        <div className="flex items-start space-x-3">
+                          <div className="flex-shrink-0">
+                            <IconComponent className="h-6 w-6 text-primary" />
                           </div>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            {method.description}
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {method.features?.map((feature) => (
-                              <span key={feature} className="text-xs bg-secondary px-2 py-1 rounded">
-                                {feature}
-                              </span>
-                            ))}
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <h5 className="font-medium">{method.name}</h5>
+                              {method.badges?.map((badge) => (
+                                <Badge key={badge} variant="secondary" className="text-xs">
+                                  {badge}
+                                </Badge>
+                              ))}
+                              <Badge variant="default" className="text-xs bg-green-100 text-green-800">
+                                Disponible
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-2">
+                              {method.description}
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {method.features?.map((feature) => (
+                                <span key={feature} className="text-xs bg-secondary px-2 py-1 rounded">
+                                  {feature}
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })
+                    );
+                  })}
+
+                  {/* Métodos no disponibles */}
+                  {unavailableMethods.map((method) => {
+                    const IconComponent = method.icon;
+                    return (
+                      <div
+                        key={method.id}
+                        className="border rounded-lg p-4 opacity-60 bg-muted/50"
+                      >
+                        <div className="flex items-start space-x-3">
+                          <div className="flex-shrink-0">
+                            <IconComponent className="h-6 w-6 text-muted-foreground" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <h5 className="font-medium text-muted-foreground">{method.name}</h5>
+                              <Badge variant="destructive" className="text-xs">
+                                No disponible
+                              </Badge>
+                            </div>
+                            <div className="flex items-center space-x-2 mb-2">
+                              <AlertTriangle className="h-4 w-4 text-orange-500" />
+                              <p className="text-sm text-orange-600">
+                                {method.validationMessage}
+                              </p>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Contacta al administrador para configurar este método
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
               )}
             </div>
 
@@ -220,11 +259,13 @@ const PaymentModal = ({ plan, onClose }: PaymentModalProps) => {
               </Button>
               <Button 
                 onClick={() => setStep('payment')} 
-                disabled={!selectedMethod || isLoading || paymentMethods.length === 0}
+                disabled={!selectedMethod || isLoading || availableMethods.length === 0}
               >
                 {selectedMethod 
-                  ? `Continuar con ${paymentMethods.find(m => m.id === selectedMethod)?.name}`
-                  : 'Selecciona un método de pago'
+                  ? `Continuar con ${availableMethods.find(m => m.id === selectedMethod)?.name}`
+                  : availableMethods.length === 0 
+                    ? 'No hay métodos disponibles'
+                    : 'Selecciona un método de pago'
                 }
               </Button>
             </div>
