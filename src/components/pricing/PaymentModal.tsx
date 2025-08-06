@@ -80,6 +80,9 @@ const PaymentModal = ({ plan, onClose }: PaymentModalProps) => {
     })
     .filter(Boolean);
 
+  // Debug temporal para ver métodos disponibles
+  console.log('📋 [DEBUG] Métodos disponibles después del mapeo:', availableMethods);
+
   const unavailableMethods = getUnavailableMethods()
     .map(method => {
       const config = getMethodConfig(method.type);

@@ -107,13 +107,6 @@ export const usePaymentMethodValidation = () => {
       validation: validatePaymentMethod(method)
     }));
     
-    // Debug temporal para verificar validación
-    console.log('🔍 [DEBUG] Métodos validados:', validated.map(m => ({
-      type: m.type, 
-      isValid: m.validation.isValid, 
-      message: m.validation.message,
-      config: m.configuration
-    })));
     
     return validated;
   };
