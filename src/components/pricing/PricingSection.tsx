@@ -142,7 +142,7 @@ const PricingSection = () => {
     
     console.log('💳 [PRICING] Plan de pago seleccionado:', plan.name, '- Precio:', plan.price);
     setSelectedPlan(plan);
-    setShowPaymentModal(true); // Mantener el formulario original
+    setShowPaymentModal(true);
   };
 
   // Estado de carga
