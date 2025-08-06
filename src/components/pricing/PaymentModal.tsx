@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import StripePayment from './payments/StripePayment';
 import NequiPayment from './payments/NequiPayment';
 import QRPayment from './payments/QRPayment';
+import MercadoPagoPaymentModal from './MercadoPagoPaymentModal';
 
 interface PaymentModalProps {
   plan: {
@@ -21,11 +22,12 @@ interface PaymentModalProps {
   onClose: () => void;
 }
 
-type PaymentMethod = 'stripe' | 'nequi' | 'qr';
+type PaymentMethod = 'stripe' | 'nequi' | 'qr' | 'mercadopago';
 
 const PaymentModal = ({ plan, onClose }: PaymentModalProps) => {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('stripe');
   const [step, setStep] = useState<'method' | 'payment' | 'confirmation'>('method');
+  const [showMercadoPagoModal, setShowMercadoPagoModal] = useState(false);
 
   const paymentMethods = [
     {
@@ -47,10 +49,18 @@ const PaymentModal = ({ plan, onClose }: PaymentModalProps) => {
     {
       id: 'qr' as PaymentMethod,
       name: 'Código QR',
-      description: 'Bancolombia, Daviplata, Mercado Pago',
+      description: 'Bancolombia, Daviplata',
       icon: QrCode,
       badges: ['Latam'],
       features: ['Validación < 2min', 'Sin registro', 'Múltiples bancos']
+    },
+    {
+      id: 'mercadopago' as PaymentMethod,
+      name: 'Mercado Pago',
+      description: 'Tarjetas, transferencias, dinero en cuenta',
+      icon: CreditCard,
+      badges: ['Argentina', 'Latam'],
+      features: ['Checkout seguro', 'Múltiples métodos', 'Aprobación inmediata']
     }
   ];
 
@@ -62,6 +72,23 @@ const PaymentModal = ({ plan, onClose }: PaymentModalProps) => {
         return <NequiPayment plan={plan} onSuccess={() => setStep('confirmation')} />;
       case 'qr':
         return <QRPayment plan={plan} onSuccess={() => setStep('confirmation')} />;
+      case 'mercadopago':
+        return (
+          <div className="space-y-4">
+            <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <h4 className="font-medium text-blue-900 mb-2">Proceder con Mercado Pago</h4>
+              <p className="text-sm text-blue-700 mb-4">
+                Serás redirigido a Mercado Pago para completar tu pago de forma segura.
+              </p>
+              <Button 
+                onClick={() => setShowMercadoPagoModal(true)}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Continuar con Mercado Pago
+              </Button>
+            </div>
+          </div>
+        );
       default:
         return null;
     }
@@ -195,6 +222,20 @@ const PaymentModal = ({ plan, onClose }: PaymentModalProps) => {
         )}
 
         {step === 'confirmation' && renderConfirmation()}
+
+        {/* Mercado Pago Modal */}
+        {showMercadoPagoModal && (
+          <MercadoPagoPaymentModal
+            isOpen={showMercadoPagoModal}
+            plan={{
+              id: plan.id,
+              name: plan.name,
+              price: plan.monthlyPrice,
+              currency: 'USD'
+            }}
+            onClose={() => setShowMercadoPagoModal(false)}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
