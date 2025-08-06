@@ -64,19 +64,34 @@ const PaymentModal = ({ plan, onClose }: PaymentModalProps) => {
   };
 
   // Generar métodos disponibles y no disponibles
-  const availableMethods = getAvailableMethods().map(method => ({
-    id: method.type as PaymentMethod,
-    ...getMethodConfig(method.type),
-    isConfigured: true,
-    validationMessage: method.validation.message
-  })).filter(method => method.name);
+  const availableMethods = getAvailableMethods()
+    .map(method => {
+      const config = getMethodConfig(method.type);
+      if (!config) {
+        console.warn(`⚠️ No hay configuración para el tipo: ${method.type}`);
+        return null;
+      }
+      return {
+        id: method.type as PaymentMethod,
+        ...config,
+        isConfigured: true,
+        validationMessage: method.validation.message
+      };
+    })
+    .filter(Boolean);
 
-  const unavailableMethods = getUnavailableMethods().map(method => ({
-    id: method.type as PaymentMethod,
-    ...getMethodConfig(method.type),
-    isConfigured: false,
-    validationMessage: method.validation.message
-  })).filter(method => method.name);
+  const unavailableMethods = getUnavailableMethods()
+    .map(method => {
+      const config = getMethodConfig(method.type);
+      if (!config) return null;
+      return {
+        id: method.type as PaymentMethod,
+        ...config,
+        isConfigured: false,
+        validationMessage: method.validation.message
+      };
+    })
+    .filter(Boolean);
 
   const renderPaymentMethod = () => {
     if (!selectedMethod) return null;

@@ -106,17 +106,10 @@ export const usePaymentMethodValidation = () => {
   const getValidatedMethods = () => {
     if (!paymentMethods) return [];
     
-    const validated = paymentMethods.map(method => ({
+    return paymentMethods.map(method => ({
       ...method,
       validation: validatePaymentMethod(method)
     }));
-    
-    // Debug logs para identificar el problema
-    console.log('🔍 [Payment Validation] Métodos encontrados:', paymentMethods.length);
-    console.log('📋 [Payment Validation] Datos:', paymentMethods);
-    console.log('✅ [Payment Validation] Métodos validados:', validated);
-    
-    return validated;
   };
 
   const getAvailableMethods = () => {
