@@ -30,6 +30,7 @@ interface PaymentMethodConfig {
   id?: string;
   name: string;
   type: string;
+  subtype?: string;
   is_active: boolean;
   configuration: {
     public_key?: string;
@@ -65,6 +66,7 @@ const PaymentConfiguration = () => {
   const defaultMethods = [
     { name: 'Contra Entrega', type: 'cash_on_delivery', icon: Truck },
     { name: 'Código QR', type: 'qr_code', icon: QrCode },
+    { name: 'Bancolombia QR', type: 'qr_code', icon: QrCode, subtype: 'bancolombia' },
     { name: 'Nequi', type: 'nequi', icon: Smartphone },
     { name: 'Daviplata', type: 'daviplata', icon: Smartphone },
     { name: 'Mercado Pago', type: 'mercado_pago', icon: DollarSign },
@@ -95,11 +97,15 @@ const PaymentConfiguration = () => {
     if (existingMethods) {
       // Combinar métodos predefinidos con los existentes
       const combinedConfigs = defaultMethods.map(defaultMethod => {
-        const existing = existingMethods.find(em => em.type === defaultMethod.type);
+        const existing = existingMethods.find(em => 
+          em.type === defaultMethod.type && 
+          (defaultMethod.subtype ? em.name === defaultMethod.name : !defaultMethod.subtype)
+        );
         return {
           id: existing?.id,
           name: defaultMethod.name,
           type: defaultMethod.type,
+          subtype: defaultMethod.subtype,
           is_active: existing?.is_active || false,
           configuration: existing?.configuration || {},
           logo_url: existing?.webhook_url || '',
@@ -440,20 +446,39 @@ const PaymentConfiguration = () => {
         );
 
       case 'qr_code':
-        // Campos específicos para QR Code general
-        return (
-          <div className="space-y-2">
-            <Label>Código Merchant (Opcional)</Label>
-            <Input
-              placeholder="Código identificador del comercio"
-              value={config.configuration.merchant_code || ''}
-              onChange={(e) => handleConfigChange(index, 'merchant_code', e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Código único de tu comercio para identificar los pagos QR
-            </p>
-          </div>
-        );
+        if (config.subtype === 'bancolombia') {
+          // Configuración específica para Bancolombia QR
+          return (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Número de Cuenta Bancolombia</Label>
+                <Input
+                  placeholder="0123456789"
+                  value={config.configuration.account_number || ''}
+                  onChange={(e) => handleConfigChange(index, 'account_number', e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Número de cuenta asociado al código QR de Bancolombia
+                </p>
+              </div>
+            </div>
+          );
+        } else {
+          // Campos específicos para QR Code general
+          return (
+            <div className="space-y-2">
+              <Label>Código Merchant (Opcional)</Label>
+              <Input
+                placeholder="Código identificador del comercio"
+                value={config.configuration.merchant_code || ''}
+                onChange={(e) => handleConfigChange(index, 'merchant_code', e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Código único de tu comercio para identificar los pagos QR
+              </p>
+            </div>
+          );
+        }
       
       
       case 'daviplata':
@@ -486,8 +511,8 @@ const PaymentConfiguration = () => {
   const renderLogoSection = (config: PaymentMethodConfig, index: number) => {
     if (!config.is_active) return null;
 
-    // Sección específica para códigos QR (QR Code, Bancolombia, Daviplata)
-    if (['qr_code', 'bancolombia', 'daviplata'].includes(config.type)) {
+    // Sección específica para códigos QR (QR Code general, Bancolombia QR, Daviplata)
+    if (config.type === 'qr_code' || config.type === 'daviplata') {
       return (
           <div className="space-y-4">
           <div className="flex items-center justify-between">
