@@ -46,6 +46,9 @@ const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
     const planName = plan.name.toLowerCase();
     const availableMethods = getAvailableMethods();
     
+    console.log('🔍 [PAYMENT MODAL] Plan name:', planName);
+    console.log('🔍 [PAYMENT MODAL] Available methods from hook:', availableMethods);
+    
     const methodMapping: Record<string, PaymentMethodConfig> = {
       'mercado_pago': {
         id: 'mercado_pago',
@@ -74,13 +77,17 @@ const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
       .filter(method => ['mercado_pago', 'bancolombia'].includes(method.type))
       .map(method => methodMapping[method.type])
       .filter(Boolean);
+    
+    console.log('🔍 [PAYMENT MODAL] Configured methods after filtering:', configuredMethods);
 
     // Apply plan restrictions
     if (planName.includes('básico') || planName.includes('basic')) {
+      console.log('🔍 [PAYMENT MODAL] Plan básico detected, returning all configured methods');
       return configuredMethods;
     }
     
     // Planes Estándar y Premium: solo Mercado Pago
+    console.log('🔍 [PAYMENT MODAL] Other plan, filtering to only Mercado Pago');
     return configuredMethods.filter(method => method.id === 'mercado_pago');
   };
 
