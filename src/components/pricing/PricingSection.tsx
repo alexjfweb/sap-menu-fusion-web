@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,105 +8,22 @@ import { cn } from '@/lib/utils';
 import PaymentModal from './PaymentModal';
 import { useSmartNavigation } from '@/hooks/useSmartNavigation';
 import DemoModal from '@/components/modals/DemoModal';
+import { supabase } from '@/integrations/supabase/client';
+import { Tables } from '@/integrations/supabase/types';
 
-const plans = [
-  {
-    id: 'free',
-    name: 'Plan Gratuito',
-    price: 'Gratis',
-    monthlyPrice: 0,
-    popular: false,
-    icon: Users,
-    color: 'gray',
-    features: [
-      '5 platos máximo',
-      '1 usuario',
-      '5 reservas por día',
-      'Soporte por email',
-      'Menú básico',
-      'Sin personalización'
-    ],
-    limits: {
-      mesas: 3,
-      clientes: 3,
-      seguros: 'Básico'
-    }
-  },
-  {
-    id: 'basic',
-    name: 'Plan Básico',
-    price: '$29.99',
-    monthlyPrice: 29.99,
-    popular: false,
-    icon: Zap,
-    color: 'orange',
-    features: [
-      '50 platos máximo',
-      '3 usuarios',
-      '20 reservas por día',
-      'Soporte prioritario',
-      'Menú personalizable',
-      'Integración WhatsApp',
-      'Reportes básicos'
-    ],
-    limits: {
-      mesas: 10,
-      clientes: 9,
-      seguros: 'Prioritario'
-    }
-  },
-  {
-    id: 'standard',
-    name: 'Plan Estándar',
-    price: '$59.99',
-    monthlyPrice: 59.99,
-    popular: true,
-    icon: Star,
-    color: 'green',
-    features: [
-      '200 platos máximo',
-      '10 usuarios',
-      '100 reservas por día',
-      'Soporte 24/7',
-      'Menú completamente personalizable',
-      'Integración redes sociales',
-      'Reportes avanzados',
-      'Sistema de inventario',
-      'Múltiples ubicaciones'
-    ],
-    limits: {
-      mesas: 100,
-      clientes: 100,
-      seguros: '24/7'
-    }
-  },
-  {
-    id: 'premium',
-    name: 'Plan Premium',
-    price: '$99.99',
-    monthlyPrice: 99.99,
-    popular: false,
-    icon: Crown,
-    color: 'blue',
-    features: [
-      'Platos ilimitados',
-      'Usuarios ilimitados',
-      'Reservas ilimitadas',
-      'Soporte 24/7 dedicado',
-      'White-label completo',
-      'API personalizada',
-      'Análisis avanzados',
-      'Gestión multi-restaurante',
-      'Integraciones empresariales',
-      'Consultoría incluida'
-    ],
-    limits: {
-      mesas: 'Personalizado',
-      clientes: 'Ilimitado',
-      seguros: '24/7 Dedicado'
-    }
-  }
-];
+type SubscriptionPlan = Tables<'subscription_plans'>;
+
+interface PlanWithLimits extends SubscriptionPlan {
+  monthlyPrice: number;
+  icon: any;
+  color: string;
+  popular?: boolean;
+  limits: {
+    mesas: string | number;
+    clientes: string | number;
+    seguros: string;
+  };
+}
 
 const colorClasses = {
   gray: {
@@ -135,13 +53,85 @@ const colorClasses = {
 };
 
 const PricingSection = () => {
-  const [selectedPlan, setSelectedPlan] = useState<typeof plans[0] | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<PlanWithLimits | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showSalesModal, setShowSalesModal] = useState(false);
   const { navigateToAuth, isNavigating } = useSmartNavigation();
 
-  const handleSelectPlan = (plan: typeof plans[0]) => {
-    if (plan.id === 'free') {
+  // Obtener planes desde la base de datos
+  const { data: dbPlans, isLoading } = useQuery({
+    queryKey: ['subscription-plans-public'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('subscription_plans')
+        .select(`
+          *,
+          plan_configurations(
+            max_products,
+            max_users,
+            max_reservations_per_day,
+            max_tables,
+            max_locations,
+            support_type
+          )
+        `)
+        .eq('is_active', true)
+        .order('price', { ascending: true });
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Mapear planes de DB a formato del frontend con iconos y colores
+  const plans: PlanWithLimits[] = React.useMemo(() => {
+    if (!dbPlans) return [];
+
+    const iconMap = {
+      'gratuito': Users,
+      'básico': Zap,
+      'estándar': Star,
+      'premium': Crown,
+      'free': Users,
+      'basic': Zap,
+      'standard': Star,
+    };
+
+    const colorMap = {
+      'gratuito': 'gray',
+      'básico': 'orange',
+      'estándar': 'green',
+      'premium': 'blue',
+      'free': 'gray',
+      'basic': 'orange',
+      'standard': 'green',
+    };
+
+    return dbPlans.map(plan => {
+      const planKey = plan.name.toLowerCase();
+      const icon = Object.keys(iconMap).find(key => planKey.includes(key)) || 'basic';
+      const color = Object.keys(colorMap).find(key => planKey.includes(key)) || 'gray';
+      
+      const config = plan.plan_configurations?.[0];
+      const limits = {
+        mesas: config?.max_tables || 'Personalizado',
+        clientes: config?.max_users || 'Ilimitado',
+        seguros: config?.support_type || 'Básico'
+      };
+
+      return {
+        ...plan,
+        monthlyPrice: plan.price,
+        popular: plan.is_featured,
+        icon: iconMap[icon as keyof typeof iconMap] || Zap,
+        color: colorMap[color as keyof typeof colorMap] || 'gray',
+        limits
+      };
+    });
+  }, [dbPlans]);
+
+  const handleSelectPlan = (plan: PlanWithLimits) => {
+    if (plan.price === 0) {
       console.log('🆓 [PRICING] Plan gratuito seleccionado, usando navegación inteligente');
       navigateToAuth();
       return;
@@ -150,6 +140,26 @@ const PricingSection = () => {
     setSelectedPlan(plan);
     setShowPaymentModal(true);
   };
+
+  if (isLoading) {
+    return (
+      <section id="planes" className="py-20 bg-gradient-to-b from-background to-secondary/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <div className="animate-pulse">
+              <div className="h-8 bg-muted rounded-md w-96 mx-auto mb-4"></div>
+              <div className="h-4 bg-muted rounded-md w-64 mx-auto"></div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mt-16">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-96 bg-muted rounded-lg animate-pulse"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section id="planes" className="py-20 bg-gradient-to-b from-background to-secondary/20">
@@ -192,17 +202,19 @@ const PricingSection = () => {
                   </div>
                   <CardTitle className="text-2xl font-bold">{plan.name}</CardTitle>
                   <CardDescription className="text-lg">
-                    <span className="text-3xl font-bold text-foreground">{plan.price}</span>
-                    {plan.price !== 'Gratis' && <span className="text-muted-foreground">/mes</span>}
+                    <span className="text-3xl font-bold text-foreground">
+                      {plan.price === 0 ? 'Gratis' : `$${plan.price}`}
+                    </span>
+                    {plan.price > 0 && <span className="text-muted-foreground">/mes</span>}
                   </CardDescription>
                 </CardHeader>
 
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    {plan.features.map((feature, index) => (
+                    {Array.isArray(plan.features) && plan.features.map((feature, index) => (
                       <div key={index} className="flex items-center space-x-2">
                         <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
-                        <span className="text-sm text-foreground">{feature}</span>
+                        <span className="text-sm text-foreground">{String(feature)}</span>
                       </div>
                     ))}
                   </div>
@@ -221,9 +233,9 @@ const PricingSection = () => {
                   <Button 
                     className={cn("w-full text-white font-semibold transition-all duration-200", colors.button)}
                     onClick={() => handleSelectPlan(plan)}
-                    disabled={plan.id === 'free' && isNavigating}
+                    disabled={plan.price === 0 && isNavigating}
                   >
-                    {plan.price === 'Gratis' ? 
+                    {plan.price === 0 ? 
                       (isNavigating ? 'Verificando...' : 'Comenzar Gratis') : 
                       'Elegir Plan'
                     }
@@ -251,7 +263,13 @@ const PricingSection = () => {
 
       {showPaymentModal && selectedPlan && (
         <PaymentModal
-          plan={selectedPlan}
+          plan={{
+            id: selectedPlan.id,
+            name: selectedPlan.name,
+            price: selectedPlan.price.toString(),
+            monthlyPrice: selectedPlan.monthlyPrice,
+            features: Array.isArray(selectedPlan.features) ? selectedPlan.features.map(String) : []
+          }}
           onClose={() => {
             setShowPaymentModal(false);
             setSelectedPlan(null);

@@ -967,6 +967,80 @@ export type Database = {
         }
         Relationships: []
       }
+      plan_configurations: {
+        Row: {
+          advanced_analytics_enabled: boolean | null
+          api_access_enabled: boolean | null
+          created_at: string
+          custom_domain_enabled: boolean | null
+          customization_level: string | null
+          features_enabled: Json | null
+          id: string
+          integrations_enabled: Json | null
+          max_locations: number | null
+          max_products: number | null
+          max_reservations_per_day: number | null
+          max_tables: number | null
+          max_users: number | null
+          multi_location_enabled: boolean | null
+          plan_id: string
+          support_priority: string | null
+          support_type: string | null
+          updated_at: string
+          whitelabel_enabled: boolean | null
+        }
+        Insert: {
+          advanced_analytics_enabled?: boolean | null
+          api_access_enabled?: boolean | null
+          created_at?: string
+          custom_domain_enabled?: boolean | null
+          customization_level?: string | null
+          features_enabled?: Json | null
+          id?: string
+          integrations_enabled?: Json | null
+          max_locations?: number | null
+          max_products?: number | null
+          max_reservations_per_day?: number | null
+          max_tables?: number | null
+          max_users?: number | null
+          multi_location_enabled?: boolean | null
+          plan_id: string
+          support_priority?: string | null
+          support_type?: string | null
+          updated_at?: string
+          whitelabel_enabled?: boolean | null
+        }
+        Update: {
+          advanced_analytics_enabled?: boolean | null
+          api_access_enabled?: boolean | null
+          created_at?: string
+          custom_domain_enabled?: boolean | null
+          customization_level?: string | null
+          features_enabled?: Json | null
+          id?: string
+          integrations_enabled?: Json | null
+          max_locations?: number | null
+          max_products?: number | null
+          max_reservations_per_day?: number | null
+          max_tables?: number | null
+          max_users?: number | null
+          multi_location_enabled?: boolean | null
+          plan_id?: string
+          support_priority?: string | null
+          support_type?: string | null
+          updated_at?: string
+          whitelabel_enabled?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_configurations_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           allergens: string[] | null
@@ -1450,11 +1524,67 @@ export type Database = {
           },
         ]
       }
+      usage_tracking: {
+        Row: {
+          business_id: string | null
+          created_at: string
+          current_locations: number | null
+          current_products: number | null
+          current_tables: number | null
+          current_users: number | null
+          daily_reservations: number | null
+          id: string
+          last_daily_reset: string | null
+          updated_at: string
+          usage_metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          business_id?: string | null
+          created_at?: string
+          current_locations?: number | null
+          current_products?: number | null
+          current_tables?: number | null
+          current_users?: number | null
+          daily_reservations?: number | null
+          id?: string
+          last_daily_reset?: string | null
+          updated_at?: string
+          usage_metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          business_id?: string | null
+          created_at?: string
+          current_locations?: number | null
+          current_products?: number | null
+          current_tables?: number | null
+          current_users?: number | null
+          daily_reservations?: number | null
+          id?: string
+          last_daily_reset?: string | null
+          updated_at?: string
+          usage_metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_tracking_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_info"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_subscriptions: {
         Row: {
+          configuration_applied_at: string | null
           created_at: string | null
+          current_usage: Json | null
           ends_at: string | null
           id: string
+          last_usage_check: string | null
           plan_id: string
           starts_at: string
           status: string | null
@@ -1464,9 +1594,12 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          configuration_applied_at?: string | null
           created_at?: string | null
+          current_usage?: Json | null
           ends_at?: string | null
           id?: string
+          last_usage_check?: string | null
           plan_id: string
           starts_at: string
           status?: string | null
@@ -1476,9 +1609,12 @@ export type Database = {
           user_id: string
         }
         Update: {
+          configuration_applied_at?: string | null
           created_at?: string | null
+          current_usage?: Json | null
           ends_at?: string | null
           id?: string
+          last_usage_check?: string | null
           plan_id?: string
           starts_at?: string
           status?: string | null
@@ -1735,8 +1871,24 @@ export type Database = {
         Args: { config_data: Json; config_id?: string }
         Returns: string
       }
+      update_usage_counter: {
+        Args: {
+          p_user_id: string
+          p_resource_type: string
+          p_increment?: number
+        }
+        Returns: undefined
+      }
       validate_business_ownership: {
         Args: { target_business_id: string }
+        Returns: boolean
+      }
+      validate_resource_limit: {
+        Args: {
+          p_user_id: string
+          p_resource_type: string
+          p_increment?: number
+        }
         Returns: boolean
       }
     }
