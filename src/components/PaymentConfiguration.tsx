@@ -37,6 +37,7 @@ interface PaymentMethodConfig {
     private_key?: string;
     phone_number?: string;
     merchant_code?: string;
+    account_number?: string;
   };
   logo_url: string;
   logo_file?: File;
@@ -59,10 +60,11 @@ const PaymentConfiguration = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // NUEVO: Métodos de pago predefinidos con QR Code reconstruido
+  // NUEVO: Métodos de pago predefinidos con Bancolombia agregado
   const defaultMethods = [
     { name: 'Contra Entrega', type: 'cash_on_delivery', icon: Truck },
     { name: 'Código QR', type: 'qr_code', icon: QrCode },
+    { name: 'Bancolombia', type: 'bancolombia', icon: QrCode },
     { name: 'Nequi', type: 'nequi', icon: Smartphone },
     { name: 'Daviplata', type: 'daviplata', icon: Smartphone },
     { name: 'Mercado Pago', type: 'mercado_pago', icon: DollarSign },
@@ -166,7 +168,9 @@ const PaymentConfiguration = () => {
         }
         break;
       case 'qr_code':
-        // NUEVO: Validación específica para QR Code
+      case 'bancolombia':
+      case 'daviplata':
+        // Validación específica para códigos QR
         if (!config.logo_url && !config.logo_file) {
           return `${config.name}: Debe proporcionar un código QR (imagen o URL)`;
         }
@@ -432,7 +436,7 @@ const PaymentConfiguration = () => {
         );
 
       case 'qr_code':
-        // NUEVO: Campos específicos para QR Code
+        // Campos específicos para QR Code general
         return (
           <div className="space-y-2">
             <Label>Código Merchant (Opcional)</Label>
@@ -447,6 +451,44 @@ const PaymentConfiguration = () => {
           </div>
         );
       
+      case 'bancolombia':
+        // Campos específicos para Bancolombia
+        return (
+          <div className="space-y-2">
+            <Label>Número de Cuenta Bancolombia</Label>
+            <Input
+              placeholder="0123456789"
+              value={config.configuration.account_number || ''}
+              onChange={(e) => handleConfigChange(index, 'account_number', e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Número de cuenta asociado al código QR de Bancolombia
+            </p>
+          </div>
+        );
+      
+      case 'daviplata':
+        // Campos específicos para Daviplata
+        return (
+          <div className="space-y-2">
+            <Label>Número de Teléfono Daviplata</Label>
+            <Input
+              placeholder="3001234567"
+              value={config.configuration.phone_number || ''}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9]/g, '');
+                if (value.length <= 10) {
+                  handleConfigChange(index, 'phone_number', value);
+                }
+              }}
+              maxLength={10}
+            />
+            <p className="text-xs text-muted-foreground">
+              Número de teléfono asociado a tu cuenta Daviplata
+            </p>
+          </div>
+        );
+      
       default:
         return null;
     }
@@ -455,16 +497,16 @@ const PaymentConfiguration = () => {
   const renderLogoSection = (config: PaymentMethodConfig, index: number) => {
     if (!config.is_active) return null;
 
-    // NUEVO: Sección específica para QR Code
-    if (config.type === 'qr_code') {
+    // Sección específica para códigos QR (QR Code, Bancolombia, Daviplata)
+    if (['qr_code', 'bancolombia', 'daviplata'].includes(config.type)) {
       return (
-        <div className="space-y-4">
+          <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <Label>Código QR</Label>
+            <Label>Código QR - {config.name}</Label>
             {config.logo_url && (
               <img 
                 src={config.logo_url} 
-                alt="QR Code preview" 
+                alt={`${config.name} QR Code preview`} 
                 className="h-16 w-16 object-contain rounded border"
               />
             )}

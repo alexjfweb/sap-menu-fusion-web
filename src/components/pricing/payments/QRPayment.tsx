@@ -30,34 +30,64 @@ const QRPayment = ({ plan, onSuccess }: QRPaymentProps) => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
-  // Buscar códigos QR disponibles para este plan
-  const { data: availableQRCodes, isLoading: qrLoading } = useQuery({
-    queryKey: ['available-qr-codes', plan.id],
+  // Buscar configuraciones QR disponibles desde payment_methods
+  const { data: availableQRConfigs, isLoading: qrLoading } = useQuery({
+    queryKey: ['available-qr-configs'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('qr_codes')
-        .select(`
-          *,
-          subscription_plans(name, price, currency)
-        `)
-        .eq('plan_id', plan.id)
-        .eq('is_active', true)
-        .gte('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: false });
+        .from('payment_methods')
+        .select('*')
+        .eq('type', 'qr_code')
+        .eq('is_active', true);
       
       if (error) throw error;
-      return data;
+      return data || [];
+    },
+  });
+
+  // Buscar configuraciones específicas de bancos (Bancolombia, Daviplata, Mercado Pago)
+  const { data: bankConfigs, isLoading: bankLoading } = useQuery({
+    queryKey: ['bank-qr-configs'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('payment_methods')
+        .select('*')
+        .in('type', ['bancolombia', 'daviplata', 'mercado_pago'])
+        .eq('is_active', true);
+      
+      if (error) throw error;
+      return data || [];
     },
   });
 
   const providers = [
     { value: 'bancolombia', label: 'Bancolombia' },
     { value: 'daviplata', label: 'Daviplata' },
-    { value: 'mercadopago', label: 'Mercado Pago' }
+    { value: 'mercado_pago', label: 'Mercado Pago' }
   ];
 
   const getQRForProvider = (provider: string) => {
-    return availableQRCodes?.find(qr => qr.payment_provider === provider);
+    // Buscar primero en configuraciones específicas de bancos
+    const bankConfig = bankConfigs?.find(config => config.type === provider);
+    if (bankConfig && bankConfig.webhook_url) {
+      return {
+        qr_image_url: bankConfig.webhook_url,
+        type: bankConfig.type,
+        name: bankConfig.name
+      };
+    }
+    
+    // Si no hay configuración específica, buscar en configuración general QR
+    const qrConfig = availableQRConfigs?.[0];
+    if (qrConfig && qrConfig.webhook_url) {
+      return {
+        qr_image_url: qrConfig.webhook_url,
+        type: 'qr_code',
+        name: qrConfig.name
+      };
+    }
+    
+    return null;
   };
 
   const handleQRAction = async (provider: string) => {
@@ -70,7 +100,7 @@ const QRPayment = ({ plan, onSuccess }: QRPaymentProps) => {
       
       // En móvil, descargar automáticamente
       if (isMobile && existingQR.qr_image_url) {
-        downloadQRImage(existingQR.qr_image_url, `QR-${existingQR.subscription_plans?.name}-${provider}`);
+        downloadQRImage(existingQR.qr_image_url, `QR-${plan.name}-${provider}`);
       }
     } else {
       // Si no existe, mostrar error
@@ -225,11 +255,11 @@ const QRPayment = ({ plan, onSuccess }: QRPaymentProps) => {
         <h3 className="font-semibold">Pago con código QR</h3>
       </div>
 
-      {qrLoading ? (
+      {qrLoading || bankLoading ? (
         <div className="bg-muted p-4 rounded-lg text-center">
           <p className="text-sm text-muted-foreground">Verificando códigos QR disponibles...</p>
         </div>
-      ) : availableQRCodes && availableQRCodes.length > 0 ? (
+      ) : (availableQRConfigs && availableQRConfigs.length > 0) || (bankConfigs && bankConfigs.length > 0) ? (
         <div className="bg-primary/5 p-4 rounded-lg text-sm">
           <h4 className="font-medium mb-2">Métodos QR disponibles:</h4>
           <ul className="space-y-1 text-muted-foreground">
@@ -323,7 +353,7 @@ const QRPayment = ({ plan, onSuccess }: QRPaymentProps) => {
       <Button 
         type="submit" 
         className="w-full" 
-        disabled={loading || !paymentData.provider || !getQRForProvider(paymentData.provider) || qrLoading}
+        disabled={loading || !paymentData.provider || !getQRForProvider(paymentData.provider) || qrLoading || bankLoading}
       >
         {loading 
           ? 'Cargando...' 
@@ -333,9 +363,9 @@ const QRPayment = ({ plan, onSuccess }: QRPaymentProps) => {
         }
       </Button>
 
-      {availableQRCodes && availableQRCodes.length > 0 ? (
+      {((availableQRConfigs && availableQRConfigs.length > 0) || (bankConfigs && bankConfigs.length > 0)) ? (
         <div className="text-xs text-center text-muted-foreground">
-          Códigos QR válidos por 24 horas.
+          Códigos QR configurados por el administrador.
           {isMobile && " En móvil se descargará automáticamente."}
         </div>
       ) : (

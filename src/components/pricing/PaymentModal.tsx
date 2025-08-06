@@ -1,11 +1,13 @@
 
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { CreditCard, Smartphone, QrCode, Shield, Check } from 'lucide-react';
+import { CreditCard, Smartphone, QrCode, Shield, Check, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 import StripePayment from './payments/StripePayment';
 import NequiPayment from './payments/NequiPayment';
 import QRPayment from './payments/QRPayment';
@@ -22,56 +24,80 @@ interface PaymentModalProps {
   onClose: () => void;
 }
 
-type PaymentMethod = 'stripe' | 'nequi' | 'qr' | 'mercadopago';
+type PaymentMethod = 'stripe' | 'nequi' | 'qr_code' | 'mercado_pago';
 
 const PaymentModal = ({ plan, onClose }: PaymentModalProps) => {
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('stripe');
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [step, setStep] = useState<'method' | 'payment' | 'confirmation'>('method');
 
-  const paymentMethods = [
-    {
-      id: 'stripe' as PaymentMethod,
-      name: 'Tarjeta de Crédito/Débito',
-      description: 'Visa, Mastercard, American Express',
-      icon: CreditCard,
-      badges: ['Más Popular', 'Seguro'],
-      features: ['Pago inmediato', 'Certificación PCI DSS', 'Facturación automática']
+  // Cargar métodos de pago activos desde Supabase
+  const { data: activePaymentMethods, isLoading } = useQuery({
+    queryKey: ['active-payment-methods'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('payment_methods')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
     },
-    {
-      id: 'nequi' as PaymentMethod,
-      name: 'Nequi',
-      description: 'Transferencia PSE - Solo Colombia',
-      icon: Smartphone,
-      badges: ['Colombia'],
-      features: ['Hasta $10M COP', 'Confirmación automática', 'Sin comisiones extra']
-    },
-    {
-      id: 'qr' as PaymentMethod,
-      name: 'Código QR',
-      description: 'Bancolombia, Daviplata',
-      icon: QrCode,
-      badges: ['Latam'],
-      features: ['Validación < 2min', 'Sin registro', 'Múltiples bancos']
-    },
-    {
-      id: 'mercadopago' as PaymentMethod,
-      name: 'Mercado Pago',
-      description: 'Tarjetas, transferencias, dinero en cuenta',
-      icon: CreditCard,
-      badges: ['Argentina', 'Latam'],
-      features: ['Checkout seguro', 'Múltiples métodos', 'Aprobación inmediata']
-    }
-  ];
+  });
+
+  // Mapeo de tipos a configuraciones de UI
+  const getMethodConfig = (type: string) => {
+    const configs = {
+      'stripe': {
+        name: 'Stripe',
+        description: 'Tarjetas de crédito y débito',
+        icon: CreditCard,
+        badges: ['Seguro', 'Internacional'],
+        features: ['Pago inmediato', 'Certificación PCI DSS', 'Facturación automática']
+      },
+      'nequi': {
+        name: 'Nequi',
+        description: 'Transferencia PSE - Solo Colombia',
+        icon: Smartphone,
+        badges: ['Colombia'],
+        features: ['Hasta $10M COP', 'Confirmación automática', 'Sin comisiones extra']
+      },
+      'qr_code': {
+        name: 'Código QR',
+        description: 'Bancolombia, Daviplata, Mercado Pago',
+        icon: QrCode,
+        badges: ['Latam'],
+        features: ['Validación < 2min', 'Sin registro', 'Múltiples bancos']
+      },
+      'mercado_pago': {
+        name: 'Mercado Pago',
+        description: 'Tarjetas, transferencias, dinero en cuenta',
+        icon: DollarSign,
+        badges: ['Argentina', 'Latam'],
+        features: ['Checkout seguro', 'Múltiples métodos', 'Aprobación inmediata']
+      }
+    };
+    return configs[type as keyof typeof configs];
+  };
+
+  // Generar métodos disponibles basados en configuración del Super Admin
+  const paymentMethods = activePaymentMethods?.map(method => ({
+    id: method.type as PaymentMethod,
+    ...getMethodConfig(method.type),
+    isConfigured: true
+  })).filter(method => method.name) || [];
 
   const renderPaymentMethod = () => {
+    if (!selectedMethod) return null;
+    
     switch (selectedMethod) {
       case 'stripe':
         return <StripePayment plan={plan} onSuccess={() => setStep('confirmation')} />;
       case 'nequi':
         return <NequiPayment plan={plan} onSuccess={() => setStep('confirmation')} />;
-      case 'qr':
+      case 'qr_code':
         return <QRPayment plan={plan} onSuccess={() => setStep('confirmation')} />;
-      case 'mercadopago':
+      case 'mercado_pago':
         return <MercadoPagoPayment plan={plan} onSuccess={() => setStep('confirmation')} />;
       default:
         return null;
@@ -132,55 +158,74 @@ const PaymentModal = ({ plan, onClose }: PaymentModalProps) => {
             {/* Payment Methods */}
             <div className="space-y-4">
               <h4 className="font-medium">Selecciona tu método de pago:</h4>
-              {paymentMethods.map((method) => {
-                const IconComponent = method.icon;
-                return (
-                  <div
-                    key={method.id}
-                    className={cn(
-                      "border rounded-lg p-4 cursor-pointer transition-colors",
-                      selectedMethod === method.id
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/50"
-                    )}
-                    onClick={() => setSelectedMethod(method.id)}
-                  >
-                    <div className="flex items-start space-x-3">
-                      <div className="flex-shrink-0">
-                        <IconComponent className="h-6 w-6 text-primary" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h5 className="font-medium">{method.name}</h5>
-                          {method.badges.map((badge) => (
-                            <Badge key={badge} variant="secondary" className="text-xs">
-                              {badge}
-                            </Badge>
-                          ))}
+              
+              {isLoading ? (
+                <div className="bg-muted p-4 rounded-lg text-center">
+                  <p className="text-sm text-muted-foreground">Cargando métodos de pago disponibles...</p>
+                </div>
+              ) : paymentMethods.length === 0 ? (
+                <div className="bg-destructive/5 border border-destructive/20 p-4 rounded-lg text-center">
+                  <p className="text-sm text-destructive">
+                    No hay métodos de pago configurados. Contacta al administrador para habilitar opciones de pago.
+                  </p>
+                </div>
+              ) : (
+                paymentMethods.map((method) => {
+                  const IconComponent = method.icon;
+                  return (
+                    <div
+                      key={method.id}
+                      className={cn(
+                        "border rounded-lg p-4 cursor-pointer transition-colors",
+                        selectedMethod === method.id
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                      )}
+                      onClick={() => setSelectedMethod(method.id)}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className="flex-shrink-0">
+                          <IconComponent className="h-6 w-6 text-primary" />
                         </div>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          {method.description}
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {method.features.map((feature) => (
-                            <span key={feature} className="text-xs bg-secondary px-2 py-1 rounded">
-                              {feature}
-                            </span>
-                          ))}
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <h5 className="font-medium">{method.name}</h5>
+                            {method.badges?.map((badge) => (
+                              <Badge key={badge} variant="secondary" className="text-xs">
+                                {badge}
+                              </Badge>
+                            ))}
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            {method.description}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {method.features?.map((feature) => (
+                              <span key={feature} className="text-xs bg-secondary px-2 py-1 rounded">
+                                {feature}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
 
             <div className="flex justify-between">
               <Button variant="outline" onClick={onClose}>
                 Cancelar
               </Button>
-              <Button onClick={() => setStep('payment')}>
-                Continuar con {paymentMethods.find(m => m.id === selectedMethod)?.name}
+              <Button 
+                onClick={() => setStep('payment')} 
+                disabled={!selectedMethod || isLoading || paymentMethods.length === 0}
+              >
+                {selectedMethod 
+                  ? `Continuar con ${paymentMethods.find(m => m.id === selectedMethod)?.name}`
+                  : 'Selecciona un método de pago'
+                }
               </Button>
             </div>
 
