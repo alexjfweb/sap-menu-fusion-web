@@ -5,6 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { CreditCard, DollarSign, Shield, Check, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useMercadoPagoPayment } from '@/hooks/useMercadoPagoPayment';
+import { useBancolombiaPayment } from '@/hooks/useBancolombiaPayment';
+import { usePaymentMethodValidation } from '@/hooks/usePaymentMethodValidation';
 
 interface PaymentFormModalProps {
   plan: {
@@ -33,13 +36,18 @@ interface PaymentMethodConfig {
 const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [step, setStep] = useState<'method' | 'payment' | 'confirmation'>('method');
+  
+  const { createPaymentPreference, redirectToPayment, isLoading: mpLoading } = useMercadoPagoPayment();
+  const { createBankTransfer, isLoading: bancolombiaLoading } = useBancolombiaPayment();
+  const { getAvailableMethods } = usePaymentMethodValidation();
 
-  // Configurar métodos según el plan
+  // Configurar métodos según el plan y disponibilidad real
   const getAvailableMethodsForPlan = (): PaymentMethodConfig[] => {
     const planName = plan.name.toLowerCase();
+    const availableMethods = getAvailableMethods();
     
-    const allMethods: PaymentMethodConfig[] = [
-      {
+    const methodMapping: Record<string, PaymentMethodConfig> = {
+      'mercado_pago': {
         id: 'mercado_pago',
         name: 'Mercado Pago',
         description: 'Tarjetas, transferencias y dinero en cuenta',
@@ -49,7 +57,7 @@ const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
         color: 'text-blue-600',
         bgColor: 'bg-blue-50 border-blue-200'
       },
-      {
+      'bancolombia': {
         id: 'bancolombia',
         name: 'Bancolombia',
         description: 'Transferencia bancaria directa',
@@ -59,51 +67,131 @@ const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
         color: 'text-yellow-600',
         bgColor: 'bg-yellow-50 border-yellow-200'
       }
-    ];
+    };
 
-    // Plan Básico: Mercado Pago y Bancolombia
+    // Filter based on configured and available methods
+    let configuredMethods = availableMethods
+      .filter(method => ['mercado_pago', 'bancolombia'].includes(method.type))
+      .map(method => methodMapping[method.type])
+      .filter(Boolean);
+
+    // Apply plan restrictions
     if (planName.includes('básico') || planName.includes('basic')) {
-      return allMethods;
+      return configuredMethods;
     }
     
     // Planes Estándar y Premium: solo Mercado Pago
-    return allMethods.filter(method => method.id === 'mercado_pago');
+    return configuredMethods.filter(method => method.id === 'mercado_pago');
+  };
+
+  const handlePaymentProcess = async () => {
+    if (!selectedMethod) return;
+
+    try {
+      if (selectedMethod === 'mercado_pago') {
+        const preference = await createPaymentPreference({
+          plan_id: plan.id,
+          user_email: 'user@example.com',
+          user_name: 'Usuario'
+        });
+
+        if (preference) {
+          redirectToPayment(preference.init_point);
+        }
+      } else if (selectedMethod === 'bancolombia') {
+        const transfer = await createBankTransfer({
+          plan_id: plan.id,
+          user_name: 'Usuario',
+          user_email: 'user@example.com',
+          amount: plan.monthlyPrice
+        });
+
+        if (transfer) {
+          setStep('confirmation');
+        }
+      }
+    } catch (error) {
+      console.error('Error processing payment:', error);
+    }
   };
 
   const availableMethods = getAvailableMethodsForPlan();
 
   const renderPaymentMethod = () => {
     if (!selectedMethod) return null;
-    
-    // Aquí se integrarían los componentes de pago específicos
-    return (
-      <div className="space-y-6">
-        <div className="text-center p-8 bg-muted/50 rounded-lg">
-          <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CreditCard className="h-8 w-8 text-primary" />
+
+    const isLoading = mpLoading || bancolombiaLoading;
+    const selectedMethodConfig = availableMethods.find(m => m.id === selectedMethod);
+
+    if (selectedMethod === 'mercado_pago') {
+      return (
+        <div className="space-y-6">
+          <div className="text-center">
+            <DollarSign className="h-12 w-12 mx-auto text-blue-500 mb-4" />
+            <h3 className="text-lg font-medium">Mercado Pago</h3>
+            <p className="text-sm text-muted-foreground mt-2">
+              Serás redirigido a Mercado Pago para completar tu pago de forma segura
+            </p>
           </div>
-          <h3 className="text-lg font-semibold mb-2">Procesando pago...</h3>
-          <p className="text-muted-foreground">
-            Integrando con {availableMethods.find(m => m.id === selectedMethod)?.name}
-          </p>
+          
+          <div className="bg-muted/50 p-4 rounded-lg">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Total a pagar:</span>
+              <span className="text-lg font-bold">${plan.monthlyPrice}/mes</span>
+            </div>
+          </div>
+
+          <div className="flex justify-between">
+            <Button variant="outline" onClick={() => setStep('method')}>
+              ← Volver
+            </Button>
+            <Button 
+              onClick={handlePaymentProcess} 
+              disabled={isLoading}
+              className="bg-gradient-to-r from-primary to-primary/80"
+            >
+              {isLoading ? 'Procesando...' : 'Continuar con Mercado Pago'}
+            </Button>
+          </div>
         </div>
-        
-        <div className="flex justify-between">
-          <Button
-            variant="outline"
-            onClick={() => setStep('method')}
-          >
-            ← Volver
-          </Button>
-          <Button 
-            onClick={() => setStep('confirmation')}
-            className="bg-gradient-to-r from-primary to-primary/80"
-          >
-            Confirmar Pago
-          </Button>
+      );
+    }
+
+    if (selectedMethod === 'bancolombia') {
+      return (
+        <div className="space-y-6">
+          <div className="text-center">
+            <Building2 className="h-12 w-12 mx-auto text-yellow-500 mb-4" />
+            <h3 className="text-lg font-medium">Transferencia Bancolombia</h3>
+            <p className="text-sm text-muted-foreground mt-2">
+              Genera los datos para realizar tu transferencia bancaria
+            </p>
+          </div>
+          
+          <div className="bg-muted/50 p-4 rounded-lg">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Total a pagar:</span>
+              <span className="text-lg font-bold">${plan.monthlyPrice}/mes</span>
+            </div>
+          </div>
+
+          <div className="flex justify-between">
+            <Button variant="outline" onClick={() => setStep('method')}>
+              ← Volver
+            </Button>
+            <Button 
+              onClick={handlePaymentProcess} 
+              disabled={isLoading}
+              className="bg-gradient-to-r from-primary to-primary/80"
+            >
+              {isLoading ? 'Generando...' : 'Generar datos de transferencia'}
+            </Button>
+          </div>
         </div>
-      </div>
-    );
+      );
+    }
+
+    return null;
   };
 
   const renderConfirmation = () => (

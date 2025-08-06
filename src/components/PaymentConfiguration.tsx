@@ -68,6 +68,7 @@ const PaymentConfiguration = () => {
     { name: 'Nequi', type: 'nequi', icon: Smartphone },
     { name: 'Daviplata', type: 'daviplata', icon: Smartphone },
     { name: 'Mercado Pago', type: 'mercado_pago', icon: DollarSign },
+    { name: 'Bancolombia', type: 'bancolombia', icon: CreditCard },
     { name: 'Stripe', type: 'stripe', icon: CreditCard },
     { name: 'PayPal', type: 'paypal', icon: CreditCard }
   ];
@@ -159,6 +160,11 @@ const PaymentConfiguration = () => {
       case 'mercado_pago':
         if (!config.configuration.public_key) {
           return `${config.name}: Clave pública es requerida`;
+        }
+        break;
+      case 'bancolombia':
+        if (!config.configuration.merchant_code || !config.configuration.account_number) {
+          return `${config.name}: Código de comercio y número de cuenta son requeridos`;
         }
         break;
       case 'nequi':
@@ -410,6 +416,28 @@ const PaymentConfiguration = () => {
           </div>
         );
       
+      case 'bancolombia':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Código de comercio</Label>
+              <Input
+                placeholder="Código de comercio Bancolombia"
+                value={config.configuration.merchant_code || ''}
+                onChange={(e) => handleConfigChange(index, 'merchant_code', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Número de cuenta</Label>
+              <Input
+                placeholder="Número de cuenta empresarial"
+                value={config.configuration.account_number || ''}
+                onChange={(e) => handleConfigChange(index, 'account_number', e.target.value)}
+              />
+            </div>
+          </div>
+        );
+
       case 'nequi':
         return (
           <div className="space-y-2">
@@ -431,8 +459,6 @@ const PaymentConfiguration = () => {
           </div>
         );
 
-      
-      
       case 'daviplata':
         // Campos específicos para Daviplata
         return (
