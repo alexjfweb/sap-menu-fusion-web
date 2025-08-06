@@ -59,9 +59,10 @@ const PricingSection = () => {
   const { navigateToAuth, isNavigating } = useSmartNavigation();
 
   // Obtener planes desde la base de datos
-  const { data: dbPlans, isLoading } = useQuery({
+  const { data: dbPlans, isLoading, error } = useQuery({
     queryKey: ['subscription-plans-public'],
     queryFn: async () => {
+      console.log('🔍 [PRICING] Consultando planes de suscripción...');
       const { data, error } = await supabase
         .from('subscription_plans')
         .select(`
@@ -78,9 +79,16 @@ const PricingSection = () => {
         .eq('is_active', true)
         .order('price', { ascending: true });
       
-      if (error) throw error;
+      if (error) {
+        console.error('❌ [PRICING] Error al consultar planes:', error);
+        throw error;
+      }
+      
+      console.log('✅ [PRICING] Planes obtenidos:', data?.length || 0, 'planes');
       return data;
     },
+    retry: 3,
+    retryDelay: 1000,
   });
 
   // Mapear planes de DB a formato del frontend con iconos y colores
@@ -141,6 +149,7 @@ const PricingSection = () => {
     setShowPaymentModal(true);
   };
 
+  // Estado de carga
   if (isLoading) {
     return (
       <section id="planes" className="py-20 bg-gradient-to-b from-background to-secondary/20">
@@ -154,6 +163,66 @@ const PricingSection = () => {
               {[1, 2, 3, 4].map(i => (
                 <div key={i} className="h-96 bg-muted rounded-lg animate-pulse"></div>
               ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Estado de error
+  if (error) {
+    return (
+      <section id="planes" className="py-20 bg-gradient-to-b from-background to-secondary/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h2 className="text-4xl font-bold text-foreground mb-4">
+              Planes de Suscripción para Restaurantes
+            </h2>
+            <div className="max-w-md mx-auto bg-destructive/10 border border-destructive/20 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-destructive mb-2">
+                Error al cargar los planes
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                No pudimos cargar los planes de suscripción. Por favor, intenta recargar la página.
+              </p>
+              <Button 
+                variant="outline" 
+                onClick={() => window.location.reload()}
+                className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+              >
+                Reintentar
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Estado sin planes
+  if (!plans || plans.length === 0) {
+    return (
+      <section id="planes" className="py-20 bg-gradient-to-b from-background to-secondary/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h2 className="text-4xl font-bold text-foreground mb-4">
+              Planes de Suscripción para Restaurantes
+            </h2>
+            <div className="max-w-md mx-auto bg-muted/50 border border-border rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                Planes no disponibles
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Actualmente no hay planes de suscripción disponibles. Contáctanos para obtener más información.
+              </p>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowSalesModal(true)}
+              >
+                <CreditCard className="h-4 w-4 mr-2" />
+                Contactar Ventas
+              </Button>
             </div>
           </div>
         </div>
