@@ -1,16 +1,17 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { CreditCard, Smartphone, QrCode, CheckCircle, Truck } from 'lucide-react';
+import { CreditCard, Smartphone, QrCode, CheckCircle, Truck, DollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useBusinessInfo } from '@/hooks/useBusinessInfo';
 import { useWhatsAppSender } from '@/hooks/useWhatsAppSender';
 import { useOrderSync } from '@/hooks/useOrderSync';
+import { usePaymentMethodValidation } from '@/hooks/usePaymentMethodValidation';
 import PaymentMethodDisplay from './PaymentMethodDisplay';
 import PaymentConfirmationModal from './PaymentConfirmationModal';
 import SendConfirmationModal from './SendConfirmationModal';
@@ -25,7 +26,7 @@ interface PaymentModalProps {
 }
 
 const PaymentModal = ({ isOpen, onClose, cartItems, totalAmount, sessionId, onPaymentSuccess }: PaymentModalProps) => {
-  const [paymentMethod, setPaymentMethod] = useState<string>('nequi');
+  const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
@@ -38,6 +39,51 @@ const PaymentModal = ({ isOpen, onClose, cartItems, totalAmount, sessionId, onPa
   const { data: businessInfo } = useBusinessInfo();
   const { sendOrderToWhatsApp, sending } = useWhatsAppSender();
   const { syncOrderToDatabase } = useOrderSync();
+  const { getAvailableMethods, isLoading: isLoadingPaymentMethods } = usePaymentMethodValidation();
+
+  // Get available payment methods from admin configuration
+  const availablePaymentMethods = getAvailableMethods();
+
+  // Set default payment method when available methods change
+  useEffect(() => {
+    if (availablePaymentMethods.length > 0 && !paymentMethod) {
+      setPaymentMethod(getPaymentMethodValue(availablePaymentMethods[0]));
+    }
+  }, [availablePaymentMethods, paymentMethod]);
+
+  // Helper function to get payment method value for form
+  const getPaymentMethodValue = (method: any) => {
+    if (method.type === 'qr_code' && method.name === 'Bancolombia QR') {
+      return 'bancolombia';
+    }
+    switch (method.type) {
+      case 'cash_on_delivery': return 'contra-entrega';
+      case 'qr_code': return 'qr';
+      case 'nequi': return 'nequi';
+      case 'daviplata': return 'daviplata';
+      case 'mercado_pago': return 'mercado-pago';
+      case 'stripe': return 'stripe';
+      case 'paypal': return 'paypal';
+      default: return method.type;
+    }
+  };
+
+  // Helper function to get icon for payment method
+  const getPaymentMethodIcon = (method: any) => {
+    if (method.type === 'qr_code' && method.name === 'Bancolombia QR') {
+      return QrCode;
+    }
+    switch (method.type) {
+      case 'cash_on_delivery': return Truck;
+      case 'qr_code': return QrCode;
+      case 'nequi': return Smartphone;
+      case 'daviplata': return Smartphone;
+      case 'mercado_pago': return DollarSign;
+      case 'stripe': return CreditCard;
+      case 'paypal': return CreditCard;
+      default: return CreditCard;
+    }
+  };
 
   const handlePayment = async () => {
     if (!customerName || !customerPhone) {
@@ -178,41 +224,37 @@ const PaymentModal = ({ isOpen, onClose, cartItems, totalAmount, sessionId, onPa
 
             {/* Payment Method */}
             <div className="space-y-4">
-              <h3 className="font-medium">Método de Pago</h3>
+              <h3 className="font-medium">Selecciona tu método de pago</h3>
               
-              <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="nequi" id="nequi" />
-                  <Label htmlFor="nequi" className="flex items-center space-x-2 cursor-pointer">
-                    <Smartphone className="h-4 w-4" />
-                    <span>Nequi</span>
-                  </Label>
+              {isLoadingPaymentMethods ? (
+                <div className="flex items-center justify-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  <span className="ml-2 text-sm text-muted-foreground">Cargando métodos de pago...</span>
                 </div>
-                
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="qr" id="qr" />
-                  <Label htmlFor="qr" className="flex items-center space-x-2 cursor-pointer">
-                    <QrCode className="h-4 w-4" />
-                    <span>Código QR</span>
-                  </Label>
+              ) : availablePaymentMethods.length === 0 ? (
+                <div className="p-4 bg-muted rounded-lg text-center">
+                  <p className="text-sm text-muted-foreground">
+                    No hay métodos de pago configurados. Contacta al administrador para habilitar opciones de pago.
+                  </p>
                 </div>
-                
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="contra-entrega" id="contra-entrega" />
-                  <Label htmlFor="contra-entrega" className="flex items-center space-x-2 cursor-pointer">
-                    <Truck className="h-4 w-4" />
-                    <span>Contra entrega</span>
-                  </Label>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="stripe" id="stripe" />
-                  <Label htmlFor="stripe" className="flex items-center space-x-2 cursor-pointer">
-                    <CreditCard className="h-4 w-4" />
-                    <span>Tarjeta de Crédito/Débito</span>
-                  </Label>
-                </div>
-              </RadioGroup>
+              ) : (
+                <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
+                  {availablePaymentMethods.map((method) => {
+                    const methodValue = getPaymentMethodValue(method);
+                    const IconComponent = getPaymentMethodIcon(method);
+                    
+                    return (
+                      <div key={method.id} className="flex items-center space-x-2">
+                        <RadioGroupItem value={methodValue} id={methodValue} />
+                        <Label htmlFor={methodValue} className="flex items-center space-x-2 cursor-pointer">
+                          <IconComponent className="h-4 w-4" />
+                          <span>{method.name}</span>
+                        </Label>
+                      </div>
+                    );
+                  })}
+                </RadioGroup>
+              )}
 
               {/* Dynamic Payment Method Display */}
               <PaymentMethodDisplay 
