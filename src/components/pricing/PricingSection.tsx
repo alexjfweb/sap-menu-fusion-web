@@ -14,10 +14,9 @@ import { Tables } from '@/integrations/supabase/types';
 type SubscriptionPlan = Tables<'subscription_plans'>;
 
 interface PlanWithLimits extends SubscriptionPlan {
-  monthlyPrice: number;
   icon: any;
   color: string;
-  popular?: boolean;
+  popularity?: string;
   limits: {
     mesas: string | number;
     clientes: string | number;
@@ -26,20 +25,8 @@ interface PlanWithLimits extends SubscriptionPlan {
 }
 
 const colorClasses = {
-  gray: {
-    card: 'border-gray-200 hover:border-gray-300',
-    button: 'bg-gray-600 hover:bg-gray-700',
-    icon: 'text-gray-600',
-    badge: 'bg-gray-100 text-gray-800'
-  },
-  orange: {
-    card: 'border-orange-200 hover:border-orange-300',
-    button: 'bg-orange-600 hover:bg-orange-700',
-    icon: 'text-orange-600',
-    badge: 'bg-orange-100 text-orange-800'
-  },
   green: {
-    card: 'border-green-200 hover:border-green-300 ring-2 ring-green-200',
+    card: 'border-green-200 hover:border-green-300',
     button: 'bg-green-600 hover:bg-green-700',
     icon: 'text-green-600',
     badge: 'bg-green-100 text-green-800'
@@ -49,6 +36,18 @@ const colorClasses = {
     button: 'bg-blue-600 hover:bg-blue-700',
     icon: 'text-blue-600',
     badge: 'bg-blue-100 text-blue-800'
+  },
+  purple: {
+    card: 'border-purple-200 hover:border-purple-300 ring-2 ring-purple-200',
+    button: 'bg-purple-600 hover:bg-purple-700',
+    icon: 'text-purple-600',
+    badge: 'bg-purple-100 text-purple-800'
+  },
+  orange: {
+    card: 'border-orange-200 hover:border-orange-300',
+    button: 'bg-orange-600 hover:bg-orange-700',
+    icon: 'text-orange-600',
+    badge: 'bg-orange-100 text-orange-800'
   }
 };
 
@@ -65,19 +64,9 @@ const PricingSection = () => {
       console.log('🔍 [PRICING] Consultando planes de suscripción...');
       const { data, error } = await supabase
         .from('subscription_plans')
-        .select(`
-          *,
-          plan_configurations(
-            max_products,
-            max_users,
-            max_reservations_per_day,
-            max_tables,
-            max_locations,
-            support_type
-          )
-        `)
+        .select('*')
         .eq('is_active', true)
-        .order('price', { ascending: true });
+        .order('sort_order', { ascending: true });
       
       if (error) {
         console.error('❌ [PRICING] Error al consultar planes:', error);
@@ -85,6 +74,7 @@ const PricingSection = () => {
       }
       
       console.log('✅ [PRICING] Planes obtenidos:', data?.length || 0, 'planes');
+      console.log('📋 [PRICING] Datos de planes:', data);
       return data;
     },
     retry: 3,
@@ -94,46 +84,51 @@ const PricingSection = () => {
   // Mapear planes de DB a formato del frontend con iconos y colores
   const plans: PlanWithLimits[] = React.useMemo(() => {
     if (!dbPlans) return [];
-
-    const iconMap = {
-      'gratuito': Users,
-      'básico': Zap,
-      'estándar': Star,
-      'premium': Crown,
-      'free': Users,
-      'basic': Zap,
-      'standard': Star,
-    };
-
-    const colorMap = {
-      'gratuito': 'gray',
-      'básico': 'orange',
-      'estándar': 'green',
-      'premium': 'blue',
-      'free': 'gray',
-      'basic': 'orange',
-      'standard': 'green',
-    };
-
-    return dbPlans.map(plan => {
-      const planKey = plan.name.toLowerCase();
-      const icon = Object.keys(iconMap).find(key => planKey.includes(key)) || 'basic';
-      const color = Object.keys(colorMap).find(key => planKey.includes(key)) || 'gray';
+    
+    return dbPlans.map((plan, index) => {
+      // Asignar iconos según el nombre del plan
+      let icon = Zap;
+      if (plan.name.toLowerCase().includes('gratuito')) icon = Users;
+      else if (plan.name.toLowerCase().includes('básico')) icon = Zap;
+      else if (plan.name.toLowerCase().includes('estándar')) icon = Star;
+      else if (plan.name.toLowerCase().includes('premium')) icon = Crown;
       
-      const config = plan.plan_configurations?.[0];
-      const limits = {
-        mesas: config?.max_tables || 'Personalizado',
-        clientes: config?.max_users || 'Ilimitado',
-        seguros: config?.support_type || 'Básico'
+      // Asignar colores según el índice
+      const colorNames = ['green', 'blue', 'purple', 'orange'] as const;
+      const color = colorNames[index % colorNames.length];
+      
+      // Valores por defecto basados en el precio del plan
+      const getDefaultLimits = (price: number) => {
+        if (price === 0) return { mesas: 3, clientes: 1, seguros: 'Email' };
+        if (price <= 15) return { mesas: 5, clientes: 1, seguros: 'Email' };
+        if (price <= 25) return { mesas: 15, clientes: 3, seguros: 'Chat' };
+        return { mesas: 50, clientes: 10, seguros: 'Prioritario' };
       };
-
+      
+      const limits = getDefaultLimits(Number(plan.price));
+      
+      // Procesar features desde el array JSON
+      let processedFeatures: string[] = [];
+      try {
+        if (plan.features) {
+          if (Array.isArray(plan.features)) {
+            processedFeatures = plan.features.map(f => String(f));
+          } else if (typeof plan.features === 'string') {
+            processedFeatures = JSON.parse(plan.features);
+          }
+        }
+      } catch (error) {
+        console.warn('Error al procesar features del plan:', plan.name, error);
+        processedFeatures = ['Funcionalidades básicas incluidas'];
+      }
+      
       return {
         ...plan,
-        monthlyPrice: plan.price,
-        popular: plan.is_featured,
-        icon: iconMap[icon as keyof typeof iconMap] || Zap,
-        color: colorMap[color as keyof typeof colorMap] || 'gray',
-        limits
+        icon,
+        color,
+        popularity: plan.is_featured ? 'Más Popular' : undefined,
+        limits,
+        features: processedFeatures
       };
     });
   }, [dbPlans]);
@@ -250,17 +245,17 @@ const PricingSection = () => {
             return (
               <Card 
                 key={plan.id} 
-                className={cn(
+                  className={cn(
                   "relative transform transition-all duration-300 hover:scale-105 hover:shadow-xl",
                   colors.card,
-                  plan.popular && "scale-105"
+                  plan.popularity && "scale-105"
                 )}
               >
-                {plan.popular && (
+                {plan.popularity && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                     <Badge className="bg-green-500 text-white">
                       <Star className="h-3 w-3 mr-1" />
-                      Más Popular
+                      {plan.popularity}
                     </Badge>
                   </div>
                 )}
@@ -336,7 +331,7 @@ const PricingSection = () => {
             id: selectedPlan.id,
             name: selectedPlan.name,
             price: selectedPlan.price.toString(),
-            monthlyPrice: selectedPlan.monthlyPrice,
+            monthlyPrice: Number(selectedPlan.price),
             features: Array.isArray(selectedPlan.features) ? selectedPlan.features.map(String) : []
           }}
           onClose={() => {
