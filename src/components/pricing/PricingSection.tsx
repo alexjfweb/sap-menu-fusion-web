@@ -328,6 +328,7 @@ const PricingSection = () => {
 
       {showPaymentModal && selectedPlan && (
         <PaymentFormModal
+          key={`payment-form-${selectedPlan.id}-${Date.now()}`}
           plan={{
             id: selectedPlan.id,
             name: selectedPlan.name,
