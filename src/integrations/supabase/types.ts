@@ -967,6 +967,36 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_subscriptions: {
+        Row: {
+          created_at: string
+          id: string
+          plan_data: Json
+          plan_id: string
+          session_id: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          plan_data: Json
+          plan_id: string
+          session_id?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          plan_data?: Json
+          plan_id?: string
+          session_id?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       plan_configurations: {
         Row: {
           advanced_analytics_enabled: boolean | null

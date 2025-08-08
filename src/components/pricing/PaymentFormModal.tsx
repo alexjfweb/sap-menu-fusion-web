@@ -27,10 +27,7 @@ interface PaymentMethodConfig {
   name: string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
-  badges: string[];
-  features: string[];
-  color: string;
-  bgColor: string;
+  available: boolean;
 }
 
 const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
@@ -46,48 +43,36 @@ const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
     const planName = plan.name.toLowerCase();
     const availableMethods = getAvailableMethods();
     
-    console.log('🔍 [PAYMENT MODAL] Plan name:', planName);
-    console.log('🔍 [PAYMENT MODAL] Available methods from hook:', availableMethods);
-    
     const methodMapping: Record<string, PaymentMethodConfig> = {
       'mercado_pago': {
         id: 'mercado_pago',
         name: 'Mercado Pago',
-        description: 'Tarjetas, transferencias y dinero en cuenta',
-        icon: DollarSign,
-        badges: ['Argentina', 'Latam', 'Seguro'],
-        features: ['Checkout seguro', 'Múltiples métodos', 'Aprobación inmediata'],
-        color: 'text-blue-600',
-        bgColor: 'bg-blue-50 border-blue-200'
+        description: 'Paga con tarjeta de crédito/débito',
+        icon: CreditCard,
+        available: true
       },
       'bancolombia': {
         id: 'bancolombia',
         name: 'Bancolombia',
-        description: 'Transferencia bancaria directa',
+        description: 'Transferencia bancaria',
         icon: Building2,
-        badges: ['Colombia', 'Banco'],
-        features: ['Transferencia segura', 'Sin comisiones extra', 'Confirmación automática'],
-        color: 'text-yellow-600',
-        bgColor: 'bg-yellow-50 border-yellow-200'
+        available: true
       }
     };
 
-    // Filter based on configured and available methods
-    let configuredMethods = availableMethods
+    // Filter to only show configured and available methods
+    const configuredMethods = availableMethods
       .filter(method => ['mercado_pago', 'bancolombia'].includes(method.type))
       .map(method => methodMapping[method.type])
       .filter(Boolean);
-    
-    console.log('🔍 [PAYMENT MODAL] Configured methods after filtering:', configuredMethods);
 
     // Apply plan restrictions
     if (planName.includes('básico') || planName.includes('basic')) {
-      console.log('🔍 [PAYMENT MODAL] Plan básico detected, returning all configured methods');
+      // Plan Básico: mostrar todos los métodos configurados
       return configuredMethods;
     }
     
     // Planes Estándar y Premium: solo Mercado Pago
-    console.log('🔍 [PAYMENT MODAL] Other plan, filtering to only Mercado Pago');
     return configuredMethods.filter(method => method.id === 'mercado_pago');
   };
 
@@ -304,7 +289,7 @@ const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
                         className={cn(
                           "border-2 rounded-xl p-5 cursor-pointer transition-all duration-200 hover:shadow-lg",
                           selectedMethod === method.id
-                            ? `${method.bgColor} border-current ${method.color} shadow-md`
+                            ? "bg-primary/5 border-primary shadow-md"
                             : "border-border hover:border-primary/30 bg-card"
                         )}
                         onClick={() => setSelectedMethod(method.id)}
@@ -312,47 +297,28 @@ const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
                         <div className="flex items-start space-x-4">
                           <div className={cn(
                             "flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center",
-                            selectedMethod === method.id ? "bg-current/10" : "bg-muted"
+                            selectedMethod === method.id ? "bg-primary/10" : "bg-muted"
                           )}>
                             <IconComponent className={cn(
                               "h-6 w-6",
-                              selectedMethod === method.id ? "text-current" : "text-muted-foreground"
+                              selectedMethod === method.id ? "text-primary" : "text-muted-foreground"
                             )} />
                           </div>
                           
                           <div className="flex-1">
                             <div className="flex items-center space-x-2 mb-2">
                               <h5 className="font-semibold text-lg">{method.name}</h5>
-                              {method.badges?.map((badge) => (
-                                <Badge 
-                                  key={badge} 
-                                  variant={selectedMethod === method.id ? "default" : "secondary"}
-                                  className="text-xs"
-                                >
-                                  {badge}
-                                </Badge>
-                              ))}
+                              <Badge 
+                                variant={selectedMethod === method.id ? "default" : "secondary"}
+                                className="text-xs"
+                              >
+                                ✓ Disponible
+                              </Badge>
                             </div>
                             
-                            <p className="text-muted-foreground mb-3">
+                            <p className="text-muted-foreground">
                               {method.description}
                             </p>
-                            
-                            <div className="flex flex-wrap gap-2">
-                              {method.features?.map((feature) => (
-                                <span 
-                                  key={feature} 
-                                  className={cn(
-                                    "text-xs px-3 py-1 rounded-full",
-                                    selectedMethod === method.id 
-                                      ? "bg-current/20 text-current" 
-                                      : "bg-secondary text-secondary-foreground"
-                                  )}
-                                >
-                                  {feature}
-                                </span>
-                              ))}
-                            </div>
                           </div>
                         </div>
                       </div>
