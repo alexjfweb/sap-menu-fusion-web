@@ -76,11 +76,11 @@ export const usePaymentMethodValidation = () => {
         break;
       
       case 'bancolombia':
-        // Validar datos mínimos: número de cuenta y beneficiario
-        if (!method.configuration?.account_number || !method.configuration?.beneficiary) {
+        // Validar datos mínimos: número de cuenta (beneficiario opcional)
+        if (!method.configuration?.account_number) {
           return { 
             isValid: false, 
-            message: 'Configuración incompleta - Falta número de cuenta o beneficiario' 
+            message: 'Configuración incompleta - Falta número de cuenta' 
           };
         }
         break;

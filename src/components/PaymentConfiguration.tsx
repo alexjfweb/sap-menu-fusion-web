@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import ErrorModal from '@/components/ErrorModal';
@@ -40,6 +41,7 @@ interface PaymentMethodConfig {
     phone_number?: string;
     merchant_code?: string;
     account_number?: string;
+    account_type?: string;
   };
   logo_url: string;
   logo_file?: File;
@@ -434,6 +436,21 @@ const PaymentConfiguration = () => {
                 value={config.configuration.account_number || ''}
                 onChange={(e) => handleConfigChange(index, 'account_number', e.target.value)}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo de cuenta</Label>
+              <Select
+                value={config.configuration.account_type || ''}
+                onValueChange={(v) => handleConfigChange(index, 'account_type', v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona tipo de cuenta" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ahorro">Cuenta de Ahorros</SelectItem>
+                  <SelectItem value="corriente">Cuenta Corriente</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         );
