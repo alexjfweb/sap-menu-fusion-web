@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff } from 'lucide-react';
@@ -218,12 +219,70 @@ const PaymentMethodForm = ({ method, onClose, onSuccess }: PaymentMethodFormProp
     </div>
   );
 
+  const renderBancolombiaConfig = () => (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="bank">Banco</Label>
+        <Input
+          id="bank"
+          value={formData.configuration.bank || 'Bancolombia'}
+          onChange={(e) => updateConfiguration('bank', e.target.value)}
+          placeholder="Bancolombia"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="beneficiary">Beneficiario</Label>
+        <Input
+          id="beneficiary"
+          value={formData.configuration.beneficiary || ''}
+          onChange={(e) => updateConfiguration('beneficiary', e.target.value)}
+          placeholder="Nombre del beneficiario"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="account_number">Número de cuenta</Label>
+        <Input
+          id="account_number"
+          value={formData.configuration.account_number || ''}
+          onChange={(e) => updateConfiguration('account_number', e.target.value)}
+          placeholder="000-000-000-00"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="account_type">Tipo de cuenta</Label>
+        <Select
+          value={formData.configuration.account_type || ''}
+          onValueChange={(v) => updateConfiguration('account_type', v)}
+        >
+          <SelectTrigger id="account_type">
+            <SelectValue placeholder="Selecciona tipo de cuenta" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ahorro">Cuenta de Ahorros</SelectItem>
+            <SelectItem value="corriente">Cuenta Corriente</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="instructions">Instrucciones (una por línea)</Label>
+        <Textarea
+          id="instructions"
+          value={formData.configuration.instructions || ''}
+          onChange={(e) => updateConfiguration('instructions', e.target.value)}
+          rows={4}
+        />
+      </div>
+    </div>
+  );
+
   const renderConfigurationFields = () => {
     switch (method?.type) {
       case 'stripe':
         return renderStripeConfig();
       case 'nequi':
         return renderNequiConfig();
+      case 'bancolombia':
+        return renderBancolombiaConfig();
       case 'qr':
         return renderQRConfig();
       default:
