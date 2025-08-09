@@ -22,8 +22,10 @@ import {
   Shield,
   UserCheck,
   Menu,
-  ArrowLeft
+  ArrowLeft,
+  Rocket
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { usePublicMenuCustomization, getDefaultCustomization } from '@/hooks/useMenuCustomization';
 import OrderManagement from '../orders/OrderManagement';
 import ProductManagement from '../products/ProductManagement';
@@ -49,6 +51,7 @@ import { NavigationConfigPanel } from '../navigation/NavigationConfigPanel';
 
 const SuperAdminDashboard = () => {
   const { profile, signOut } = useAuth();
+  const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<string | null>(null);
 
   // Fetch customization with the same hook as PublicMenu
@@ -486,6 +489,27 @@ const SuperAdminDashboard = () => {
                 onClick={() => setActiveSection('payments')}
               >
                 Gestionar Pagos
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Despliegue a Producción */}
+          <Card className="hover:shadow-lg transition-shadow duration-300 border-green-200">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Rocket className="h-5 w-5 text-green-600" />
+                <span>Despliegue a Producción</span>
+              </CardTitle>
+              <CardDescription>
+                Checklist de pre, deploy y validación post-despliegue
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={() => navigate('/ops/deploy')}
+              >
+                Abrir checklist
               </Button>
             </CardContent>
           </Card>
