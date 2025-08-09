@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { useMercadoPagoPayment } from '@/hooks/useMercadoPagoPayment';
 import { useBancolombiaPayment } from '@/hooks/useBancolombiaPayment';
 import { usePaymentMethodValidation } from '@/hooks/usePaymentMethodValidation';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PaymentFormModalProps {
   plan: {
@@ -30,9 +31,23 @@ interface PaymentMethodConfig {
   available: boolean;
 }
 
+interface BancolombiaTransferDetails {
+  payment_reference: string;
+  account_details: {
+    bank: string;
+    account_number: string;
+    account_type: string;
+    beneficiary: string;
+  };
+  instructions: string[];
+}
+
 const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [step, setStep] = useState<'method' | 'payment' | 'confirmation'>('method');
+  const [transferDetails, setTransferDetails] = useState<BancolombiaTransferDetails | null>(null);
+  const [bancolombiaQrUrl, setBancolombiaQrUrl] = useState<string | null>(null);
+  const [loadingQr, setLoadingQr] = useState(false);
   
   const { createPaymentPreference, redirectToPayment, isLoading: mpLoading } = useMercadoPagoPayment();
   const { createBankTransfer, isLoading: bancolombiaLoading } = useBancolombiaPayment();
@@ -99,7 +114,12 @@ const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
         });
 
         if (transfer) {
-          setStep('confirmation');
+          // Mostrar detalles para transferencia bancaria en esta misma vista
+          setTransferDetails({
+            payment_reference: transfer.payment_reference,
+            account_details: transfer.account_details,
+            instructions: transfer.instructions,
+          });
         }
       }
     } catch (error) {
@@ -109,11 +129,42 @@ const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
 
   const availableMethods = getAvailableMethodsForPlan();
 
+  useEffect(() => {
+    const fetchQr = async () => {
+      if (selectedMethod !== 'bancolombia' || step !== 'payment') return;
+      setLoadingQr(true);
+      try {
+        const { data, error } = await supabase
+          .from('qr_codes')
+          .select('qr_image_url')
+          .eq('plan_id', plan.id)
+          .eq('payment_provider', 'bancolombia')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (error) console.warn('[Bancolombia] QR fetch warning:', error.message);
+        setBancolombiaQrUrl(data && data.length > 0 ? data[0].qr_image_url : null);
+      } catch (e) {
+        console.warn('[Bancolombia] QR fetch error:', e);
+      } finally {
+        setLoadingQr(false);
+      }
+    };
+    fetchQr();
+  }, [selectedMethod, step, plan.id]);
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      console.warn('Clipboard not available', e);
+    }
+  };
+
+  const isLoading = mpLoading || bancolombiaLoading;
+
   const renderPaymentMethod = () => {
     if (!selectedMethod) return null;
-
-    const isLoading = mpLoading || bancolombiaLoading;
-    const selectedMethodConfig = availableMethods.find(m => m.id === selectedMethod);
 
     if (selectedMethod === 'mercado_pago') {
       return (
@@ -167,17 +218,92 @@ const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
             </div>
           </div>
 
+          {transferDetails && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-lg border">
+                  <h4 className="font-semibold mb-3">Datos de la cuenta</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Banco:</span>
+                      <span className="font-medium">{transferDetails.account_details.bank}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Tipo:</span>
+                      <span className="font-medium">{transferDetails.account_details.account_type}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Número:</span>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium">{transferDetails.account_details.account_number}</span>
+                        <Button variant="secondary" size="sm" onClick={() => copyToClipboard(transferDetails.account_details.account_number)}>Copiar</Button>
+                      </div>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Beneficiario:</span>
+                      <span className="font-medium">{transferDetails.account_details.beneficiary}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-lg border">
+                  <h4 className="font-semibold mb-3">Referencia de pago</h4>
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-lg">{transferDetails.payment_reference}</span>
+                    <Button variant="secondary" size="sm" onClick={() => copyToClipboard(transferDetails.payment_reference)}>Copiar</Button>
+                  </div>
+
+                  {bancolombiaQrUrl && (
+                    <div className="mt-4 text-center">
+                      <img
+                        src={bancolombiaQrUrl || ''}
+                        alt={`Código QR Bancolombia - ${plan.name}`}
+                        loading="lazy"
+                        className="mx-auto rounded-lg border"
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">Escanea para diligenciar los datos automáticamente</p>
+                    </div>
+                  )}
+                  {!bancolombiaQrUrl && !loadingQr && (
+                    <p className="text-xs text-muted-foreground mt-3">No hay QR configurado para este plan.</p>
+                  )}
+                  {loadingQr && (
+                    <p className="text-xs text-muted-foreground mt-3">Cargando QR...</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-4 rounded-lg border">
+                <h4 className="font-semibold mb-3">Instrucciones</h4>
+                <ol className="list-decimal text-sm pl-5 space-y-1">
+                  {transferDetails.instructions.map((step, idx) => (
+                    <li key={idx}>{step}</li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-between">
-            <Button variant="outline" onClick={() => setStep('method')}>
+            <Button variant="outline" onClick={() => { setStep('method'); setTransferDetails(null); setBancolombiaQrUrl(null); }}>
               ← Volver
             </Button>
-            <Button 
-              onClick={handlePaymentProcess} 
-              disabled={isLoading}
-              className="bg-gradient-to-r from-primary to-primary/80"
-            >
-              {isLoading ? 'Generando...' : 'Generar datos de transferencia'}
-            </Button>
+            {!transferDetails ? (
+              <Button 
+                onClick={handlePaymentProcess} 
+                disabled={isLoading}
+                className="bg-gradient-to-r from-primary to-primary/80"
+              >
+                {isLoading ? 'Generando...' : 'Generar datos de transferencia'}
+              </Button>
+            ) : (
+              <Button 
+                onClick={() => setStep('confirmation')}
+                className="bg-gradient-to-r from-primary to-primary/80"
+              >
+                Ya realicé la transferencia
+              </Button>
+            )}
           </div>
         </div>
       );
