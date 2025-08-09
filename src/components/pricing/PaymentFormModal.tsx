@@ -134,18 +134,41 @@ const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
       if (selectedMethod !== 'bancolombia' || step !== 'payment') return;
       setLoadingQr(true);
       try {
-        const { data, error } = await supabase
+        // 1) Intentar obtener desde la tabla dedicada qr_codes (case-insensitive)
+        const { data: qrRows, error: qrError } = await supabase
           .from('qr_codes')
           .select('qr_image_url')
           .eq('plan_id', plan.id)
-          .eq('payment_provider', 'bancolombia')
+          .ilike('payment_provider', 'bancolombia')
           .eq('is_active', true)
           .order('created_at', { ascending: false })
           .limit(1);
-        if (error) console.warn('[Bancolombia] QR fetch warning:', error.message);
-        setBancolombiaQrUrl(data && data.length > 0 ? data[0].qr_image_url : null);
+
+        if (qrError) console.warn('[Bancolombia] QR fetch warning:', qrError.message);
+
+        let url: string | null = qrRows && qrRows.length > 0 ? (qrRows[0].qr_image_url as string | null) : null;
+
+        // 2) Fallback: leer desde la configuración del método de pago (configuration.qr_image_url | configuration.qr_url)
+        if (!url) {
+          const { data: method, error: pmErr } = await supabase
+            .from('payment_methods')
+            .select('configuration')
+            .eq('type', 'bancolombia')
+            .eq('is_active', true)
+            .limit(1)
+            .maybeSingle();
+
+          if (pmErr) console.warn('[Bancolombia] QR fallback fetch warning:', pmErr.message);
+
+          const cfg = (method?.configuration || {}) as any;
+          const cfgUrl = cfg?.qr_image_url || cfg?.qr_url || null;
+          url = typeof cfgUrl === 'string' && cfgUrl.trim() ? cfgUrl : null;
+        }
+
+        setBancolombiaQrUrl(url);
       } catch (e) {
         console.warn('[Bancolombia] QR fetch error:', e);
+        setBancolombiaQrUrl(null);
       } finally {
         setLoadingQr(false);
       }
