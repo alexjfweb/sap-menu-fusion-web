@@ -16,7 +16,7 @@ import AdminDashboard from "./components/dashboards/AdminDashboard";
 import SuperAdminDashboard from "./components/dashboards/SuperAdminDashboard";
 import EmpleadoDashboard from "./components/dashboards/EmpleadoDashboard";
 import RouteVerifier from "./components/RouteVerifier";
-
+import ProductionDeployment from "./pages/ProductionDeployment";
 const queryClient = new QueryClient();
 
 function App() {
@@ -49,6 +49,11 @@ function App() {
               <Route path="/empleado" element={
                 <RouteVerifier requiredRole="empleado">
                   <EmpleadoDashboard />
+                </RouteVerifier>
+              } />
+              <Route path="/ops/deploy" element={
+                <RouteVerifier requiredRole="superadmin">
+                  <ProductionDeployment />
                 </RouteVerifier>
               } />
               <Route path="*" element={<NotFound />} />
