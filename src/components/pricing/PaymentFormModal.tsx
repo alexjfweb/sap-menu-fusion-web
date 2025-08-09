@@ -241,7 +241,7 @@ const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Beneficiario:</span>
-                      <span className="font-medium">{transferDetails.account_details.beneficiary}</span>
+                      <span className="font-medium">{transferDetails.account_details.beneficiary || 'No especificado'}</span>
                     </div>
                   </div>
                 </div>
