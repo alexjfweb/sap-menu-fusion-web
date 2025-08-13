@@ -16,7 +16,8 @@ import {
   Palette,
   Building,
   Globe,
-  Users
+  Users,
+  CreditCard
 } from 'lucide-react';
 import { usePublicMenuCustomization, getDefaultCustomization } from '@/hooks/useMenuCustomization';
 import OrderManagement from '../orders/OrderManagement';
@@ -28,6 +29,7 @@ import MenuCustomization from '../menu/MenuCustomization';
 import PublicMenu from '../menu/PublicMenu';
 import EmployeeManagement from '../employees/EmployeeManagement';
 import NotificationCenter from '../notifications/NotificationCenter';
+import UserSubscriptionDashboard from '../subscriptions/UserSubscriptionDashboard';
 
 const AdminDashboard = () => {
   const { profile, signOut } = useAuth();
@@ -101,6 +103,11 @@ const AdminDashboard = () => {
   // NUEVA SECCIÓN: Gestión de Empleados
   if (activeSection === 'employee-management') {
     return <EmployeeManagement onBack={handleBackToDashboard} />;
+  }
+
+  // NUEVA SECCIÓN: Dashboard de Suscripciones
+  if (activeSection === 'subscription-dashboard') {
+    return <UserSubscriptionDashboard onBack={handleBackToDashboard} />;
   }
 
   // CORRECCIÓN CRÍTICA: Renderizado optimizado del menú público
@@ -313,6 +320,44 @@ const AdminDashboard = () => {
 
         {/* Management Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* NUEVA CARD: Dashboard de Suscripciones */}
+          <Card 
+            className="hover:shadow-lg transition-shadow duration-300 border-primary/40"
+            style={{ 
+              backgroundColor: colors.product_card_bg_color,
+              borderColor: colors.button_bg_color,
+              boxShadow: `0 4px 6px -1px ${colors.shadow_color}`
+            }}
+          >
+            <CardHeader>
+              <CardTitle 
+                className="flex items-center space-x-2"
+                style={{ color: colors.product_name_color }}
+              >
+                <CreditCard 
+                  className="h-5 w-5"
+                  style={{ color: colors.button_bg_color }}
+                />
+                <span>Mi Suscripción</span>
+              </CardTitle>
+              <CardDescription style={{ color: colors.product_description_color }}>
+                Gestiona tu plan y uso de recursos
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full"
+                onClick={() => setActiveSection('subscription-dashboard')}
+                style={{ 
+                  backgroundColor: colors.button_bg_color,
+                  color: colors.button_text_color
+                }}
+              >
+                <CreditCard className="h-4 w-4 mr-2" />
+                Ver Mi Suscripción
+              </Button>
+            </CardContent>
+          </Card>
           {/* NUEVA CARD: Gestión de Empleados */}
           <Card 
             className="hover:shadow-lg transition-shadow duration-300 border-primary/40"
