@@ -6,11 +6,13 @@ interface MercadoPagoPaymentRequest {
   plan_id: string;
   user_email?: string;
   user_name?: string;
+  user_id?: string;
 }
 
 interface MercadoPagoPaymentResponse {
   success: boolean;
-  preference_id: string;
+  preapproval_id?: string;
+  preference_id?: string;
   init_point: string;
   sandbox_init_point: string;
   external_reference: string;
@@ -53,11 +55,11 @@ export const useMercadoPagoPayment = () => {
         throw new Error(data.error || 'Error desconocido al crear preferencia');
       }
 
-      console.log('✅ [MP Hook] Preferencia creada exitosamente:', data.preference_id);
+      console.log('✅ [MP Hook] Suscripción creada exitosamente:', data.preapproval_id || data.preference_id);
       
       toast({
-        title: "Preferencia de pago creada",
-        description: "Redirigiendo a Mercado Pago...",
+        title: "Suscripción creada",
+        description: "Redirigiendo a Mercado Pago para autorizar la suscripción...",
       });
 
       return data;

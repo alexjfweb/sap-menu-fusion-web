@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { CreditCard, Lock, Loader2, CheckCircle, XCircle, DollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useMercadoPagoPayment } from '@/hooks/useMercadoPagoPayment';
+import { useAuth } from '@/hooks/useAuth';
 
 interface MercadoPagoPaymentProps {
   plan: {
@@ -25,6 +26,7 @@ const MercadoPagoPayment = ({ plan, onSuccess }: MercadoPagoPaymentProps) => {
   });
   const { createPaymentPreference, redirectToPayment, isLoading, error } = useMercadoPagoPayment();
   const { toast } = useToast();
+  const { profile } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,8 +37,9 @@ const MercadoPagoPayment = ({ plan, onSuccess }: MercadoPagoPaymentProps) => {
     try {
       const response = await createPaymentPreference({
         plan_id: plan.id,
-        user_email: userInfo.email || undefined,
-        user_name: userInfo.name || undefined
+        user_email: userInfo.email || profile?.email || undefined,
+        user_name: userInfo.name || profile?.full_name || undefined,
+        user_id: profile?.id || undefined
       });
 
       if (response && response.init_point) {
@@ -79,9 +82,9 @@ const MercadoPagoPayment = ({ plan, onSuccess }: MercadoPagoPaymentProps) => {
       <div className="text-center py-8 space-y-4">
         <Loader2 className="h-12 w-12 text-blue-600 animate-spin mx-auto" />
         <div>
-          <h3 className="text-lg font-semibold mb-2">Generando preferencia de pago...</h3>
+          <h3 className="text-lg font-semibold mb-2">Creando suscripción...</h3>
           <p className="text-muted-foreground text-sm">
-            Estamos creando tu link de pago seguro con Mercado Pago.
+            Estamos configurando tu suscripción recurrente con Mercado Pago.
           </p>
         </div>
       </div>
@@ -95,10 +98,10 @@ const MercadoPagoPayment = ({ plan, onSuccess }: MercadoPagoPaymentProps) => {
         <div>
           <h3 className="text-lg font-semibold text-green-700 mb-2">¡Redirigiendo a Mercado Pago!</h3>
           <p className="text-muted-foreground text-sm mb-4">
-            Te estamos llevando a Mercado Pago para completar tu pago de forma segura.
+            Te estamos llevando a Mercado Pago para autorizar tu suscripción mensual.
           </p>
           <div className="bg-green-50 border border-green-200 p-4 rounded-lg text-sm text-green-700">
-            <strong>Plan:</strong> {plan.name} - ${plan.monthlyPrice}/mes
+            <strong>Suscripción:</strong> {plan.name} - ${plan.monthlyPrice}/mes (recurrente)
           </div>
         </div>
       </div>
@@ -110,9 +113,9 @@ const MercadoPagoPayment = ({ plan, onSuccess }: MercadoPagoPaymentProps) => {
       <div className="text-center py-8 space-y-4">
         <XCircle className="h-12 w-12 text-red-600 mx-auto" />
         <div>
-          <h3 className="text-lg font-semibold text-red-700 mb-2">Error al procesar</h3>
+          <h3 className="text-lg font-semibold text-red-700 mb-2">Error al procesar suscripción</h3>
           <p className="text-muted-foreground text-sm mb-4">
-            {error || 'Hubo un problema al generar tu preferencia de pago.'}
+            {error || 'Hubo un problema al crear tu suscripción.'}
           </p>
           <Button onClick={handleRetry} className="mt-4">
             Intentar nuevamente
@@ -126,7 +129,7 @@ const MercadoPagoPayment = ({ plan, onSuccess }: MercadoPagoPaymentProps) => {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="flex items-center space-x-2 mb-4">
         <CreditCard className="h-5 w-5 text-primary" />
-        <h3 className="font-semibold">Pago con Mercado Pago</h3>
+        <h3 className="font-semibold">Suscripción con Mercado Pago</h3>
         <Lock className="h-4 w-4 text-green-600" />
       </div>
 
@@ -201,7 +204,7 @@ const MercadoPagoPayment = ({ plan, onSuccess }: MercadoPagoPaymentProps) => {
 
       <div className="text-xs text-center text-muted-foreground">
         Al continuar, aceptas nuestros términos de servicio y política de privacidad.
-        Serás redirigido a Mercado Pago para completar el pago de forma segura.
+        Serás redirigido a Mercado Pago para autorizar la suscripción mensual recurrente.
       </div>
     </form>
   );

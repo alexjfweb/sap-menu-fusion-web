@@ -67,12 +67,56 @@ Deno.serve(async (req) => {
 
     const accessToken: string = mpConfig.configuration.private_key
 
-    // Resolve payment data (payments or merchant_orders)
+    // Resolve payment/subscription data
     let paymentInfo: any = null
     let externalReference: string | null = null
     let status: string | null = null
 
-    if ((eventType || '').includes('merchant_order')) {
+    if ((eventType || '').includes('preapproval') || (eventType || '').includes('subscription')) {
+      // Handle subscription events
+      const subRes = await fetch(`https://api.mercadopago.com/preapproval/${entityId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      })
+      if (!subRes.ok) {
+        const t = await subRes.text()
+        console.error('❌ [MP Webhook] Subscription fetch error:', subRes.status, t)
+        return new Response('ok', { headers: corsHeaders })
+      }
+      const subscription = await subRes.json()
+      paymentInfo = subscription
+      externalReference = subscription.external_reference || null
+      status = subscription.status || null
+      
+      // Update user_subscriptions table
+      if (externalReference && subscription.id) {
+        const subscriptionStatus = status === 'authorized' ? 'active' : 
+                                  status === 'cancelled' ? 'cancelled' :
+                                  status === 'paused' ? 'paused' : 'pending'
+        
+        const { error: subUpdateError } = await supabase
+          .from('user_subscriptions')
+          .update({ 
+            status: subscriptionStatus,
+            current_period_start: subscription.status === 'authorized' ? new Date().toISOString() : undefined,
+            current_period_end: subscription.status === 'authorized' ? 
+              new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : undefined,
+            next_billing_date: subscription.status === 'authorized' ? 
+              new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : undefined,
+            metadata: {
+              ...(subscription.metadata || {}),
+              mp_status: status,
+              last_updated: new Date().toISOString()
+            }
+          })
+          .eq('mp_preapproval_id', subscription.id)
+        
+        if (subUpdateError) {
+          console.error('⚠️ [MP Webhook] Error updating subscription:', subUpdateError)
+        } else {
+          console.log(`✅ [MP Webhook] Subscription ${subscription.id} updated to ${subscriptionStatus}`)
+        }
+      }
+    } else if ((eventType || '').includes('merchant_order')) {
       const moRes = await fetch(`https://api.mercadopago.com/merchant_orders/${entityId}`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       })
@@ -104,10 +148,10 @@ Deno.serve(async (req) => {
       status = payment.status || null
     }
 
-    // Map MP status to app status
+    // Map MP status to app status (including subscription statuses)
     const statusMap: Record<string, string> = {
       approved: 'completed',
-      authorized: 'authorized',
+      authorized: 'completed',
       pending: 'pending',
       in_process: 'pending',
       in_mediation: 'pending',
@@ -115,6 +159,7 @@ Deno.serve(async (req) => {
       cancelled: 'canceled',
       refunded: 'refunded',
       charged_back: 'chargeback',
+      paused: 'paused',
     }
 
     const appStatus = status ? (statusMap[status] || status) : 'pending'

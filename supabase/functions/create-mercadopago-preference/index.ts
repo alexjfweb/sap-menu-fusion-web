@@ -9,6 +9,7 @@ interface MercadoPagoPreferenceRequest {
   plan_id: string;
   user_email?: string;
   user_name?: string;
+  user_id?: string;
 }
 
 interface MercadoPagoItem {
@@ -37,6 +38,19 @@ interface MercadoPagoPreference {
   statement_descriptor: string;
 }
 
+interface MercadoPagoPreapproval {
+  reason: string;
+  auto_recurring: {
+    frequency: number;
+    frequency_type: string;
+    transaction_amount: number;
+    currency_id: string;
+  };
+  payer_email?: string;
+  back_url: string;
+  external_reference: string;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -61,7 +75,7 @@ Deno.serve(async (req) => {
     }
 
     // Obtener datos del request
-    const { plan_id, user_email, user_name }: MercadoPagoPreferenceRequest = await req.json();
+    const { plan_id, user_email, user_name, user_id }: MercadoPagoPreferenceRequest = await req.json();
 
     if (!plan_id) {
       return new Response(
@@ -125,49 +139,32 @@ Deno.serve(async (req) => {
     }
 
     // Generar referencia externa única
-    const external_reference = `plan_${plan_id}_${Date.now()}`;
+    const external_reference = `subscription_${plan_id}_${Date.now()}`;
     
-    // Crear preferencia de Mercado Pago
-    const preference: MercadoPagoPreference = {
-      items: [
-        {
-          id: plan.id,
-          title: plan.name,
-          description: plan.description || `Suscripción a ${plan.name}`,
-          quantity: 1,
-          currency_id: plan.currency || 'USD',
-          unit_price: Number(plan.price)
-        }
-      ],
-      back_urls: {
-        success: `${req.headers.get('origin') || 'https://76a95464-947c-47c3-89fc-5cdb0f7312f9.lovableproject.com'}/?payment=success&reference=${external_reference}`,
-        failure: `${req.headers.get('origin') || 'https://76a95464-947c-47c3-89fc-5cdb0f7312f9.lovableproject.com'}/?payment=failure&reference=${external_reference}`,
-        pending: `${req.headers.get('origin') || 'https://76a95464-947c-47c3-89fc-5cdb0f7312f9.lovableproject.com'}/?payment=pending&reference=${external_reference}`
+    // Crear suscripción recurrente con Mercado Pago
+    const preapproval: MercadoPagoPreapproval = {
+      reason: `Suscripción mensual a ${plan.name}`,
+      auto_recurring: {
+        frequency: 1,
+        frequency_type: 'months',
+        transaction_amount: Number(plan.price),
+        currency_id: plan.currency || 'USD'
       },
-      auto_return: 'approved',
-      notification_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/mercadopago-webhook`,
-      external_reference,
-      statement_descriptor: 'RestaurantPlatform'
+      payer_email: user_email,
+      back_url: `${req.headers.get('origin') || 'https://76a95464-947c-47c3-89fc-5cdb0f7312f9.lovableproject.com'}/?subscription=authorized&reference=${external_reference}`,
+      external_reference
     };
 
-    // Agregar información del pagador si está disponible
-    if (user_email || user_name) {
-      preference.payer = {
-        email: user_email,
-        name: user_name
-      };
-    }
+    console.log('🔄 [MP] Creando suscripción recurrente...');
 
-    console.log('🔄 [MP] Enviando preferencia a Mercado Pago...');
-
-    // Llamar a la API de Mercado Pago
-    const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
+    // Llamar a la API de Mercado Pago para crear preapproval
+    const mpResponse = await fetch('https://api.mercadopago.com/preapproval', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(preference)
+      body: JSON.stringify(preapproval)
     });
 
     if (!mpResponse.ok) {
@@ -186,9 +183,32 @@ Deno.serve(async (req) => {
     }
 
     const mpData = await mpResponse.json();
-    console.log('✅ [MP] Preferencia creada exitosamente:', mpData.id);
+    console.log('✅ [MP] Suscripción creada exitosamente:', mpData.id);
 
-    // Registrar la transacción para seguimiento
+    // Registrar la suscripción en user_subscriptions
+    if (user_id) {
+      const { error: subscriptionError } = await supabase
+        .from('user_subscriptions')
+        .insert({
+          user_id,
+          plan_id: plan.id,
+          mp_preapproval_id: mpData.id,
+          status: 'pending',
+          metadata: {
+            external_reference,
+            user_email,
+            user_name,
+            plan_name: plan.name,
+            init_point: mpData.init_point
+          }
+        });
+
+      if (subscriptionError) {
+        console.error('⚠️ [MP] Error al registrar suscripción:', subscriptionError);
+      }
+    }
+
+    // Registrar la transacción inicial para seguimiento
     const { error: transactionError } = await supabase
       .from('transactions')
       .insert({
@@ -197,11 +217,12 @@ Deno.serve(async (req) => {
         currency: plan.currency || 'USD',
         status: 'pending',
         metadata: {
-          mercadopago_preference_id: mpData.id,
+          mercadopago_preapproval_id: mpData.id,
           external_reference,
           user_email,
           user_name,
-          plan_name: plan.name
+          plan_name: plan.name,
+          is_subscription: true
         }
       });
 
@@ -213,7 +234,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        preference_id: mpData.id,
+        preapproval_id: mpData.id,
         init_point: mpData.init_point,
         sandbox_init_point: mpData.sandbox_init_point,
         external_reference,
