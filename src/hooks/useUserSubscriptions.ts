@@ -8,6 +8,8 @@ export interface UserSubscription {
   plan_id: string;
   mp_preapproval_id?: string;
   status: 'pending' | 'active' | 'paused' | 'cancelled';
+  starts_at?: string;
+  ends_at?: string;
   current_period_start?: string;
   current_period_end?: string;
   next_billing_date?: string;

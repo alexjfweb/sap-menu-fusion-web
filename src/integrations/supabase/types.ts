@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -1609,12 +1609,17 @@ export type Database = {
       }
       user_subscriptions: {
         Row: {
+          canceled_at: string | null
           configuration_applied_at: string | null
           created_at: string | null
+          current_period_end: string | null
+          current_period_start: string | null
           current_usage: Json | null
           ends_at: string | null
           id: string
           last_usage_check: string | null
+          mp_preapproval_id: string | null
+          next_billing_date: string | null
           plan_id: string
           starts_at: string
           status: string | null
@@ -1624,14 +1629,19 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          canceled_at?: string | null
           configuration_applied_at?: string | null
           created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
           current_usage?: Json | null
           ends_at?: string | null
           id?: string
           last_usage_check?: string | null
+          mp_preapproval_id?: string | null
+          next_billing_date?: string | null
           plan_id: string
-          starts_at: string
+          starts_at?: string
           status?: string | null
           stripe_subscription_id?: string | null
           trial_ends_at?: string | null
@@ -1639,12 +1649,17 @@ export type Database = {
           user_id: string
         }
         Update: {
+          canceled_at?: string | null
           configuration_applied_at?: string | null
           created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
           current_usage?: Json | null
           ends_at?: string | null
           id?: string
           last_usage_check?: string | null
+          mp_preapproval_id?: string | null
+          next_billing_date?: string | null
           plan_id?: string
           starts_at?: string
           status?: string | null
@@ -1706,20 +1721,20 @@ export type Database = {
     Functions: {
       change_user_role: {
         Args:
-          | { superadmin_id: string; target_id: string; new_role: string }
-          | { target_id: string; new_role: string }
+          | { new_role: string; superadmin_id: string; target_id: string }
+          | { new_role: string; target_id: string }
         Returns: {
+          updated: number
           user_id: string
           user_role: string
-          updated: number
         }[]
       }
       check_rate_limit: {
         Args: {
-          user_identifier: string
           action_type: string
           max_attempts?: number
           time_window_minutes?: number
+          user_identifier: string
         }
         Returns: boolean
       }
@@ -1736,15 +1751,15 @@ export type Database = {
       }
       create_notification: {
         Args: {
+          p_entity_id?: string
+          p_entity_type?: string
+          p_expires_at?: string
+          p_message: string
+          p_metadata?: Json
           p_recipient_id: string
           p_sender_id: string
           p_title: string
-          p_message: string
           p_type?: string
-          p_entity_type?: string
-          p_entity_id?: string
-          p_metadata?: Json
-          p_expires_at?: string
         }
         Returns: string
       }
@@ -1838,40 +1853,40 @@ export type Database = {
       get_unique_business_info: {
         Args: Record<PropertyKey, never>
         Returns: {
-          id: string
-          business_name: string
-          description: string
-          tax_id: string
-          phone: string
           address: string
-          email: string
-          logo_url: string
+          business_name: string
           cover_image_url: string
+          created_at: string
+          description: string
+          email: string
           facebook_url: string
+          id: string
           instagram_url: string
-          twitter_url: string
-          website_url: string
-          public_menu_url: string
-          whatsapp_url: string
-          tiktok_url: string
+          logo_url: string
           nequi_number: string
           nequi_qr_url: string
-          created_at: string
+          phone: string
+          public_menu_url: string
+          tax_id: string
+          tiktok_url: string
+          twitter_url: string
           updated_at: string
+          website_url: string
+          whatsapp_url: string
         }[]
       }
       get_whatsapp_config: {
         Args: Record<PropertyKey, never>
         Returns: {
-          id: string
-          phone_number_id: string
-          business_account_id: string
           access_token: string
-          webhook_verify_token: string
+          business_account_id: string
+          created_at: string
+          id: string
           is_connected: boolean
           last_verified_at: string
-          created_at: string
+          phone_number_id: string
           updated_at: string
+          webhook_verify_token: string
         }[]
       }
       is_valid_email: {
@@ -1880,11 +1895,11 @@ export type Database = {
       }
       log_employee_activity: {
         Args: {
-          p_employee_id: string
           p_activity_type: string
           p_description: string
-          p_entity_type?: string
+          p_employee_id: string
           p_entity_id?: string
+          p_entity_type?: string
           p_metadata?: Json
         }
         Returns: string
@@ -1903,9 +1918,9 @@ export type Database = {
       }
       update_usage_counter: {
         Args: {
-          p_user_id: string
-          p_resource_type: string
           p_increment?: number
+          p_resource_type: string
+          p_user_id: string
         }
         Returns: undefined
       }
@@ -1915,9 +1930,9 @@ export type Database = {
       }
       validate_resource_limit: {
         Args: {
-          p_user_id: string
-          p_resource_type: string
           p_increment?: number
+          p_resource_type: string
+          p_user_id: string
         }
         Returns: boolean
       }
