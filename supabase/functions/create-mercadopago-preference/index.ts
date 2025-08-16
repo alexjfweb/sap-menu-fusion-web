@@ -140,15 +140,63 @@ Deno.serve(async (req) => {
 
     // Generar referencia externa única
     const external_reference = `subscription_${plan_id}_${Date.now()}`;
-    
+
+    // Normalizar moneda y validar mínimos de MP
+    const MIN_AMOUNT_BY_CURRENCY: Record<string, number> = {
+      COP: 1600,
+      ARS: 1000,
+      BRL: 5,
+      CLP: 1000,
+      MXN: 10,
+      USD: 1,
+      UYU: 40,
+      PEN: 4,
+    };
+
+    const planPrice = Number(plan.price);
+    const planCurrency = String(plan.currency || 'USD').toUpperCase();
+    const accountCurrency = String(mpConfig.configuration?.currency || mpConfig.configuration?.default_currency || planCurrency).toUpperCase();
+
+    let finalAmount = planPrice;
+    let finalCurrency = planCurrency;
+
+    if (planCurrency !== accountCurrency) {
+      const conversionRate = Number(mpConfig.configuration?.conversion_rate);
+      if (conversionRate && !Number.isNaN(conversionRate) && conversionRate > 0) {
+        finalAmount = Math.round(planPrice * conversionRate * 100) / 100;
+        finalCurrency = accountCurrency;
+      } else {
+        console.error('❌ [MP] Moneda no coincidente y sin conversion_rate configurado', { planCurrency, accountCurrency });
+        return new Response(JSON.stringify({
+          success: false,
+          code: 'currency_mismatch',
+          error: `La moneda del plan (${planCurrency}) no coincide con la de la cuenta de Mercado Pago (${accountCurrency}). Configure conversion_rate o use la moneda correcta.`,
+          details: { planCurrency, accountCurrency }
+        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
+      }
+    }
+
+    const minAmount = MIN_AMOUNT_BY_CURRENCY[finalCurrency];
+    if (typeof minAmount === 'number' && finalAmount < minAmount) {
+      console.error('❌ [MP] Monto por debajo del mínimo permitido', { finalAmount, minAmount, finalCurrency });
+      return new Response(JSON.stringify({
+        success: false,
+        code: 'amount_below_minimum',
+        error: `El monto (${finalAmount} ${finalCurrency}) es inferior al mínimo permitido por Mercado Pago (${minAmount} ${finalCurrency}).`,
+        currency: finalCurrency,
+        amount: finalAmount,
+        min_allowed: minAmount
+      }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
+    }
+
     // Crear suscripción recurrente con Mercado Pago
     const preapproval: MercadoPagoPreapproval = {
       reason: `Suscripción mensual a ${plan.name}`,
       auto_recurring: {
         frequency: 1,
         frequency_type: 'months',
-        transaction_amount: Number(plan.price),
-        currency_id: plan.currency || 'USD'
+        transaction_amount: finalAmount,
+        currency_id: finalCurrency
       },
       payer_email: user_email,
       back_url: `${req.headers.get('origin') || 'https://76a95464-947c-47c3-89fc-5cdb0f7312f9.lovableproject.com'}/?subscription=authorized&reference=${external_reference}`,
@@ -168,18 +216,17 @@ Deno.serve(async (req) => {
     });
 
     if (!mpResponse.ok) {
-      const errorText = await mpResponse.text();
-      console.error('❌ [MP] Error de API:', mpResponse.status, errorText);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Failed to create payment preference',
-          details: errorText
-        }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+      const rawText = await mpResponse.text();
+      let parsed: any = null;
+      try { parsed = JSON.parse(rawText); } catch (_) {}
+      console.error('❌ [MP] Error de API:', mpResponse.status, parsed || rawText);
+      return new Response(JSON.stringify({
+        success: false,
+        code: 'mercadopago_api_error',
+        mp_status_code: mpResponse.status,
+        error: parsed?.message || parsed?.error || 'Error al crear la suscripción en Mercado Pago',
+        mp_response: parsed || rawText
+      }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
     }
 
     const mpData = await mpResponse.json();
@@ -213,8 +260,8 @@ Deno.serve(async (req) => {
       .from('transactions')
       .insert({
         plan_id: plan.id,
-        amount: Number(plan.price),
-        currency: plan.currency || 'USD',
+        amount: finalAmount,
+        currency: finalCurrency,
         status: 'pending',
         metadata: {
           mercadopago_preapproval_id: mpData.id,
