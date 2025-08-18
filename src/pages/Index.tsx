@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import Navbar from '@/components/Navbar';
 import HeroSection from '@/components/HeroSection';
 import FeaturesSection from '@/components/FeaturesSection';
@@ -9,6 +10,8 @@ import PricingPlans from '@/components/PricingPlans';
 import Footer from '@/components/Footer';
 import DiagnosticPanel from '@/components/DiagnosticPanel';
 import SupabaseConnectionTest from '@/components/SupabaseConnectionTest';
+import PaymentFormModal from '@/components/pricing/PaymentFormModal';
+import { supabase } from '@/integrations/supabase/client';
 
 const Index = () => {
   const { isAuthenticated, loading, profile, user } = useAuth();
@@ -16,6 +19,55 @@ const Index = () => {
   const location = useLocation();
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [profileCheckAttempts, setProfileCheckAttempts] = useState(0);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+
+  // Get URL search params
+  const searchParams = new URLSearchParams(location.search);
+  const planId = searchParams.get('plan');
+  const showPayment = searchParams.get('showPayment') === 'true';
+
+  // Fetch plan details if planId is provided
+  const { data: planData } = useQuery({
+    queryKey: ['plan-details', planId],
+    queryFn: async () => {
+      if (!planId) return null;
+      console.log('📋 [INDEX] Obteniendo detalles del plan:', planId);
+      
+      const { data, error } = await supabase
+        .from('subscription_plans')
+        .select('*')
+        .eq('id', planId)
+        .single();
+      
+      if (error) {
+        console.error('❌ [INDEX] Error al obtener plan:', error);
+        return null;
+      }
+      
+      return data;
+    },
+    enabled: !!planId
+  });
+
+  // Handle payment modal for authenticated users with selected plan
+  useEffect(() => {
+    if (!loading && isAuthenticated && planData && showPayment) {
+      console.log('💳 [INDEX] Usuario autenticado con plan seleccionado, mostrando modal de pago');
+      setSelectedPlan({
+        id: planData.id,
+        name: planData.name,
+        price: planData.price.toString(),
+        monthlyPrice: Number(planData.price),
+        features: Array.isArray(planData.features) ? planData.features.map(String) : []
+      });
+      setShowPaymentModal(true);
+      
+      // Clean up URL parameters
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [isAuthenticated, loading, planData, showPayment]);
 
   useEffect(() => {
     console.log('🏠 Index: Estado de autenticación:', { 
@@ -26,8 +78,8 @@ const Index = () => {
       userEmail: user?.email
     });
     
-    // If user is already authenticated, redirect based on role
-    if (!loading && isAuthenticated) {
+    // If user is already authenticated and no payment flow, redirect based on role
+    if (!loading && isAuthenticated && !showPayment) {
       if (profile) {
         console.log('Perfil cargado:', profile);
         
@@ -62,7 +114,7 @@ const Index = () => {
         }
       }
     }
-  }, [isAuthenticated, loading, profile, user, navigate, profileCheckAttempts]);
+  }, [isAuthenticated, loading, profile, user, navigate, profileCheckAttempts, showPayment]);
 
   // Handle scroll to section when navigating from other pages
   useEffect(() => {
@@ -111,6 +163,17 @@ const Index = () => {
       </div>
       
       <Footer />
+
+      {/* Payment Modal for authenticated users */}
+      {showPaymentModal && selectedPlan && (
+        <PaymentFormModal
+          plan={selectedPlan}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setSelectedPlan(null);
+          }}
+        />
+      )}
     </div>
   );
 };

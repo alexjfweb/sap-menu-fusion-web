@@ -134,15 +134,19 @@ const PricingSection = () => {
   }, [dbPlans]);
 
   const handleSelectPlan = (plan: PlanWithLimits) => {
-    if (plan.price === 0) {
-      console.log('🆓 [PRICING] Plan gratuito seleccionado, usando navegación inteligente');
-      navigateToAuth();
-      return;
-    }
+    console.log('📋 [PRICING] Plan seleccionado:', plan.name, '- Precio:', plan.price);
     
-    console.log('💳 [PRICING] Plan de pago seleccionado:', plan.name, '- Precio:', plan.price);
-    setSelectedPlan(plan);
-    setShowPaymentModal(true);
+    // Guardar el plan seleccionado en localStorage para después del login
+    localStorage.setItem('selectedPlan', JSON.stringify({
+      id: plan.id,
+      name: plan.name,
+      price: plan.price,
+      features: plan.features
+    }));
+    
+    // Redirigir siempre al formulario de registro/login
+    console.log('🔄 [PRICING] Redirigiendo a formulario de registro/login');
+    navigateToAuth();
   };
 
   // Estado de carga
