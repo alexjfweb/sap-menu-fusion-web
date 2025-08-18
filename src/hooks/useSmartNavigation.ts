@@ -10,7 +10,8 @@ export const useSmartNavigation = () => {
     console.log('🧭 [SMART NAV] Evaluando navegación inteligente:', { isAuthenticated, loading, role });
     
     if (loading) {
-      console.log('⏳ [SMART NAV] Esperando verificación de autenticación...');
+      console.log('⏳ [SMART NAV] Autenticación en verificación, redirigiendo a formulario de acceso por solicitud del usuario');
+      navigate('/auth');
       return;
     }
 

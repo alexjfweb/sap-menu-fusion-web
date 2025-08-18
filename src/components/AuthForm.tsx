@@ -76,8 +76,19 @@ const AuthForm = () => {
           description: "Has iniciado sesión correctamente",
         });
         
-        // Forzar recarga de página para estado limpio
+        // Forzar recarga/redirección considerando plan seleccionado
         setTimeout(() => {
+          try {
+            const savedPlan = localStorage.getItem('selectedPlan');
+            if (savedPlan) {
+              const plan = JSON.parse(savedPlan);
+              localStorage.removeItem('selectedPlan');
+              window.location.href = `/?plan=${plan.id}&showPayment=true`;
+              return;
+            }
+          } catch (e) {
+            console.warn('⚠️ Error leyendo selectedPlan tras login:', e);
+          }
           window.location.href = '/';
         }, 100);
       }
@@ -185,6 +196,17 @@ const AuthForm = () => {
           });
           
           setTimeout(() => {
+            try {
+              const savedPlan = localStorage.getItem('selectedPlan');
+              if (savedPlan) {
+                const plan = JSON.parse(savedPlan);
+                localStorage.removeItem('selectedPlan');
+                window.location.href = `/?plan=${plan.id}&showPayment=true`;
+                return;
+              }
+            } catch (e) {
+              console.warn('⚠️ Error leyendo selectedPlan tras registro:', e);
+            }
             window.location.href = '/';
           }, 2000);
         } else {
