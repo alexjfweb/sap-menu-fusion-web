@@ -69,9 +69,18 @@ export const useMercadoPagoPayment = () => {
       console.error('❌ [MP Hook] Error general:', errorMessage);
       
       setError(errorMessage);
+      
+      // Provide clearer error messages for common issues
+      let userFriendlyMessage = errorMessage;
+      if (errorMessage.includes('Cannot operate between different countries')) {
+        userFriendlyMessage = 'Error de país: La cuenta de Mercado Pago no coincide con tu ubicación. Contacta al soporte.';
+      } else if (errorMessage.includes('currency')) {
+        userFriendlyMessage = 'Error de moneda: El plan no es compatible con tu método de pago.';
+      }
+      
       toast({
         title: "Error al procesar pago",
-        description: errorMessage,
+        description: userFriendlyMessage,
         variant: "destructive",
       });
 

@@ -8,6 +8,8 @@ import { cn } from '@/lib/utils';
 import { useMercadoPagoPayment } from '@/hooks/useMercadoPagoPayment';
 import { useBancolombiaPayment } from '@/hooks/useBancolombiaPayment';
 import { usePaymentMethodValidation } from '@/hooks/usePaymentMethodValidation';
+import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
 interface PaymentFormModalProps {
@@ -52,6 +54,14 @@ const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
   const { createPaymentPreference, redirectToPayment, isLoading: mpLoading } = useMercadoPagoPayment();
   const { createBankTransfer, isLoading: bancolombiaLoading } = useBancolombiaPayment();
   const { getAvailableMethods } = usePaymentMethodValidation();
+  const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  // Redirect to auth if not authenticated
+  if (!isAuthenticated || !user) {
+    navigate('/auth');
+    return null;
+  }
 
   // Configurar métodos según el plan y disponibilidad real
   const getAvailableMethodsForPlan = (): PaymentMethodConfig[] => {
@@ -98,8 +108,9 @@ const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
       if (selectedMethod === 'mercado_pago') {
         const preference = await createPaymentPreference({
           plan_id: plan.id,
-          user_email: 'user@example.com',
-          user_name: 'Usuario'
+          user_email: user.email || '',
+          user_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario',
+          user_id: user.id
         });
 
         if (preference) {
@@ -108,8 +119,8 @@ const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
       } else if (selectedMethod === 'bancolombia') {
         const transfer = await createBankTransfer({
           plan_id: plan.id,
-          user_name: 'Usuario',
-          user_email: 'user@example.com',
+          user_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario',
+          user_email: user.email || '',
           amount: plan.monthlyPrice
         });
 
