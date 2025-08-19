@@ -117,7 +117,7 @@ const UserSubscriptionDashboard: React.FC<UserSubscriptionDashboardProps> = ({ o
                 <Button 
                   variant="outline" 
                   className="w-full justify-start"
-                  onClick={() => window.open('/pricing', '_blank')}
+                  onClick={() => window.open('/#planes', '_blank')}
                 >
                   <TrendingUp className="h-4 w-4 mr-2" />
                   Ver Todos los Planes

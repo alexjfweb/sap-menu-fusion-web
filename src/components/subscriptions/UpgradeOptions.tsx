@@ -51,7 +51,7 @@ const UpgradeOptions: React.FC<UpgradeOptionsProps> = ({
 
   const handleUpgrade = (plan: any) => {
     // Redirect to pricing page with the selected plan
-    const url = `/pricing?plan=${plan.id}`;
+    const url = `/#planes`;
     window.open(url, '_blank');
   };
 
@@ -204,7 +204,7 @@ const UpgradeOptions: React.FC<UpgradeOptionsProps> = ({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => window.open(`/pricing#plan-${plan.id}`, '_blank')}
+                      onClick={() => window.open(`/#planes`, '_blank')}
                     >
                       <ExternalLink className="h-4 w-4" />
                     </Button>
@@ -237,7 +237,7 @@ const UpgradeOptions: React.FC<UpgradeOptionsProps> = ({
             variant="outline" 
             size="sm" 
             className="w-full"
-            onClick={() => window.open('/pricing', '_blank')}
+            onClick={() => window.open('/#planes', '_blank')}
           >
             <ExternalLink className="h-4 w-4 mr-2" />
             Ver Comparación Completa de Planes

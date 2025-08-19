@@ -86,7 +86,7 @@ const SubscriptionStatusCard: React.FC<SubscriptionStatusCardProps> = ({
         <CardContent className="text-center">
           <Button 
             className="w-full"
-            onClick={() => window.open('/pricing', '_blank')}
+            onClick={() => window.open('/#planes', '_blank')}
           >
             Ver Planes Disponibles
           </Button>
