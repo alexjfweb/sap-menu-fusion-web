@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { TrendingUp, Crown, Zap, Star, ArrowUp, ExternalLink } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useMercadoPagoPayment } from '@/hooks/useMercadoPagoPayment';
+import { useAuth } from '@/hooks/useAuth';
 
 interface UpgradeOptionsProps {
   currentPlan: any;
@@ -15,6 +17,8 @@ const UpgradeOptions: React.FC<UpgradeOptionsProps> = ({
   currentPlan, 
   hasActiveSubscription 
 }) => {
+  const { profile } = useAuth();
+  const { createPaymentPreference, redirectToPayment, isLoading: isCreatingPayment } = useMercadoPagoPayment();
   // Fetch available subscription plans
   const { data: availablePlans, isLoading } = useQuery({
     queryKey: ['subscription-plans'],
@@ -49,10 +53,30 @@ const UpgradeOptions: React.FC<UpgradeOptionsProps> = ({
     return plan.price > currentPlan.price;
   };
 
-  const handleUpgrade = (plan: any) => {
-    // Redirect to pricing page with the selected plan
-    const url = `/#planes`;
-    window.open(url, '_blank');
+  const handleUpgrade = async (plan: any) => {
+    console.log('🚀 [UPGRADE] Iniciando proceso de actualización de plan:', plan.name);
+    
+    if (!profile?.email || !profile?.id) {
+      console.error('❌ [UPGRADE] Usuario no autenticado');
+      return;
+    }
+
+    try {
+      // Crear preferencia de pago con Mercado Pago
+      const paymentResponse = await createPaymentPreference({
+        plan_id: plan.id,
+        user_email: profile.email,
+        user_name: profile.full_name || profile.email,
+        user_id: profile.id
+      });
+
+      if (paymentResponse?.init_point) {
+        console.log('✅ [UPGRADE] Redirigiendo a Mercado Pago...');
+        redirectToPayment(paymentResponse.init_point);
+      }
+    } catch (error) {
+      console.error('❌ [UPGRADE] Error al procesar actualización:', error);
+    }
   };
 
   if (isLoading) {
@@ -186,9 +210,12 @@ const UpgradeOptions: React.FC<UpgradeOptionsProps> = ({
                         variant={plan.is_featured ? 'default' : 'outline'}
                         size="sm"
                         onClick={() => handleUpgrade(plan)}
+                        disabled={isCreatingPayment}
                         className="flex-1"
                       >
-                        {isUpgrade ? (
+                        {isCreatingPayment ? (
+                          'Procesando...'
+                        ) : isUpgrade ? (
                           <>
                             <ArrowUp className="h-4 w-4 mr-2" />
                             Actualizar
