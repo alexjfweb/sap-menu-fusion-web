@@ -141,7 +141,29 @@ Deno.serve(async (req) => {
     // Generar referencia externa única
     const external_reference = `subscription_${plan_id}_${Date.now()}`;
 
-    // Normalizar moneda y validar mínimos de MP
+    // Detectar si es token de prueba
+    const isTestToken = typeof accessToken === 'string' && accessToken.startsWith('TEST-');
+
+    // Obtener información de la cuenta de MP para validar país/moneda
+    let siteId: string | undefined;
+    let accountCurrencyFromSite: string | undefined;
+    try {
+      const meRes = await fetch('https://api.mercadopago.com/users/me', {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        siteId = meData?.site_id;
+        accountCurrencyFromSite = meData?.default_currency_id;
+        console.log('ℹ️ [MP] Cuenta detectada', { siteId, accountCurrencyFromSite });
+      } else {
+        console.warn('⚠️ [MP] No se pudo obtener users/me:', meRes.status);
+      }
+    } catch (e) {
+      console.warn('⚠️ [MP] Error consultando users/me:', e);
+    }
+
+    // Mínimos por moneda de Mercado Pago
     const MIN_AMOUNT_BY_CURRENCY: Record<string, number> = {
       COP: 1600,
       ARS: 1000,
@@ -153,29 +175,56 @@ Deno.serve(async (req) => {
       PEN: 4,
     };
 
+    // Relación sitio -> moneda nativa
+    const SITE_TO_CURRENCY: Record<string, string> = {
+      MCO: 'COP', // Colombia
+      MLA: 'ARS', // Argentina
+      MLB: 'BRL', // Brasil
+      MLM: 'MXN', // México
+      MLU: 'UYU', // Uruguay
+      MPE: 'PEN', // Perú
+      MLC: 'CLP', // Chile
+    };
+
     const planPrice = Number(plan.price);
     const planCurrency = String(plan.currency || 'USD').toUpperCase();
-    const accountCurrency = String(mpConfig.configuration?.currency || mpConfig.configuration?.default_currency || planCurrency).toUpperCase();
+
+    // Preferir moneda del sitio detectado
+    const siteCurrency = siteId ? SITE_TO_CURRENCY[siteId] : undefined;
+    let accountCurrency = String(
+      mpConfig.configuration?.currency ||
+      mpConfig.configuration?.default_currency ||
+      accountCurrencyFromSite ||
+      siteCurrency ||
+      planCurrency
+    ).toUpperCase();
+
+    // Alinear a moneda del sitio si está disponible
+    if (siteCurrency && accountCurrency !== siteCurrency) {
+      accountCurrency = siteCurrency;
+    }
 
     let finalAmount = planPrice;
     let finalCurrency = planCurrency;
 
+    // Validar moneda contra la de la cuenta/sitio
     if (planCurrency !== accountCurrency) {
       const conversionRate = Number(mpConfig.configuration?.conversion_rate);
       if (conversionRate && !Number.isNaN(conversionRate) && conversionRate > 0) {
         finalAmount = Math.round(planPrice * conversionRate * 100) / 100;
         finalCurrency = accountCurrency;
       } else {
-        console.error('❌ [MP] Moneda no coincidente y sin conversion_rate configurado', { planCurrency, accountCurrency });
+        console.error('❌ [MP] Moneda no coincidente y sin conversion_rate configurado', { planCurrency, accountCurrency, siteId });
         return new Response(JSON.stringify({
           success: false,
           code: 'currency_mismatch',
-          error: `La moneda del plan (${planCurrency}) no coincide con la de la cuenta de Mercado Pago (${accountCurrency}). Configure conversion_rate o use la moneda correcta.`,
-          details: { planCurrency, accountCurrency }
+          error: `La moneda del plan (${planCurrency}) no coincide con la de la cuenta de Mercado Pago (${accountCurrency}). Configure conversion_rate o use la moneda correcta para el sitio ${siteId ?? 'desconocido'}.`,
+          details: { planCurrency, accountCurrency, siteId, siteCurrency }
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
       }
     }
 
+    // Validar mínimos por moneda
     const minAmount = MIN_AMOUNT_BY_CURRENCY[finalCurrency];
     if (typeof minAmount === 'number' && finalAmount < minAmount) {
       console.error('❌ [MP] Monto por debajo del mínimo permitido', { finalAmount, minAmount, finalCurrency });
@@ -189,6 +238,20 @@ Deno.serve(async (req) => {
       }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
     }
 
+    // Resolver payer_email para entorno de prueba
+    let resolvedPayerEmail: string | undefined = user_email;
+    if (isTestToken && !resolvedPayerEmail) {
+      resolvedPayerEmail = mpConfig.configuration?.test_payer_email;
+      if (!resolvedPayerEmail) {
+        return new Response(JSON.stringify({
+          success: false,
+          code: 'missing_test_payer',
+          error: 'Falta un comprador de prueba. En sandbox debes usar un payer_email de prueba del mismo país del vendedor.',
+          instructions: 'Crea un usuario de prueba en Mercado Pago del país del sitio (p. ej. MCO para Colombia) y guárdalo en payment_methods.configuration.test_payer_email, o envía user_email desde el frontend.'
+        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
+      }
+    }
+
     // Crear suscripción recurrente con Mercado Pago
     const preapproval: MercadoPagoPreapproval = {
       reason: `Suscripción mensual a ${plan.name}`,
@@ -198,7 +261,7 @@ Deno.serve(async (req) => {
         transaction_amount: finalAmount,
         currency_id: finalCurrency
       },
-      payer_email: user_email,
+      payer_email: resolvedPayerEmail,
       back_url: `${req.headers.get('origin') || 'https://76a95464-947c-47c3-89fc-5cdb0f7312f9.lovableproject.com'}/?subscription=authorized&reference=${external_reference}`,
       external_reference
     };
