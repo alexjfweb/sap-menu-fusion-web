@@ -51,7 +51,7 @@ export const usePlanLimits = () => {
         `)
         .eq('user_id', user.id)
         .eq('status', 'active')
-        .single();
+        .maybeSingle();
 
       if (!subscription?.subscription_plans?.plan_configurations?.[0]) {
         return null;
@@ -72,7 +72,7 @@ export const usePlanLimits = () => {
         .from('usage_tracking')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       return data as CurrentUsage | null;
     },

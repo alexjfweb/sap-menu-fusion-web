@@ -240,14 +240,18 @@ Deno.serve(async (req) => {
 
     // Resolver payer_email para entorno de prueba
     let resolvedPayerEmail: string | undefined = user_email;
-    if (isTestToken && !resolvedPayerEmail) {
-      resolvedPayerEmail = mpConfig.configuration?.test_payer_email;
-      if (!resolvedPayerEmail) {
+    if (isTestToken) {
+      // En sandbox, siempre usar test_payer_email si está disponible para garantizar compatibilidad de país
+      const testPayerEmail = mpConfig.configuration?.test_payer_email;
+      if (testPayerEmail) {
+        resolvedPayerEmail = testPayerEmail;
+        console.log('🧪 [MP] Usando test_payer_email para sandbox:', testPayerEmail);
+      } else if (!resolvedPayerEmail) {
         return new Response(JSON.stringify({
           success: false,
           code: 'missing_test_payer',
-          error: 'Falta un comprador de prueba. En sandbox debes usar un payer_email de prueba del mismo país del vendedor.',
-          instructions: 'Crea un usuario de prueba en Mercado Pago del país del sitio (p. ej. MCO para Colombia) y guárdalo en payment_methods.configuration.test_payer_email, o envía user_email desde el frontend.'
+          error: 'Se requiere un email de prueba. En sandbox debes configurar un payer_email de prueba del mismo país del vendedor.',
+          instructions: 'Crea un usuario de prueba en Mercado Pago del país del sitio (p. ej. MCO para Colombia) y guárdalo en payment_methods.configuration.test_payer_email'
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
       }
     }

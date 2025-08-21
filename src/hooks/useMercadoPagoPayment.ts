@@ -76,6 +76,10 @@ export const useMercadoPagoPayment = () => {
         userFriendlyMessage = 'Error de país: La cuenta de Mercado Pago no coincide con tu ubicación. Contacta al soporte.';
       } else if (errorMessage.includes('currency')) {
         userFriendlyMessage = 'Error de moneda: El plan no es compatible con tu método de pago.';
+      } else if (errorMessage.includes('Internal server error')) {
+        userFriendlyMessage = 'Error de configuración de Mercado Pago. Si usas sandbox, necesitas un email de prueba colombiano. Contacta al soporte.';
+      } else if (errorMessage.includes('test_payer_email')) {
+        userFriendlyMessage = 'Se requiere un email de prueba colombiano para el modo sandbox. Contacta al administrador.';
       }
       
       toast({
