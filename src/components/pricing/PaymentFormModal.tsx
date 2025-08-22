@@ -113,8 +113,13 @@ const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
           user_id: user.id
         });
 
-        if (preference) {
-          redirectToPayment(preference.init_point);
+        if (preference && (preference.sandbox_init_point || preference.init_point)) {
+          const targetUrl = preference.sandbox_init_point || preference.init_point;
+          console.log('✅ [PAYMENT MODAL] Redirigiendo a Mercado Pago ->', targetUrl);
+          if (preference.sandbox_init_point) {
+            console.log('🧪 [PAYMENT MODAL] Modo sandbox detectado: usa comprador de prueba de Colombia.');
+          }
+          redirectToPayment(targetUrl);
         }
       } else if (selectedMethod === 'bancolombia') {
         const transfer = await createBankTransfer({
@@ -207,7 +212,8 @@ const PaymentFormModal = ({ plan, onClose }: PaymentFormModalProps) => {
             <DollarSign className="h-12 w-12 mx-auto text-blue-500 mb-4" />
             <h3 className="text-lg font-medium">Mercado Pago</h3>
             <p className="text-sm text-muted-foreground mt-2">
-              Serás redirigido a Mercado Pago para completar tu pago de forma segura
+              Serás redirigido a Mercado Pago para completar tu pago de forma segura.
+              Nota: Si aparece el entorno de pruebas, inicia sesión con un comprador de prueba de Colombia.
             </p>
           </div>
           

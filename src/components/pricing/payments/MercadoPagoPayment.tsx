@@ -42,14 +42,18 @@ const MercadoPagoPayment = ({ plan, onSuccess }: MercadoPagoPaymentProps) => {
         user_id: profile?.id || undefined
       });
 
-      if (response && response.init_point) {
-        console.log('✅ [MP Payment] Preferencia creada exitosamente, redirigiendo a:', response.init_point);
+      if (response && (response.sandbox_init_point || response.init_point)) {
+        const targetUrl = response.sandbox_init_point || response.init_point;
+        console.log('✅ [MP Payment] Preferencia creada, redirigiendo a:', targetUrl);
+        if (response.sandbox_init_point) {
+          console.log('🧪 [MP Payment] Modo sandbox detectado: usa comprador de prueba al iniciar sesión.');
+        }
         setStep('redirecting');
         
         // Mostrar estado de redirección brevemente antes de redirigir
         setTimeout(() => {
-          console.log('🔗 [MP Payment] Ejecutando redirección...');
-          redirectToPayment(response.init_point);
+          console.log('🔗 [MP Payment] Ejecutando redirección a:', targetUrl);
+          redirectToPayment(targetUrl);
         }, 1500);
         
       } else {
@@ -205,6 +209,7 @@ const MercadoPagoPayment = ({ plan, onSuccess }: MercadoPagoPaymentProps) => {
       <div className="text-xs text-center text-muted-foreground">
         Al continuar, aceptas nuestros términos de servicio y política de privacidad.
         Serás redirigido a Mercado Pago para autorizar la suscripción mensual recurrente.
+        Nota: Si ves el entorno de pruebas de Mercado Pago, inicia sesión con un comprador de prueba de Colombia.
       </div>
     </form>
   );

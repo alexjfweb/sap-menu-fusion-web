@@ -70,9 +70,13 @@ const UpgradeOptions: React.FC<UpgradeOptionsProps> = ({
         user_id: profile.id
       });
 
-      if (paymentResponse?.init_point) {
-        console.log('✅ [UPGRADE] Redirigiendo a Mercado Pago...');
-        redirectToPayment(paymentResponse.init_point);
+      if (paymentResponse && (paymentResponse.sandbox_init_point || paymentResponse.init_point)) {
+        const targetUrl = paymentResponse.sandbox_init_point || paymentResponse.init_point;
+        console.log('✅ [UPGRADE] Redirigiendo a Mercado Pago ->', targetUrl);
+        if (paymentResponse.sandbox_init_point) {
+          console.log('🧪 [UPGRADE] Modo sandbox detectado: usa comprador de prueba de Colombia.');
+        }
+        redirectToPayment(targetUrl);
       }
     } catch (error) {
       console.error('❌ [UPGRADE] Error al procesar actualización:', error);
