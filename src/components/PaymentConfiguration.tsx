@@ -37,7 +37,10 @@ interface PaymentMethodConfig {
     public_key?: string;
     secret_key?: string;
     email?: string;
-    private_key?: string;
+    private_key?: string; // Mercado Pago Access Token
+    test_payer_email?: string; // Email comprador de prueba (sandbox)
+    currency?: string; // Moneda de la cuenta (ej: COP)
+    conversion_rate?: number; // Tasa de conversión opcional
     phone_number?: string;
     merchant_code?: string;
     account_number?: string;
@@ -51,6 +54,7 @@ const PaymentConfiguration = () => {
   const [configs, setConfigs] = useState<PaymentMethodConfig[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [testingMP, setTestingMP] = useState(false);
   const [errorModal, setErrorModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -147,7 +151,7 @@ const PaymentConfiguration = () => {
   const validateConfig = (config: PaymentMethodConfig): string | null => {
     if (!config.is_active) return null;
 
-    // NUEVO: Validaciones específicas por tipo
+    // Validaciones específicas por tipo
     switch (config.type) {
       case 'stripe':
         if (!config.configuration.public_key || !config.configuration.secret_key) {
@@ -162,6 +166,16 @@ const PaymentConfiguration = () => {
       case 'mercado_pago':
         if (!config.configuration.public_key) {
           return `${config.name}: Clave pública es requerida`;
+        }
+        if (!config.configuration.private_key) {
+          return `${config.name}: Access Token (servidor) es requerido`;
+        }
+        if (
+          typeof config.configuration.private_key === 'string' &&
+          config.configuration.private_key.startsWith('TEST-') &&
+          !config.configuration.test_payer_email
+        ) {
+          return `${config.name}: En modo sandbox (TEST-), debes configurar el email comprador de prueba (colombiano)`;
         }
         break;
       case 'bancolombia':
@@ -397,23 +411,101 @@ const PaymentConfiguration = () => {
       
       case 'mercado_pago':
         return (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Clave Pública</Label>
-              <Input
-                placeholder="APP_USR_..."
-                value={config.configuration.public_key || ''}
-                onChange={(e) => handleConfigChange(index, 'public_key', e.target.value)}
-              />
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Clave Pública</Label>
+                <Input
+                  placeholder="APP_USR_..."
+                  value={config.configuration.public_key || ''}
+                  onChange={(e) => handleConfigChange(index, 'public_key', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Access Token (Servidor)</Label>
+                <Input
+                  type="password"
+                  placeholder="TEST-... o PROD-..."
+                  value={config.configuration.private_key || ''}
+                  onChange={(e) => handleConfigChange(index, 'private_key', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Email comprador de prueba (sandbox)</Label>
+                <Input
+                  type="email"
+                  placeholder="test_user_...@testuser.com"
+                  value={config.configuration.test_payer_email || ''}
+                  onChange={(e) => handleConfigChange(index, 'test_payer_email', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Moneda de la cuenta</Label>
+                <Select
+                  value={config.configuration.currency || 'COP'}
+                  onValueChange={(v) => handleConfigChange(index, 'currency', v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona moneda" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="COP">COP - Peso colombiano</SelectItem>
+                    <SelectItem value="USD">USD - Dólar estadounidense</SelectItem>
+                    <SelectItem value="ARS">ARS - Peso argentino</SelectItem>
+                    <SelectItem value="BRL">BRL - Real brasileño</SelectItem>
+                    <SelectItem value="MXN">MXN - Peso mexicano</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Tasa de conversión (opcional)</Label>
+                <Input
+                  type="number"
+                  step="0.0001"
+                  placeholder="1"
+                  value={(config.configuration.conversion_rate as any) || ''}
+                  onChange={(e) => handleConfigChange(index, 'conversion_rate', e.target.value)}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Clave Privada (Opcional)</Label>
-              <Input
-                type="password"
-                placeholder="APP_USR_..."
-                value={config.configuration.private_key || ''}
-                onChange={(e) => handleConfigChange(index, 'private_key', e.target.value)}
-              />
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                Si el Access Token empieza por TEST-, el pago se hará en modo sandbox. Usa un comprador de prueba de Colombia.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={testingMP || !config.configuration.private_key}
+                onClick={async () => {
+                  try {
+                    setTestingMP(true);
+                    const { data, error } = await supabase.functions.invoke('test-mercadopago-connection', {
+                      body: {
+                        access_token: config.configuration.private_key,
+                      },
+                    });
+                    if (error) throw error;
+                    toast({
+                      title: data?.success ? 'Conexión exitosa' : 'Conexión fallida',
+                      description: data?.success
+                        ? `Cuenta detectada: site_id ${data.site_id || 'N/D'} • Moneda ${data.default_currency_id || 'N/D'}`
+                        : (data?.message || 'No se pudo validar el Access Token'),
+                      variant: data?.success ? 'default' : 'destructive',
+                    });
+                  } catch (err: any) {
+                    toast({
+                      variant: 'destructive',
+                      title: 'Error al probar conexión',
+                      description: err?.message || 'Revisa tu Access Token',
+                    });
+                  } finally {
+                    setTestingMP(false);
+                  }
+                }}
+              >
+                {testingMP ? 'Probando...' : 'Probar conexión'}
+              </Button>
             </div>
           </div>
         );

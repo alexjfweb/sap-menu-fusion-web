@@ -70,22 +70,35 @@ const PaymentMethods = () => {
   const testConnectionMutation = useMutation({
     mutationFn: async (methodId: string) => {
       setTestingMethod(methodId);
-      // Simular test de conexión
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      return Math.random() > 0.3; // 70% de éxito
+      try {
+        const method = methods?.find(m => m.id === methodId);
+        if (method && method.type === 'mercado_pago') {
+          const accessToken = (method.configuration as any)?.private_key;
+          if (!accessToken) throw new Error('Falta Access Token en la configuración');
+
+          const { data, error } = await supabase.functions.invoke('test-mercadopago-connection', {
+            body: { access_token: accessToken },
+          });
+          if (error) throw error;
+          return { success: !!data?.success, details: data } as any;
+        }
+        // Fallback simple para otros métodos
+        await new Promise(resolve => setTimeout(resolve, 1200));
+        return { success: Math.random() > 0.3 } as any;
+      } finally {
+        setTestingMethod(null);
+      }
     },
-    onSuccess: (success, methodId) => {
-      setTestingMethod(null);
+    onSuccess: (result: any) => {
       toast({
-        title: success ? 'Conexión exitosa' : 'Error de conexión',
-        description: success 
-          ? 'El método de pago está configurado correctamente.'
+        title: result?.success ? 'Conexión exitosa' : 'Error de conexión',
+        description: result?.success
+          ? `Proveedor OK${result?.details?.site_id ? ` • site_id ${result.details.site_id}` : ''}${result?.details?.default_currency_id ? ` • Moneda ${result.details.default_currency_id}` : ''}`
           : 'No se pudo conectar con el proveedor de pago.',
-        variant: success ? 'default' : 'destructive',
+        variant: result?.success ? 'default' : 'destructive',
       });
     },
     onError: () => {
-      setTestingMethod(null);
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -127,6 +140,8 @@ const PaymentMethods = () => {
         return config.api_key && config.merchant_id;
       case 'qr':
         return config.merchant_code;
+      case 'mercado_pago':
+        return config.public_key && config.private_key;
       default:
         return false;
     }

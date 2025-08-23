@@ -56,11 +56,21 @@ export const usePaymentMethodValidation = () => {
         break;
       
       case 'mercado_pago':
-        // Verificar que tenga tanto public_key como private_key
+        // Verificar que tenga tanto public_key como private_key y, si es TEST-, requerir test_payer_email
         if (!method.configuration?.public_key || !method.configuration?.private_key) {
           return { 
             isValid: false, 
             message: 'Configuración incompleta - Faltan claves de Mercado Pago' 
+          };
+        }
+        if (
+          typeof method.configuration?.private_key === 'string' &&
+          method.configuration.private_key.startsWith('TEST-') &&
+          !method.configuration?.test_payer_email
+        ) {
+          return {
+            isValid: false,
+            message: 'Sandbox: Debes configurar email comprador de prueba (colombiano)'
           };
         }
         break;
