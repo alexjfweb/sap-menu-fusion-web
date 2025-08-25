@@ -72,7 +72,9 @@ export const useMercadoPagoPayment = () => {
       
       // Provide clearer error messages for common issues
       let userFriendlyMessage = errorMessage;
-      if (errorMessage.includes('Cannot operate between different countries')) {
+      if (/unauthorized/i.test(errorMessage) || /access token/i.test(errorMessage)) {
+        userFriendlyMessage = 'Token de acceso inválido o sin permisos. Usa el Access Token del vendedor de Mercado Pago (TEST- en sandbox) en Configuración de Pagos → Mercado Pago. No uses el email del comprador.';
+      } else if (errorMessage.includes('Cannot operate between different countries')) {
         userFriendlyMessage = 'Error de país: La cuenta de Mercado Pago no coincide con tu ubicación. Contacta al soporte.';
       } else if (errorMessage.includes('currency')) {
         userFriendlyMessage = 'Error de moneda: El plan no es compatible con tu método de pago.';
