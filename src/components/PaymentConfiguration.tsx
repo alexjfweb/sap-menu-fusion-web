@@ -251,11 +251,6 @@ const PaymentConfiguration = () => {
 
       // Guardar configuraciones en base de datos
       for (const config of configs) {
-        if (!config.is_active) {
-          console.log(`⏭️ Saltando ${config.name} (inactivo)`);
-          continue;
-        }
-        
         console.log(`💾 Guardando configuración para ${config.name}...`);
         console.log('📋 Datos a guardar:', {
           name: config.name,
@@ -274,6 +269,7 @@ const PaymentConfiguration = () => {
         };
 
         if (config.id) {
+          // Always update existing methods, regardless of active status
           const { error } = await supabase
             .from('payment_methods')
             .update(upsertData)
@@ -283,8 +279,9 @@ const PaymentConfiguration = () => {
             console.error('❌ Error actualizando método existente:', error);
             throw error;
           }
-          console.log(`✅ Método ${config.name} actualizado`);
-        } else {
+          console.log(`✅ Método ${config.name} actualizado (activo: ${config.is_active})`);
+        } else if (config.is_active) {
+          // Only create new methods if they are active
           const { data, error } = await supabase
             .from('payment_methods')
             .insert(upsertData)
@@ -297,6 +294,8 @@ const PaymentConfiguration = () => {
           }
           config.id = data.id;
           console.log(`✅ Método ${config.name} creado con ID: ${data.id}`);
+        } else {
+          console.log(`⏭️ Saltando creación de ${config.name} (inactivo y no existe en BD)`);
         }
       }
 
